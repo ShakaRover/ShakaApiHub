@@ -46,7 +46,7 @@ class ApiSite {
         }
 
         // 验证API类型
-        if (!['New-Api', 'Veloera'].includes(apiType)) {
+        if (!['NewApi', 'Veloera'].includes(apiType)) {
             throw new Error('无效的API类型');
         }
 
@@ -93,7 +93,7 @@ class ApiSite {
         }
 
         // 验证API类型
-        if (!['New-Api', 'Veloera'].includes(apiType)) {
+        if (!['NewApi', 'Veloera'].includes(apiType)) {
             throw new Error('无效的API类型');
         }
 

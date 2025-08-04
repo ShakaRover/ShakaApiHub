@@ -219,7 +219,7 @@ class ApiSiteService {
         const { apiType, name, url, authMethod, sessions, token, userId } = data;
 
         // 必填字段验证
-        if (!apiType || typeof apiType !== 'string' || !['New-Api', 'Veloera'].includes(apiType)) {
+        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera'].includes(apiType)) {
             return { isValid: false, message: '请选择有效的API类型' };
         }
 
