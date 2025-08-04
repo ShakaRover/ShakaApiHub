@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShakaHub - 管理后台</title>
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <!-- 认证检查加载提示 -->
+    <div id="auth-loading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div style="text-align: center; color: white;">
+            <div style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid white; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div>
+            <p style="font-size: 1.1rem; margin: 0;">正在验证登录状态...</p>
+        </div>
+    </div>
+    
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <!-- 侧边栏覆盖层 (移动端) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- 侧边栏 -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <span>☰</span>
+            </button>
+            <div class="sidebar-logo">ShakaHub</div>
+        </div>
+        
+        <div class="sidebar-nav">
+            <div class="nav-item">
+                <a href="#" class="nav-link active" data-page="dashboard">
+                    <div class="nav-icon">🏠</div>
+                    <span class="nav-text">仪表板</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#" class="nav-link" data-page="settings">
+                    <div class="nav-icon">⚙️</div>
+                    <span class="nav-text">用户设置</span>
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="#" class="nav-link" data-page="system">
+                    <div class="nav-icon">🔧</div>
+                    <span class="nav-text">系统管理</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 顶部导航栏 -->
+    <header class="navbar">
+        <a href="#" class="navbar-brand" id="navbarBrand">
+            ShakaApiHub
+        </a>
+        
+        <div class="navbar-actions">
+            <div class="user-dropdown">
+                <button class="user-btn" id="userDropdownBtn">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <span id="userDisplayName">Admin</span>
+                    <span>▼</span>
+                </button>
+                <div class="dropdown-menu" id="userDropdownMenu">
+                    <a href="#" class="dropdown-item" data-page="settings">
+                        <span>⚙️</span> 用户设置
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item" id="logoutBtn">
+                        <span>🚪</span> 退出登录
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <!-- 主内容区 -->
+    <main class="main-content" id="mainContent">
+        <div class="content-wrapper">
+            <div id="alert-container"></div>
+            
+            <!-- 仪表板页面 -->
+            <div id="dashboard-page" class="page-content active">
+                <!-- 欢迎区域 -->
+                <div class="welcome-section fade-in">
+                    <h1 class="welcome-title">欢迎回来！</h1>
+                    <p class="welcome-subtitle" id="welcomeMessage">今天也要加油工作哦 💪</p>
+                    <div class="welcome-time" id="currentTime"></div>
+                </div>
+                
+                <!-- 统计卡片 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">在线时长</div>
+                            <div class="stat-icon primary">⏰</div>
+                        </div>
+                        <div class="stat-value" id="onlineTime">--</div>
+                        <div class="stat-description">本次会话时长</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">系统状态</div>
+                            <div class="stat-icon success">✅</div>
+                        </div>
+                        <div class="stat-value">正常</div>
+                        <div class="stat-description">所有服务运行正常</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">当前用户</div>
+                            <div class="stat-icon info">👤</div>
+                        </div>
+                        <div class="stat-value">1</div>
+                        <div class="stat-description">活跃用户数量</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">数据库</div>
+                            <div class="stat-icon warning">🗄️</div>
+                        </div>
+                        <div class="stat-value">SQLite</div>
+                        <div class="stat-description">数据存储引擎</div>
+                    </div>
+                </div>
+                
+                <!-- 快捷操作 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">快捷操作</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary" data-page="settings">
+                                ⚙️ 用户设置
+                            </button>
+                            <button class="btn btn-secondary" onclick="location.reload()">
+                                🔄 刷新页面
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 用户设置页面 -->
+            <div id="settings-page" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">用户设置</h1>
+                        <p class="page-subtitle">管理您的个人信息和账户设置</p>
+                    </div>
+                </div>
+                
+                <!-- 用户信息卡片 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3 class="card-title">基本信息</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="user-info" id="userInfo">
+                            <p><strong>用户名:</strong> <span id="currentUsername">加载中...</span></p>
+                            <p><strong>注册时间:</strong> <span id="createdAt">加载中...</span></p>
+                            <p><strong>最后更新:</strong> <span id="updatedAt">加载中...</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 修改用户名 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3 class="card-title">修改用户名</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="usernameForm">
+                            <div class="form-group">
+                                <label class="form-label" for="newUsername">新用户名</label>
+                                <input type="text" id="newUsername" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="usernameBtn">
+                                <span id="usernameText">更新用户名</span>
+                                <span id="usernameLoading" class="loading" style="display: none;"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- 修改密码 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3 class="card-title">修改密码</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="passwordForm">
+                            <div class="form-group">
+                                <label class="form-label" for="currentPassword">当前密码</label>
+                                <input type="password" id="currentPassword" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="newPassword">新密码</label>
+                                <input type="password" id="newPassword" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="confirmPassword">确认新密码</label>
+                                <input type="password" id="confirmPassword" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="passwordBtn">
+                                <span id="passwordText">更新密码</span>
+                                <span id="passwordLoading" class="loading" style="display: none;"></span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 系统管理页面 -->
+            <div id="system-page" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">系统管理</h1>
+                        <p class="page-subtitle">系统配置和管理功能</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div style="padding: 3rem;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">🚧</div>
+                            <h3>功能开发中</h3>
+                            <p class="text-muted">该功能正在开发中，敬请期待...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="/js/app.js"></script>
+    <script src="/js/admin.js"></script>
+    <script>
+        // 确保所有脚本加载完成后再执行认证检查
+        window.addEventListener('load', async function() {
+            console.log('所有资源加载完成，开始认证检查...');
+            
+            try {
+                const response = await fetch('/api/auth/profile', {
+                    credentials: 'include'
+                });
+                console.log('API响应状态:', response.status);
+                const data = await response.json();
+                console.log('API响应数据:', data);
+                
+                if (!data.success) {
+                    console.log('未登录，重定向到登录页');
+                    window.location.replace('/index.html');
+                    return;
+                }
+                
+                console.log('用户已登录，初始化页面...');
+                
+                // 隐藏加载提示
+                const authLoading = document.getElementById('auth-loading');
+                if (authLoading) {
+                    authLoading.style.display = 'none';
+                    console.log('已隐藏加载提示');
+                }
+                
+                // 现在调用外部函数，因为所有脚本都已加载
+                try {
+                    if (typeof loadUserProfile === 'function') {
+                        loadUserProfile();
+                        console.log('用户信息加载完成');
+                    }
+                    if (typeof initAdminPanel === 'function') {
+                        initAdminPanel();
+                        console.log('管理面板初始化完成');
+                    }
+                } catch (initError) {
+                    console.error('初始化错误，使用降级模式:', initError);
+                    // 降级处理：手动设置用户信息
+                    if (data.user) {
+                        const userAvatar = document.getElementById('userAvatar');
+                        const userDisplayName = document.getElementById('userDisplayName');
+                        if (userAvatar && data.user.username) {
+                            userAvatar.textContent = data.user.username.charAt(0).toUpperCase();
+                        }
+                        if (userDisplayName) {
+                            userDisplayName.textContent = data.user.username;
+                        }
+                    }
+                }
+                
+                console.log('页面初始化完成');
+                
+            } catch (error) {
+                console.error('认证检查失败:', error);
+                window.location.replace('/index.html');
+            }
+        });
+    </script>
+</body>
+</html>

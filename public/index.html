@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShakaHub - 用户登录</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card fade-in">
+            <div class="logo">
+                <h1>ShakaHub</h1>
+                <p>欢迎回来</p>
+            </div>
+            
+            <div id="alert-container"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" class="form-control" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span id="loginText">登录</span>
+                    <span id="loginLoading" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <script src="/js/app.js"></script>
+    <script>
+        // 如果已经登录，重定向到仪表板
+        if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+            fetch('/api/auth/profile')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/dashboard.html';
+                    }
+                })
+                .catch(() => {
+                    // 忽略错误，继续显示登录页面
+                });
+        }
+    </script>
+</body>
+</html>
