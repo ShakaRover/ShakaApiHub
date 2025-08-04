@@ -82,19 +82,42 @@ class ApiSiteManager {
             }
         });
 
-        // 点击背景关闭模态框
+        // 移除点击背景关闭模态框的功能，防止误点击关闭编辑窗口
+        // 用户只能通过关闭按钮或取消按钮来关闭模态框
         if (modal) {
             modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    this.hideModal();
-                }
+                // 如果点击的是模态框背景（不是内容区域），也不关闭，防止误操作
+                // 只允许通过明确的按钮关闭
+                e.stopPropagation();
             });
+            
+            // 防止模态框内容区域的点击事件冒泡到背景
+            const modalContent = modal.querySelector('.modal-content');
+            if (modalContent) {
+                modalContent.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
         }
 
         // 表单提交事件
         if (form) {
             form.addEventListener('submit', (e) => this.handleFormSubmit(e));
         }
+
+        // 添加ESC键支持关闭模态框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('apiSiteModal');
+                const deleteModal = document.getElementById('confirmDeleteModal');
+                
+                if (modal && modal.classList.contains('show')) {
+                    this.hideModal();
+                } else if (deleteModal && deleteModal.classList.contains('show')) {
+                    this.hideDeleteModal();
+                }
+            }
+        });
 
         // 确认删除模态框事件
         this.bindDeleteModalEvents();
@@ -113,6 +136,7 @@ class ApiSiteManager {
             }
         });
 
+        // 删除确认模态框保持现有行为（可以点击背景关闭，因为这是确认操作，不涉及数据编辑）
         if (deleteModal) {
             deleteModal.addEventListener('click', (e) => {
                 if (e.target === deleteModal) {

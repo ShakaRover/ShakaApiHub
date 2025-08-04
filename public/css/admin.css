@@ -900,6 +900,9 @@ body {
     max-height: 90vh;
     overflow-y: auto;
     animation: modalFadeIn 0.3s ease;
+    /* 为编辑模态框添加更强的视觉边界 */
+    border: 2px solid var(--primary-color);
+    position: relative;
 }
 
 .modal-content.modal-sm {
@@ -919,10 +922,14 @@ body {
 
 .modal-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     padding: 1.5rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header-content {
+    flex: 1;
 }
 
 .modal-title {
@@ -930,6 +937,14 @@ body {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--text-color);
+}
+
+.modal-hint {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    font-weight: 400;
 }
 
 .modal-close {
