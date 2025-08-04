@@ -5,24 +5,48 @@ const API_BASE = '/api/auth';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
 
-// 显示警告消息
+// 显示浮窗提示消息
 function showAlert(message, type = 'error') {
     const alertContainer = $('#alert-container');
+    if (!alertContainer) return;
+    
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} slide-up`;
+    alertDiv.className = `alert alert-${type}`;
     alertDiv.textContent = message;
     
-    alertContainer.innerHTML = '';
-    alertContainer.appendChild(alertDiv);
+    // 添加到容器顶部
+    alertContainer.insertBefore(alertDiv, alertContainer.firstChild);
     
-    // 5秒后自动消失
+    // 触发滑入动画
+    requestAnimationFrame(() => {
+        alertDiv.classList.add('slide-up');
+    });
+    
+    // 3.5秒后自动消失
     setTimeout(() => {
         if (alertDiv.parentNode) {
+            alertDiv.style.transform = 'translateX(100%)';
             alertDiv.style.opacity = '0';
-            alertDiv.style.transform = 'translateY(-10px)';
-            setTimeout(() => alertDiv.remove(), 300);
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 300);
         }
-    }, 5000);
+    }, 3500);
+    
+    // 限制最多显示3个提示
+    const alerts = alertContainer.querySelectorAll('.alert');
+    if (alerts.length > 3) {
+        const oldestAlert = alerts[alerts.length - 1];
+        oldestAlert.style.transform = 'translateX(100%)';
+        oldestAlert.style.opacity = '0';
+        setTimeout(() => {
+            if (oldestAlert.parentNode) {
+                oldestAlert.remove();
+            }
+        }, 300);
+    }
 }
 
 // 清除警告消息
