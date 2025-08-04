@@ -42,6 +42,12 @@
                 </a>
             </div>
             <div class="nav-item">
+                <a href="#" class="nav-link" data-page="api-management">
+                    <div class="nav-icon">🔗</div>
+                    <span class="nav-text">API管理</span>
+                </a>
+            </div>
+            <div class="nav-item">
                 <a href="#" class="nav-link" data-page="settings">
                     <div class="nav-icon">⚙️</div>
                     <span class="nav-text">用户设置</span>
@@ -153,6 +159,95 @@
                 </div>
             </div>
             
+            <!-- API管理页面 -->
+            <div id="api-management-page" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">API管理</h1>
+                        <p class="page-subtitle">管理您的API站点配置和连接信息</p>
+                    </div>
+                    <button class="btn btn-primary" id="addApiSiteBtn">
+                        ➕ 添加API站点
+                    </button>
+                </div>
+                
+                <!-- API站点统计卡片 -->
+                <div class="stats-grid mb-4" id="apiStatsGrid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">总站点数</div>
+                            <div class="stat-icon">🔗</div>
+                        </div>
+                        <div class="stat-value" id="totalApiSites">0</div>
+                        <div class="stat-description">已配置的API站点</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">启用站点</div>
+                            <div class="stat-icon">✅</div>
+                        </div>
+                        <div class="stat-value" id="enabledApiSites">0</div>
+                        <div class="stat-description">正在使用的站点</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">禁用站点</div>
+                            <div class="stat-icon">❌</div>
+                        </div>
+                        <div class="stat-value" id="disabledApiSites">0</div>
+                        <div class="stat-description">暂停使用的站点</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">Token类型</div>
+                            <div class="stat-icon">🔑</div>
+                        </div>
+                        <div class="stat-value" id="tokenApiSites">0</div>
+                        <div class="stat-description">使用Token认证</div>
+                    </div>
+                </div>
+                
+                <!-- API站点列表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">API站点列表</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-sm btn-secondary" id="refreshApiListBtn">
+                                🔄 刷新
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="api-sites-table" id="apiSitesTable">
+                                <thead>
+                                    <tr>
+                                        <th>API类型</th>
+                                        <th>名称</th>
+                                        <th>URL</th>
+                                        <th>授权方式</th>
+                                        <th>状态</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="apiSitesTableBody">
+                                    <tr class="empty-state">
+                                        <td colspan="7">
+                                            <div class="empty-message">
+                                                <div class="empty-icon">🔗</div>
+                                                <div class="empty-text">暂无API站点</div>
+                                                <div class="empty-description">点击上方"添加API站点"按钮开始添加</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- 用户设置页面 -->
             <div id="settings-page" class="page-content">
                 <div class="page-header">
@@ -245,8 +340,107 @@
         </div>
     </main>
     
+    <!-- API站点管理模态框 -->
+    <div id="apiSiteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="apiSiteModalTitle">添加API站点</h3>
+                <span class="modal-close" id="apiSiteModalClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="apiSiteForm">
+                    <div class="form-group">
+                        <label for="apiSiteType">API类型 *</label>
+                        <select id="apiSiteType" name="apiType" class="form-control" required>
+                            <option value="">请选择API类型</option>
+                            <option value="New-Api">New-Api</option>
+                            <option value="Veloera">Veloera</option>
+                        </select>
+                        <small class="form-help">选择API平台类型</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="apiSiteName">站点名称 *</label>
+                        <input type="text" id="apiSiteName" name="name" class="form-control" required>
+                        <small class="form-help">为API站点设置一个便于识别的名称</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="apiSiteUrl">API地址 *</label>
+                        <input type="url" id="apiSiteUrl" name="url" class="form-control" required>
+                        <small class="form-help">完整的API服务地址，如：https://api.example.com</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="apiSiteAuthMethod">授权方式 *</label>
+                        <select id="apiSiteAuthMethod" name="authMethod" class="form-control" required>
+                            <option value="">请选择授权方式</option>
+                            <option value="sessions">Sessions</option>
+                            <option value="token">Token</option>
+                        </select>
+                        <small class="form-help">选择API的认证方式</small>
+                    </div>
+                    
+                    <div class="form-group" id="sessionsGroup" style="display: none;">
+                        <label for="apiSiteSessions">Sessions</label>
+                        <textarea id="apiSiteSessions" name="sessions" class="form-control" rows="3"></textarea>
+                        <small class="form-help">Session认证信息（JSON格式或字符串）</small>
+                    </div>
+                    
+                    <div class="form-group" id="tokenGroup" style="display: none;">
+                        <label for="apiSiteToken">Token *</label>
+                        <input type="text" id="apiSiteToken" name="token" class="form-control">
+                        <small class="form-help">API访问令牌</small>
+                    </div>
+                    
+                    <div class="form-group" id="userIdGroup" style="display: none;">
+                        <label for="apiSiteUserId">User ID *</label>
+                        <input type="text" id="apiSiteUserId" name="userId" class="form-control">
+                        <small class="form-help">与Token关联的用户ID</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input type="checkbox" id="apiSiteEnabled" name="enabled" class="form-check-input" checked>
+                            <label for="apiSiteEnabled" class="form-check-label">启用此API站点</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="apiSiteModalCancel">取消</button>
+                <button type="submit" form="apiSiteForm" class="btn btn-primary" id="apiSiteModalSave">
+                    <span id="apiSiteModalSaveText">保存</span>
+                    <span id="apiSiteModalSaveLoading" style="display: none;">保存中...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 确认删除模态框 -->
+    <div id="confirmDeleteModal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 class="modal-title">确认删除</h3>
+                <span class="modal-close" id="confirmDeleteModalClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除API站点 "<span id="deleteApiSiteName"></span>" 吗？</p>
+                <p class="text-warning">此操作不可撤销。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="confirmDeleteCancel">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteConfirm">
+                    <span id="confirmDeleteText">删除</span>
+                    <span id="confirmDeleteLoading" style="display: none;">删除中...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <script src="/js/app.js"></script>
     <script src="/js/admin.js"></script>
+    <script src="/js/apiSiteManager.js"></script>
     <script>
         // 确保所有脚本加载完成后再执行认证检查
         window.addEventListener('load', async function() {

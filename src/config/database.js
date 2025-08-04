@@ -44,11 +44,40 @@ class DatabaseConfig {
             CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
         `;
 
+        const createApiSitesTable = `
+            CREATE TABLE IF NOT EXISTS api_sites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                api_type TEXT NOT NULL CHECK (api_type IN ('New-Api', 'Veloera')),
+                name TEXT NOT NULL,
+                url TEXT NOT NULL,
+                auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
+                sessions TEXT,
+                token TEXT,
+                user_id TEXT,
+                enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_by INTEGER NOT NULL,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `;
+
+        const createApiSitesIndex = `
+            CREATE INDEX IF NOT EXISTS idx_api_sites_name ON api_sites(name)
+        `;
+
+        const createApiSitesEnabledIndex = `
+            CREATE INDEX IF NOT EXISTS idx_api_sites_enabled ON api_sites(enabled)
+        `;
+
         try {
             // 使用事务确保原子性
             const transaction = this.db.transaction(() => {
                 this.db.exec(createUsersTable);
                 this.db.exec(createUsernameIndex);
+                this.db.exec(createApiSitesTable);
+                this.db.exec(createApiSitesIndex);
+                this.db.exec(createApiSitesEnabledIndex);
                 
                 // 创建默认管理员用户（仅在表为空时）
                 const userCount = this.db.prepare('SELECT COUNT(*) as count FROM users').get().count;
@@ -80,7 +109,18 @@ class DatabaseConfig {
             insertUser: this.db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)'),
             updatePassword: this.db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
             updateUsername: this.db.prepare('UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
-            countUsers: this.db.prepare('SELECT COUNT(*) as count FROM users')
+            countUsers: this.db.prepare('SELECT COUNT(*) as count FROM users'),
+            
+            // API站点查询语句
+            findAllApiSites: this.db.prepare('SELECT * FROM api_sites ORDER BY created_at DESC'),
+            findApiSiteById: this.db.prepare('SELECT * FROM api_sites WHERE id = ?'),
+            findApiSitesByCreatedBy: this.db.prepare('SELECT * FROM api_sites WHERE created_by = ? ORDER BY created_at DESC'),
+            insertApiSite: this.db.prepare('INSERT INTO api_sites (api_type, name, url, auth_method, sessions, token, user_id, enabled, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+            updateApiSite: this.db.prepare('UPDATE api_sites SET api_type = ?, name = ?, url = ?, auth_method = ?, sessions = ?, token = ?, user_id = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+            deleteApiSite: this.db.prepare('DELETE FROM api_sites WHERE id = ?'),
+            toggleApiSiteEnabled: this.db.prepare('UPDATE api_sites SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+            countApiSites: this.db.prepare('SELECT COUNT(*) as count FROM api_sites'),
+            countEnabledApiSites: this.db.prepare('SELECT COUNT(*) as count FROM api_sites WHERE enabled = 1')
         };
     }
 
