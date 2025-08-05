@@ -34,12 +34,17 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+test_*.js
+test_*.json
+test_cookies.txt
+cookies*.txt
 
 # Temporary files
 *.tmp
 *.temp
-cookies.txt
-new_cookies.txt
+
+# Backup files
+backups/
 
 # Session storage
 sessions/
