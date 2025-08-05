@@ -3,6 +3,8 @@ class ApiSiteManager {
     constructor() {
         this.currentEditingId = null;
         this.apiSites = [];
+        this.showDetails = false; // 全局显示详情开关
+        this.expandedSites = new Set(); // 记录展开的站点ID
         this.init();
     }
 
@@ -25,6 +27,12 @@ class ApiSiteManager {
         const refreshBtn = document.getElementById('refreshApiListBtn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => this.refreshApiList());
+        }
+
+        // 显示详情开关
+        const showDetailsToggle = document.getElementById('showDetailsToggle');
+        if (showDetailsToggle) {
+            showDetailsToggle.addEventListener('change', (e) => this.toggleAllDetails(e.target.checked));
         }
 
         // 模态框事件
@@ -77,6 +85,10 @@ class ApiSiteManager {
             this.toggleEnabled(siteId, !isEnabled);
         } else if (button.classList.contains('btn-delete')) {
             this.showDeleteModal(siteId, siteName);
+        } else if (button.classList.contains('btn-expand')) {
+            this.toggleSiteDetails(siteId);
+        } else if (button.classList.contains('btn-copy-aff')) {
+            this.copyAffiliateLink(button.dataset.siteUrl, button.dataset.affCode);
         }
     }
 
@@ -555,7 +567,7 @@ class ApiSiteManager {
         
         if (site.last_check_status === 'error') {
             return `
-                <div class="site-info-box error" title="最后检测: ${lastCheckTime}">
+                <div class="site-info-box error">
                     <div class="info-status">❌ 检测失败</div>
                     <div class="info-message">${site.last_check_message || '未知错误'}</div>
                 </div>
@@ -566,43 +578,68 @@ class ApiSiteManager {
             const quota = site.site_quota ? site.site_quota.toFixed(2) : '0.00';
             const usedQuota = site.site_used_quota ? site.site_used_quota.toFixed(2) : '0.00';
             const affQuota = site.site_aff_quota ? site.site_aff_quota.toFixed(2) : '0.00';
+            const affHistoryQuota = site.site_aff_history_quota ? site.site_aff_history_quota.toFixed(2) : '0.00';
             
             return `
-                <div class="site-info-box success" title="最后检测: ${lastCheckTime}">
-                    <div class="info-row">
-                        <span class="info-label">用户:</span>
-                        <span class="info-value">${site.site_username || '未知'}</span>
+                <div class="site-info-box success">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">用户名</span>
+                            <span class="info-value">${site.site_username || '未知'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">当前余额</span>
+                            <span class="info-value">$${quota}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">历史消耗</span>
+                            <span class="info-value">$${usedQuota}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">请求次数</span>
+                            <span class="info-value">${site.site_request_count || 0}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">用户组</span>
+                            <span class="info-value">${site.site_user_group || '未知'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">邀请码</span>
+                            <span class="info-value">
+                                ${site.site_aff_code ? `
+                                    <span class="aff-code-container">
+                                        <span class="aff-code">${site.site_aff_code}</span>
+                                        <button class="btn-copy-aff" 
+                                                data-site-url="${site.url}" 
+                                                data-aff-code="${site.site_aff_code}"
+                                                title="复制邀请链接">
+                                            📋
+                                        </button>
+                                    </span>
+                                ` : '无'}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">邀请数量</span>
+                            <span class="info-value">${site.site_aff_count || 0}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">待使用收益</span>
+                            <span class="info-value">$${affQuota}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">总收益</span>
+                            <span class="info-value">$${affHistoryQuota}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">最后签到时间</span>
+                            <span class="info-value">${site.site_last_check_in_time ? new Date(site.site_last_check_in_time).toLocaleString('zh-CN') : '未签到'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">检测时间</span>
+                            <span class="info-value">${lastCheckTime}</span>
+                        </div>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">额度:</span>
-                        <span class="info-value">$${quota}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">已用:</span>
-                        <span class="info-value">$${usedQuota}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">请求:</span>
-                        <span class="info-value">${site.site_request_count || 0}</span>
-                    </div>
-                    ${site.site_user_group ? `
-                    <div class="info-row">
-                        <span class="info-label">组:</span>
-                        <span class="info-value">${site.site_user_group}</span>
-                    </div>
-                    ` : ''}
-                    ${site.site_aff_code ? `
-                    <div class="info-row">
-                        <span class="info-label">邀请码:</span>
-                        <span class="info-value">${site.site_aff_code}</span>
-                    </div>
-                    ` : ''}
-                    ${affQuota !== '0.00' ? `
-                    <div class="info-row">
-                        <span class="info-label">收益:</span>
-                        <span class="info-value">$${affQuota}</span>
-                    </div>
-                    ` : ''}
                 </div>
             `;
         }
@@ -633,10 +670,23 @@ class ApiSiteManager {
         // 站点信息显示
         const siteInfoBox = this.createSiteInfoBox(site);
 
+        // 检查是否应该显示详情
+        const shouldShowDetails = this.showDetails || this.expandedSites.has(site.id);
+        const expandIcon = shouldShowDetails ? '🔽' : '▶️';
+
         // 主要信息行
         const mainRow = `
             <tr class="site-main-row">
-                <td>${apiTypeBadge}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <button class="btn-expand" 
+                                data-site-id="${site.id}" 
+                                title="展开/收起详情">
+                            ${expandIcon}
+                        </button>
+                        ${apiTypeBadge}
+                    </div>
+                </td>
                 <td>${this.escapeHtml(site.name)}</td>
                 <td><span class="api-url" title="${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</span></td>
                 <td>${authMethodBadge}</td>
@@ -675,16 +725,19 @@ class ApiSiteManager {
             </tr>
         `;
 
-        // 站点信息行
-        const infoRow = `
-            <tr class="site-info-row">
-                <td colspan="8">
-                    <div class="site-info-expanded">
-                        ${siteInfoBox}
-                    </div>
-                </td>
-            </tr>
-        `;
+        // 站点信息行（根据展开状态决定是否显示）
+        let infoRow = '';
+        if (shouldShowDetails) {
+            infoRow = `
+                <tr class="site-info-row" id="info-row-${site.id}">
+                    <td colspan="8">
+                        <div class="site-info-expanded">
+                            ${siteInfoBox}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
 
         return mainRow + infoRow;
     }
@@ -807,10 +860,70 @@ class ApiSiteManager {
     }
 
     // 刷新API列表
-    refreshApiList() {
-        this.loadApiSites();
-        this.loadApiStats();
-        this.showAlert('列表已刷新', 'success');
+    async refreshApiList() {
+        try {
+            await this.loadApiSites();
+            this.showAlert('列表已刷新', 'success');
+        } catch (error) {
+            console.error('刷新列表失败:', error);
+            this.showAlert('刷新列表失败', 'error');
+        }
+    }
+
+    // 切换单个站点详情显示
+    toggleSiteDetails(siteId) {
+        const isExpanded = this.expandedSites.has(siteId);
+        
+        if (isExpanded) {
+            this.expandedSites.delete(siteId);
+        } else {
+            this.expandedSites.add(siteId);
+        }
+        
+        // 重新渲染表格
+        this.renderApiSitesTable();
+    }
+
+    // 切换全局详情显示
+    toggleAllDetails(show) {
+        this.showDetails = show;
+        
+        if (show) {
+            // 如果显示全部，清空个别展开的记录
+            this.expandedSites.clear();
+        }
+        
+        // 重新渲染表格
+        this.renderApiSitesTable();
+    }
+
+    // 复制邀请链接
+    async copyAffiliateLink(siteUrl, affCode) {
+        try {
+            const affiliateLink = `${siteUrl}/register?aff=${affCode}`;
+            
+            // 使用现代的Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(affiliateLink);
+            } else {
+                // 降级方案：使用传统的方法
+                const textArea = document.createElement('textarea');
+                textArea.value = affiliateLink;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                textArea.remove();
+            }
+            
+            this.showAlert(`邀请链接已复制: ${affiliateLink}`, 'success');
+        } catch (error) {
+            console.error('复制失败:', error);
+            this.showAlert('复制失败，请手动复制', 'error');
+        }
     }
 
     // 显示提示消息

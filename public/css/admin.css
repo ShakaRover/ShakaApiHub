@@ -1249,4 +1249,117 @@ body {
     .site-info-expanded .info-value {
         text-align: left;
     }
+}/* 信息网格布
+局 - 优化版本 */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    padding: 0;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.info-item .info-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: left;
+}
+
+.info-item .info-value {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1f2937;
+    word-break: break-all;
+    text-align: left;
+}
+
+/* 响应式调整 - 优化版本 */
+@media (max-width: 1200px) {
+    .info-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .info-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .info-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+}/*
+ 邀请码容器样式 */
+.aff-code-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.aff-code {
+    font-family: 'Courier New', monospace;
+    background-color: #f1f5f9;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    border: 1px solid #e2e8f0;
+}
+
+.btn-copy-aff {
+    background: none;
+    border: none;
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s;
+    color: #6b7280;
+}
+
+.btn-copy-aff:hover {
+    background-color: #f3f4f6;
+    color: #374151;
+    transform: scale(1.1);
+}
+
+.btn-copy-aff:active {
+    transform: scale(0.95);
+}
+
+/* 展开按钮优化样式 */
+.btn-expand {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+}
+
+.btn-expand:hover {
+    background-color: #f3f4f6;
+    transform: scale(1.1);
+}
+
+.btn-expand:active {
+    transform: scale(0.95);
 }
