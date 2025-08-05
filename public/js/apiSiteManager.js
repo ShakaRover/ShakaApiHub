@@ -588,6 +588,70 @@ class ApiSiteManager {
         tbody.innerHTML = rows;
     }
 
+    // 创建站点信息网格
+    createSiteInfoGrid(site, quota, usedQuota, affQuota, affHistoryQuota, lastCheckTime) {
+        return `
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">用户名</span>
+                    <span class="info-value">${site.site_username || '未知'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">当前余额</span>
+                    <span class="info-value">$${quota}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">历史消耗</span>
+                    <span class="info-value">$${usedQuota}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">请求次数</span>
+                    <span class="info-value">${site.site_request_count || 0}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">用户组</span>
+                    <span class="info-value">${site.site_user_group || '未知'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">邀请码</span>
+                    <span class="info-value">
+                        ${site.site_aff_code ? `
+                            <span class="aff-code-container">
+                                <span class="aff-code">${site.site_aff_code}</span>
+                                <button class="btn-copy-aff" 
+                                        data-site-url="${site.url}" 
+                                        data-aff-code="${site.site_aff_code}"
+                                        title="复制邀请链接">
+                                    📋
+                                </button>
+                            </span>
+                        ` : '无'}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">邀请数量</span>
+                    <span class="info-value">${site.site_aff_count || 0}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">待使用收益</span>
+                    <span class="info-value">$${affQuota}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">总收益</span>
+                    <span class="info-value">$${affHistoryQuota}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">最后签到时间</span>
+                    <span class="info-value">${site.site_last_check_in_time ? new Date(site.site_last_check_in_time).toLocaleString('zh-CN') : '未签到'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">检测时间</span>
+                    <span class="info-value">${lastCheckTime}</span>
+                </div>
+            </div>
+        `;
+    }
+
     // 创建站点信息框
     createSiteInfoBox(site) {
         if (!site.last_check_time) {
@@ -610,8 +674,7 @@ class ApiSiteManager {
                 
                 return `
                     <div class="site-info-box error">
-                        <div class="info-status">⚠️ 检测失败但有历史数据</div>
-                        <div class="info-message">${site.last_check_message || '未知错误'}</div>
+                        <div class="info-status">⚠️ 检测失败但有历史数据 - ${site.last_check_message || '未知错误'}</div>
                         <div class="info-grid">
                             <div class="info-item">
                                 <span class="info-label">用户名</span>
