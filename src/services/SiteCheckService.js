@@ -161,39 +161,47 @@ class SiteCheckService {
     // 智能合并cookies，set-cookies优先级最高
     mergeCookies(setCookies, configCookies) {
         const cookieMap = new Map();
-        
+
         // 首先解析配置中的cookies
         if (configCookies) {
             const configPairs = configCookies.split(';').map(pair => pair.trim());
             configPairs.forEach(pair => {
-                const [name, value] = pair.split('=').map(s => s.trim());
-                if (name && value) {
-                    cookieMap.set(name, value);
+                const equalIndex = pair.indexOf('=');
+                if (equalIndex > 0) {
+                    const name = pair.substring(0, equalIndex).trim();
+                    const value = pair.substring(equalIndex + 1).trim();
+                    if (name && value) {
+                        cookieMap.set(name, value);
+                    }
                 }
             });
             console.log(`解析配置cookies: ${configPairs.length} 个字段`);
         }
-        
+
         // 然后解析set-cookies，覆盖同名字段
         if (setCookies) {
             const setCookiePairs = setCookies.split(';').map(pair => pair.trim());
             setCookiePairs.forEach(pair => {
-                const [name, value] = pair.split('=').map(s => s.trim());
-                if (name && value) {
-                    if (cookieMap.has(name)) {
-                        console.log(`set-cookies覆盖配置字段: ${name}=${cookieMap.get(name)} → ${value}`);
+                const equalIndex = pair.indexOf('=');
+                if (equalIndex > 0) {
+                    const name = pair.substring(0, equalIndex).trim();
+                    const value = pair.substring(equalIndex + 1).trim();
+                    if (name && value) {
+                        if (cookieMap.has(name)) {
+                            console.log(`set-cookies覆盖配置字段: ${name}=${cookieMap.get(name)} → ${value}`);
+                        }
+                        cookieMap.set(name, value);
                     }
-                    cookieMap.set(name, value);
                 }
             });
             console.log(`解析set-cookies: ${setCookiePairs.length} 个字段`);
         }
-        
+
         // 合并为最终的cookie字符串
         const finalCookies = Array.from(cookieMap.entries())
             .map(([name, value]) => `${name}=${value}`)
             .join('; ');
-            
+
         console.log(`合并后的cookies: ${cookieMap.size} 个唯一字段`);
         return finalCookies;
     }
