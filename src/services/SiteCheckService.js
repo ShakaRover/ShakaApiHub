@@ -81,33 +81,41 @@ class SiteCheckService {
 
     // 获取站点 cookies
     async getSiteCookies(siteUrl) {
+        // 首先尝试访问 logo.png
+        const logoUrl = `${siteUrl.replace(/\/$/, '')}/logo.png`;
+        console.log(`首先尝试访问logo: ${logoUrl}`);
+        
         try {
-            console.log(`正在访问站点: ${siteUrl}`);
+            const logoResponse = await axios.get(logoUrl, {
+                timeout: 10000,
+                validateStatus: () => true, // 接受所有状态码
+                maxRedirects: 5
+            });
+
+            console.log(`Logo响应状态: ${logoResponse.status}`);
+            
+            // 如果logo存在（状态码200-299），使用logo的cookies
+            if (logoResponse.status >= 200 && logoResponse.status < 300) {
+                console.log('Logo存在，使用logo响应的cookies');
+                return this.extractCookiesFromResponse(logoResponse, logoUrl);
+            } else {
+                console.log(`Logo不存在 (状态码: ${logoResponse.status})，回退到站点首页`);
+            }
+        } catch (error) {
+            console.log(`访问logo失败: ${error.message}，回退到站点首页`);
+        }
+
+        // 如果logo不存在或访问失败，使用站点首页
+        try {
+            console.log(`正在访问站点首页: ${siteUrl}`);
             const response = await axios.get(siteUrl, {
                 timeout: 10000,
                 validateStatus: () => true, // 接受所有状态码
                 maxRedirects: 5
             });
 
-            console.log(`站点响应状态: ${response.status}`);
-            console.log(`响应头数量: ${Object.keys(response.headers).length}`);
-
-            const cookies = [];
-            const setCookieHeaders = response.headers['set-cookie'];
-            
-            if (setCookieHeaders) {
-                console.log(`找到 ${setCookieHeaders.length} 个set-cookie头`);
-                setCookieHeaders.forEach(cookie => {
-                    const cookiePart = cookie.split(';')[0];
-                    cookies.push(cookiePart);
-                });
-            } else {
-                console.log('未找到set-cookie头');
-            }
-
-            const cookieString = cookies.join('; ');
-            console.log(`合并后的cookies长度: ${cookieString.length}`);
-            return cookieString;
+            console.log(`站点首页响应状态: ${response.status}`);
+            return this.extractCookiesFromResponse(response, siteUrl);
         } catch (error) {
             console.error('获取站点cookies失败:', {
                 code: error.code,
@@ -126,6 +134,29 @@ class SiteCheckService {
                 throw new Error(`网络错误: ${error.message}`);
             }
         }
+    }
+
+    // 从响应中提取cookies的辅助方法
+    extractCookiesFromResponse(response, url) {
+        console.log(`从 ${url} 提取cookies`);
+        console.log(`响应头数量: ${Object.keys(response.headers).length}`);
+
+        const cookies = [];
+        const setCookieHeaders = response.headers['set-cookie'];
+        
+        if (setCookieHeaders) {
+            console.log(`找到 ${setCookieHeaders.length} 个set-cookie头`);
+            setCookieHeaders.forEach(cookie => {
+                const cookiePart = cookie.split(';')[0];
+                cookies.push(cookiePart);
+            });
+        } else {
+            console.log('未找到set-cookie头');
+        }
+
+        const cookieString = cookies.join('; ');
+        console.log(`合并后的cookies长度: ${cookieString.length}`);
+        return cookieString;
     }
 
     // 获取用户信息
