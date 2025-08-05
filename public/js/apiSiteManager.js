@@ -23,10 +23,10 @@ class ApiSiteManager {
             addBtn.addEventListener('click', () => this.showAddModal());
         }
 
-        // 刷新列表按钮
-        const refreshBtn = document.getElementById('refreshApiListBtn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => this.refreshApiList());
+        // 一键检查按钮
+        const batchCheckBtn = document.getElementById('batchCheckBtn');
+        if (batchCheckBtn) {
+            batchCheckBtn.addEventListener('click', () => this.batchCheckAllSites());
         }
 
         // 显示详情开关
@@ -898,6 +898,92 @@ class ApiSiteManager {
         } catch (error) {
             console.error('刷新列表失败:', error);
             this.showAlert('刷新列表失败', 'error');
+        }
+    }
+
+    // 批量检查所有站点
+    async batchCheckAllSites() {
+        try {
+            // 获取所有启用的站点
+            const enabledSites = this.apiSites.filter(site => site.enabled);
+            
+            if (enabledSites.length === 0) {
+                this.showAlert('没有启用的站点需要检查', 'warning');
+                return;
+            }
+
+            // 更新按钮状态
+            const batchCheckBtn = document.getElementById('batchCheckBtn');
+            if (batchCheckBtn) {
+                batchCheckBtn.disabled = true;
+                batchCheckBtn.innerHTML = '🔄 检查中...';
+            }
+
+            this.showAlert(`开始批量检查 ${enabledSites.length} 个站点...`, 'info');
+
+            let successCount = 0;
+            let errorCount = 0;
+            const results = [];
+
+            // 逐个检查站点（避免并发过多）
+            for (let i = 0; i < enabledSites.length; i++) {
+                const site = enabledSites[i];
+                try {
+                    console.log(`检查站点 ${i + 1}/${enabledSites.length}: ${site.name}`);
+                    
+                    const response = await fetch(`/api/sites/${site.id}/check`, {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        successCount++;
+                        results.push({ site: site.name, status: 'success', message: '检查成功' });
+                    } else {
+                        errorCount++;
+                        results.push({ site: site.name, status: 'error', message: result.message || '检查失败' });
+                    }
+                } catch (error) {
+                    console.error(`检查站点 ${site.name} 失败:`, error);
+                    errorCount++;
+                    results.push({ site: site.name, status: 'error', message: error.message || '网络错误' });
+                }
+
+                // 每检查完一个站点，更新进度
+                if (batchCheckBtn) {
+                    batchCheckBtn.innerHTML = `🔄 检查中... (${i + 1}/${enabledSites.length})`;
+                }
+
+                // 添加小延迟避免请求过于频繁
+                if (i < enabledSites.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            // 显示检查结果
+            const resultMessage = `批量检查完成！成功: ${successCount}, 失败: ${errorCount}`;
+            this.showAlert(resultMessage, errorCount === 0 ? 'success' : 'warning');
+
+            // 刷新列表显示最新结果
+            await this.loadApiSites();
+
+            // 在控制台输出详细结果
+            console.log('批量检查详细结果:');
+            results.forEach(result => {
+                console.log(`${result.site}: ${result.status} - ${result.message}`);
+            });
+
+        } catch (error) {
+            console.error('批量检查失败:', error);
+            this.showAlert('批量检查失败', 'error');
+        } finally {
+            // 恢复按钮状态
+            const batchCheckBtn = document.getElementById('batchCheckBtn');
+            if (batchCheckBtn) {
+                batchCheckBtn.disabled = false;
+                batchCheckBtn.innerHTML = '🔍 一键检查';
+            }
         }
     }
 
