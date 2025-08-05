@@ -1150,15 +1150,103 @@ body {
     background: rgba(59, 130, 246, 0.2);
 }
 
+/* 站点信息行样式 */
+.site-info-row {
+    background-color: #f8fafc;
+    border-top: none !important;
+}
+
+.site-info-row td {
+    padding: 0.75rem 1rem;
+    border-top: none !important;
+}
+
+.site-info-expanded {
+    width: 100%;
+    max-width: none;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.site-info-expanded .site-info-box {
+    width: 100%;
+    max-width: none;
+    min-width: auto;
+    background: none;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+.site-info-expanded .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.site-info-expanded .info-row:last-child {
+    border-bottom: none;
+}
+
+.site-info-expanded .info-label {
+    font-weight: 600;
+    color: #475569;
+    min-width: 80px;
+}
+
+.site-info-expanded .info-value {
+    font-weight: 500;
+    color: #1e293b;
+    text-align: right;
+}
+
+.site-info-expanded .info-status {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.site-info-expanded .info-message {
+    font-size: 0.875rem;
+    color: #64748b;
+    font-style: italic;
+    margin-top: 0.5rem;
+}
+
+/* 主要行和信息行的连接样式 */
+.site-main-row + .site-info-row {
+    border-top: none;
+}
+
+.site-main-row {
+    border-bottom: 1px solid #e5e7eb;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
-    .site-info-box {
-        min-width: 100px;
-        max-width: 150px;
-        font-size: 0.7rem;
+    .site-info-expanded {
+        padding: 0.75rem;
     }
     
-    .info-row {
-        margin-bottom: 0.1rem;
+    .site-info-expanded .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 0.375rem 0;
+    }
+    
+    .site-info-expanded .info-label {
+        min-width: auto;
+        margin-bottom: 0.25rem;
+    }
+    
+    .site-info-expanded .info-value {
+        text-align: left;
     }
 }

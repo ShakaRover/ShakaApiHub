@@ -529,7 +529,7 @@ class ApiSiteManager {
         if (this.apiSites.length === 0) {
             tbody.innerHTML = `
                 <tr class="empty-state">
-                    <td colspan="9">
+                    <td colspan="8">
                         <div class="empty-message">
                             <div class="empty-icon">🔗</div>
                             <div class="empty-text">暂无API站点</div>
@@ -633,15 +633,15 @@ class ApiSiteManager {
         // 站点信息显示
         const siteInfoBox = this.createSiteInfoBox(site);
 
-        return `
-            <tr>
+        // 主要信息行
+        const mainRow = `
+            <tr class="site-main-row">
                 <td>${apiTypeBadge}</td>
                 <td>${this.escapeHtml(site.name)}</td>
                 <td><span class="api-url" title="${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</span></td>
                 <td>${authMethodBadge}</td>
                 <td>${statusBadge}</td>
                 <td>${checkinBadge}</td>
-                <td>${siteInfoBox}</td>
                 <td>${createdAt}</td>
                 <td>
                     <div class="action-buttons">
@@ -674,6 +674,19 @@ class ApiSiteManager {
                 </td>
             </tr>
         `;
+
+        // 站点信息行
+        const infoRow = `
+            <tr class="site-info-row">
+                <td colspan="8">
+                    <div class="site-info-expanded">
+                        ${siteInfoBox}
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return mainRow + infoRow;
     }
 
     // 创建API站点
