@@ -26,17 +26,25 @@ class SiteCheckService {
             const cookies = await this.getSiteCookies(site.url);
             console.log(`获取到cookies: ${cookies ? cookies.substring(0, 100) + '...' : '无'}`);
             
-            // 第二步：获取用户信息
-            console.log('第二步：获取用户信息...');
+            // 第二步：检查是否需要签到并执行签到
+            if (site.auto_checkin && (site.api_type === 'Veloera' || site.api_type === 'AnyRouter')) {
+                console.log('第二步：执行自动签到...');
+                await this.performCheckin(site.url, cookies, site.sessions, site);
+            } else {
+                console.log('第二步：跳过签到（未启用或不支持的API类型）');
+            }
+            
+            // 第三步：获取用户信息
+            console.log('第三步：获取用户信息...');
             const userInfo = await this.getUserInfo(site.url, cookies, site.sessions, site);
             console.log('用户信息获取成功:', JSON.stringify(userInfo, null, 2));
             
-            // 第三步：保存检测结果
-            console.log('第三步：保存检测结果...');
+            // 第四步：保存检测结果
+            console.log('第四步：保存检测结果...');
             await this.saveSiteInfo(siteId, userInfo);
             
-            // 第四步：记录检测日志
-            console.log('第四步：记录检测日志...');
+            // 第五步：记录检测日志
+            console.log('第五步：记录检测日志...');
             await this.logCheckResult(siteId, 'success', '检测成功', JSON.stringify(userInfo));
 
             console.log(`站点检测完成: ${site.name}`);
@@ -171,6 +179,148 @@ class SiteCheckService {
         const cookieString = cookies.join('; ');
         console.log(`合并后的cookies长度: ${cookieString.length}`);
         return cookieString;
+    }
+
+    // 执行签到
+    async performCheckin(siteUrl, cookies, sessions, site) {
+        try {
+            // 确定签到API路径
+            let checkinPath;
+            if (site.api_type === 'Veloera') {
+                checkinPath = '/api/user/check_in';
+            } else if (site.api_type === 'AnyRouter') {
+                checkinPath = '/api/user/sign_in';
+            } else {
+                console.log(`API类型 ${site.api_type} 不支持签到`);
+                return;
+            }
+
+            const checkinUrl = `${siteUrl.replace(/\/$/, '')}${checkinPath}`;
+            console.log(`正在请求签到API: ${checkinUrl}`);
+            
+            // 构建请求头（与getUserInfo相同的逻辑）
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息
+            let finalCookies = '';
+            
+            // 首先添加从站点获取的cookies
+            if (cookies) {
+                finalCookies = cookies;
+                console.log(`站点cookies: ${cookies.substring(0, 100)}...`);
+            }
+
+            // 根据认证方式处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                // Token模式：直接使用token字段作为Authorization Bearer
+                headers['Authorization'] = `Bearer ${site.token}`;
+                console.log('签到Token模式：添加Authorization Bearer头');
+            } else if (site.auth_method === 'sessions' && sessions) {
+                // Sessions模式：处理sessions数据
+                console.log(`签到处理sessions数据: ${sessions.substring(0, 100)}...`);
+                try {
+                    const sessionData = JSON.parse(sessions);
+                    console.log('签到Sessions数据解析为JSON成功');
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                        console.log('签到Sessions模式：从JSON中添加Authorization头');
+                    }
+                    if (sessionData.cookie) {
+                        // 合并cookies而不是覆盖
+                        if (finalCookies) {
+                            finalCookies += '; ' + sessionData.cookie;
+                        } else {
+                            finalCookies = sessionData.cookie;
+                        }
+                        console.log('签到Sessions模式：合并JSON中的cookie');
+                    }
+                } catch (e) {
+                    console.log('签到Sessions数据不是JSON，直接作为cookie使用');
+                    // 合并cookies而不是覆盖
+                    if (finalCookies) {
+                        finalCookies += '; ' + sessions;
+                    } else {
+                        finalCookies = sessions;
+                    }
+                }
+            }
+
+            // 设置最终的cookies
+            if (finalCookies) {
+                headers['Cookie'] = finalCookies;
+                console.log(`签到最终cookies: ${finalCookies.substring(0, 200)}...`);
+            }
+
+            // 根据API类型和User ID添加用户头信息
+            if (site && site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                    console.log(`签到添加new-api-user头: ${site.user_id}`);
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                    console.log(`签到添加veloera-user头: ${site.user_id}`);
+                }
+            }
+
+            console.log('签到请求头:', JSON.stringify(headers, null, 2));
+
+            // 发送POST请求进行签到
+            const response = await axios.post(checkinUrl, {}, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500 // 接受 4xx 和 2xx
+            });
+
+            console.log(`签到API响应状态: ${response.status}`);
+            console.log(`签到响应数据: ${JSON.stringify(response.data, null, 2)}`);
+
+            const data = response.data;
+            
+            // 检查响应格式
+            if (!data || typeof data !== 'object') {
+                console.log('签到响应格式异常，跳过签到处理');
+                return;
+            }
+
+            // 分析签到结果
+            const success = data.success === true;
+            const message = data.message || '';
+            
+            if (success && message && !message.includes('已经签到')) {
+                // 签到成功
+                console.log(`✅ 签到成功: ${message}`);
+                
+                // 更新最后签到时间
+                await this.updateLastCheckinTime(site.id);
+                
+                // 记录签到成功日志
+                await this.logCheckinResult(site.id, 'success', `签到成功: ${message}`);
+                
+            } else if (success && (!message || message.includes('已经签到'))) {
+                // 已经签到过了
+                console.log(`ℹ️  今日已签到: ${message || '已签到'}`);
+                // 不记录日志，因为这是正常情况
+                
+            } else {
+                // 签到失败
+                console.log(`❌ 签到失败: ${message}`);
+                
+                // 记录签到失败日志
+                await this.logCheckinResult(site.id, 'error', `签到失败: ${message}`);
+            }
+
+        } catch (error) {
+            console.error('签到过程中出现异常:', error.message);
+            
+            // 记录签到异常日志
+            await this.logCheckinResult(site.id, 'error', `签到异常: ${error.message}`);
+            
+            // 签到异常不影响后续流程，继续执行
+        }
     }
 
     // 获取用户信息
@@ -408,6 +558,49 @@ class SiteCheckService {
                 success: false,
                 message: error.message
             };
+        }
+    }
+
+    // 更新最后签到时间
+    async updateLastCheckinTime(siteId) {
+        try {
+            const updateSql = `
+                UPDATE api_sites SET 
+                    last_checkin = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `;
+            
+            const stmt = this.db.prepare(updateSql);
+            stmt.run(siteId);
+            
+            console.log(`✅ 已更新站点 ${siteId} 的最后签到时间`);
+        } catch (error) {
+            console.error('更新最后签到时间失败:', error.message);
+        }
+    }
+
+    // 记录签到结果日志
+    async logCheckinResult(siteId, status, message) {
+        try {
+            const insertSql = `
+                INSERT INTO site_check_logs (site_id, status, message, response_data) 
+                VALUES (?, ?, ?, ?)
+            `;
+            
+            const logData = {
+                type: 'checkin',
+                timestamp: new Date().toISOString(),
+                status: status,
+                message: message
+            };
+            
+            const stmt = this.db.prepare(insertSql);
+            stmt.run(siteId, status, `[签到] ${message}`, JSON.stringify(logData));
+            
+            console.log(`📝 已记录站点 ${siteId} 的签到日志: ${status} - ${message}`);
+        } catch (error) {
+            console.error('记录签到日志失败:', error.message);
         }
     }
 }
