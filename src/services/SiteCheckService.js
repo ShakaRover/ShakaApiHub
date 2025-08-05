@@ -140,10 +140,13 @@ class SiteCheckService {
                 'Content-Type': 'application/json'
             };
 
-            // 添加 cookies
+            // 合并cookies
+            let finalCookies = '';
+            
+            // 首先添加从站点获取的cookies
             if (cookies) {
-                headers['Cookie'] = cookies;
-                console.log(`使用cookies: ${cookies.substring(0, 100)}...`);
+                finalCookies = cookies;
+                console.log(`站点cookies: ${cookies.substring(0, 100)}...`);
             }
 
             // 添加 sessions 信息
@@ -157,13 +160,29 @@ class SiteCheckService {
                         console.log('添加Authorization头');
                     }
                     if (sessionData.cookie) {
-                        headers['Cookie'] = sessionData.cookie;
-                        console.log('使用sessions中的cookie');
+                        // 合并cookies而不是覆盖
+                        if (finalCookies) {
+                            finalCookies += '; ' + sessionData.cookie;
+                        } else {
+                            finalCookies = sessionData.cookie;
+                        }
+                        console.log('合并sessions中的cookie');
                     }
                 } catch (e) {
                     console.log('Sessions数据不是JSON，直接作为cookie使用');
-                    headers['Cookie'] = sessions;
+                    // 合并cookies而不是覆盖
+                    if (finalCookies) {
+                        finalCookies += '; ' + sessions;
+                    } else {
+                        finalCookies = sessions;
+                    }
                 }
+            }
+
+            // 设置最终的cookies
+            if (finalCookies) {
+                headers['Cookie'] = finalCookies;
+                console.log(`最终cookies: ${finalCookies.substring(0, 200)}...`);
             }
 
             console.log('请求头:', JSON.stringify(headers, null, 2));
