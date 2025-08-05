@@ -565,7 +565,7 @@ class ApiSiteManager {
                                 data-site-name="${this.escapeHtml(site.name)}" 
                                 data-enabled="${Boolean(site.enabled)}"
                                 title="${site.enabled ? '禁用' : '启用'}">
-                            ${site.enabled ? '🔇' : '🔊'}
+                            ${site.enabled ? '🔴' : '🟢'}
                         </button>
                         <button class="btn-icon btn-delete" 
                                 data-site-id="${site.id}" 
