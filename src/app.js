@@ -7,6 +7,7 @@ const path = require('path');
 
 const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
+const BackupService = require('./services/BackupService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -97,6 +98,10 @@ async function startApp() {
             console.log(`ShakaHub认证系统运行在端口 ${PORT}`);
             console.log(`访问地址: http://localhost:${PORT}`);
         });
+
+        // 启动自动备份服务
+        const backupService = new BackupService();
+        await backupService.scheduleAutoBackup();
     } catch (error) {
         console.error('应用启动失败:', error.message);
         process.exit(1);

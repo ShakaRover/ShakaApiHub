@@ -214,6 +214,165 @@ class ApiSiteService {
         }
     }
 
+    // 导出API站点配置
+    async exportApiSites(userId = null, siteIds = null) {
+        try {
+            let sites;
+            if (siteIds && Array.isArray(siteIds) && siteIds.length > 0) {
+                // 导出指定站点
+                sites = [];
+                for (const id of siteIds) {
+                    const site = this.apiSiteModel.findById(parseInt(id));
+                    if (site) {
+                        sites.push(site);
+                    }
+                }
+            } else if (userId) {
+                // 导出指定用户的站点
+                sites = this.apiSiteModel.findByCreatedBy(parseInt(userId));
+            } else {
+                // 导出所有站点
+                sites = this.apiSiteModel.findAll();
+            }
+
+            // 过滤掉敏感的数据库信息并添加导出元数据
+            const exportData = {
+                metadata: {
+                    exportTime: new Date().toISOString(),
+                    version: '1.0',
+                    totalSites: sites.length
+                },
+                sites: sites.map(site => ({
+                    apiType: site.api_type,
+                    name: site.name,
+                    url: site.url,
+                    authMethod: site.auth_method,
+                    sessions: site.sessions,
+                    token: site.token,
+                    userId: site.user_id,
+                    enabled: Boolean(site.enabled),
+                    autoCheckin: Boolean(site.auto_checkin)
+                }))
+            };
+
+            return {
+                success: true,
+                data: exportData,
+                message: `成功导出${sites.length}个站点配置`
+            };
+        } catch (error) {
+            console.error('ApiSiteService.exportApiSites:', error.message);
+            return {
+                success: false,
+                message: error.message || '导出站点配置失败'
+            };
+        }
+    }
+
+    // 导入API站点配置
+    async importApiSites(importData, createdBy, options = { skipExisting: false, overwrite: false }) {
+        try {
+            // 验证导入数据格式
+            if (!importData || typeof importData !== 'object') {
+                return {
+                    success: false,
+                    message: '无效的导入数据格式'
+                };
+            }
+
+            if (!importData.sites || !Array.isArray(importData.sites)) {
+                return {
+                    success: false,
+                    message: '导入数据中未找到有效的站点配置'
+                };
+            }
+
+            const results = {
+                total: importData.sites.length,
+                success: 0,
+                failed: 0,
+                skipped: 0,
+                errors: []
+            };
+
+            // 处理每个站点
+            for (let i = 0; i < importData.sites.length; i++) {
+                const siteData = importData.sites[i];
+                try {
+                    // 验证站点数据
+                    const validationResult = this.validateApiSiteData(siteData);
+                    if (!validationResult.isValid) {
+                        results.failed++;
+                        results.errors.push({
+                            index: i + 1,
+                            name: siteData.name || '未知',
+                            error: validationResult.message
+                        });
+                        continue;
+                    }
+
+                    // 检查是否已存在同名站点
+                    const existingSites = this.apiSiteModel.findAll();
+                    const existingSite = existingSites.find(site => 
+                        site.name === siteData.name && site.created_by === parseInt(createdBy)
+                    );
+
+                    if (existingSite) {
+                        if (options.skipExisting) {
+                            results.skipped++;
+                            continue;
+                        } else if (options.overwrite) {
+                            // 更新现有站点
+                            await this.updateApiSite(existingSite.id, siteData);
+                            results.success++;
+                            continue;
+                        } else {
+                            results.failed++;
+                            results.errors.push({
+                                index: i + 1,
+                                name: siteData.name,
+                                error: '站点名称已存在'
+                            });
+                            continue;
+                        }
+                    }
+
+                    // 创建新站点
+                    const createResult = await this.createApiSite(siteData, createdBy);
+                    if (createResult.success) {
+                        results.success++;
+                    } else {
+                        results.failed++;
+                        results.errors.push({
+                            index: i + 1,
+                            name: siteData.name,
+                            error: createResult.message
+                        });
+                    }
+                } catch (error) {
+                    results.failed++;
+                    results.errors.push({
+                        index: i + 1,
+                        name: siteData.name || '未知',
+                        error: error.message
+                    });
+                }
+            }
+
+            return {
+                success: true,
+                data: results,
+                message: `导入完成：成功${results.success}个，失败${results.failed}个，跳过${results.skipped}个`
+            };
+        } catch (error) {
+            console.error('ApiSiteService.importApiSites:', error.message);
+            return {
+                success: false,
+                message: error.message || '导入站点配置失败'
+            };
+        }
+    }
+
     // 验证API站点数据
     validateApiSiteData(data) {
         const { apiType, name, url, authMethod, sessions, token, userId } = data;

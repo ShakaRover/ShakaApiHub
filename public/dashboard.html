@@ -48,6 +48,12 @@
                 </a>
             </div>
             <div class="nav-item">
+                <a href="#" class="nav-link" data-page="data-management">
+                    <div class="nav-icon">💾</div>
+                    <span class="nav-text">数据管理</span>
+                </a>
+            </div>
+            <div class="nav-item">
                 <a href="#" class="nav-link" data-page="settings">
                     <div class="nav-icon">⚙️</div>
                     <span class="nav-text">用户设置</span>
@@ -250,6 +256,145 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据管理页面 -->
+            <div id="data-management-page" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">数据管理</h1>
+                        <p class="page-subtitle">导出、导入和备份您的API站点配置</p>
+                    </div>
+                </div>
+
+                <!-- 数据管理功能选项卡 -->
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="export-import">导出导入</button>
+                    <button class="tab-btn" data-tab="backup">备份管理</button>
+                </div>
+
+                <!-- 导出导入选项卡 -->
+                <div id="export-import-tab" class="tab-content active">
+                    <div class="grid">
+                        <!-- 导出区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">导出配置</h3>
+                                <p class="card-description">将您的API站点配置导出为JSON文件</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="exportType">导出类型</label>
+                                    <select id="exportType" class="form-select">
+                                        <option value="user">我的站点</option>
+                                        <option value="selected">选定站点</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="siteSelectionGroup" style="display: none;">
+                                    <label>选择要导出的站点</label>
+                                    <div id="siteCheckboxList" class="checkbox-list">
+                                        <!-- 动态生成站点复选框 -->
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" id="exportBtn">📤 导出配置</button>
+                            </div>
+                        </div>
+
+                        <!-- 导入区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">导入配置</h3>
+                                <p class="card-description">从JSON文件导入API站点配置</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="importFile">选择导入文件</label>
+                                    <input type="file" id="importFile" class="form-input" accept=".json" />
+                                    <small class="text-muted">仅支持JSON格式文件</small>
+                                </div>
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="skipExisting" />
+                                        <span class="checkmark"></span>
+                                        跳过已存在的站点
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="overwriteExisting" />
+                                        <span class="checkmark"></span>
+                                        覆盖已存在的站点
+                                    </label>
+                                </div>
+                                <button class="btn btn-success" id="importBtn" disabled>📥 导入配置</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 导入预览区域 -->
+                    <div id="importPreview" class="card" style="display: none;">
+                        <div class="card-header">
+                            <h3 class="card-title">导入预览</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="previewInfo"></div>
+                            <div id="previewSites"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 备份管理选项卡 -->
+                <div id="backup-tab" class="tab-content">
+                    <div class="grid">
+                        <!-- 创建备份区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">创建备份</h3>
+                                <p class="card-description">手动创建站点配置备份</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="includeAllUsers" />
+                                        <span class="checkmark"></span>
+                                        包含所有用户的站点（管理员功能）
+                                    </label>
+                                </div>
+                                <button class="btn btn-primary" id="createBackupBtn">💾 创建备份</button>
+                            </div>
+                        </div>
+
+                        <!-- 自动备份状态 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">自动备份</h3>
+                                <p class="card-description">系统每24小时自动创建备份</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="status-indicator">
+                                    <div class="status-badge success">运行中</div>
+                                    <span>下次备份时间: <span id="nextBackupTime">--</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 备份文件列表 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3 class="card-title">备份历史</h3>
+                                <p class="card-description">管理您的备份文件</p>
+                            </div>
+                            <button class="btn btn-secondary" id="refreshBackupsBtn">🔄 刷新</button>
+                        </div>
+                        <div class="card-body">
+                            <div id="backupsList">
+                                <!-- 动态生成备份列表 -->
+                            </div>
                         </div>
                     </div>
                 </div>

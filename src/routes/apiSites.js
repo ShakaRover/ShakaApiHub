@@ -76,6 +76,12 @@ router.get('/sites/stats', requireAuth, (req, res) => {
     apiSiteController.getApiSiteStats(req, res);
 });
 
+// 导出导入和备份路由 - 必须在 :id 路由之前定义
+// GET /api/sites/export - 导出API站点配置
+router.get('/sites/export', requireAuth, (req, res) => {
+    apiSiteController.exportApiSites(req, res);
+});
+
 // GET /api/sites/:id - 根据ID获取API站点
 router.get('/sites/:id', requireAuth, (req, res) => {
     apiSiteController.getApiSiteById(req, res);
@@ -109,6 +115,36 @@ router.post('/sites/:id/check', requireAuth, (req, res) => {
 // GET /api/sites/:id/check-history - 获取检测历史
 router.get('/sites/:id/check-history', requireAuth, (req, res) => {
     apiSiteController.getCheckHistory(req, res);
+});
+
+// POST /api/sites/import - 导入API站点配置
+router.post('/sites/import', requireAuth, (req, res) => {
+    apiSiteController.importApiSites(req, res);
+});
+
+// POST /api/backups - 创建备份
+router.post('/backups', requireAuth, (req, res) => {
+    apiSiteController.createBackup(req, res);
+});
+
+// GET /api/backups - 获取备份列表
+router.get('/backups', requireAuth, (req, res) => {
+    apiSiteController.getBackupList(req, res);
+});
+
+// POST /api/backups/restore - 恢复备份
+router.post('/backups/restore', requireAuth, (req, res) => {
+    apiSiteController.restoreBackup(req, res);
+});
+
+// DELETE /api/backups/:fileName - 删除备份
+router.delete('/backups/:fileName', requireAuth, (req, res) => {
+    apiSiteController.deleteBackup(req, res);
+});
+
+// GET /api/backups/:fileName/validate - 验证备份文件
+router.get('/backups/:fileName/validate', requireAuth, (req, res) => {
+    apiSiteController.validateBackup(req, res);
 });
 
 module.exports = router;
