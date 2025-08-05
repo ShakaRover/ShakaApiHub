@@ -304,6 +304,10 @@ class SiteCheckService {
             } else if (success && (!message || message.includes('已经签到'))) {
                 // 已经签到过了
                 console.log(`ℹ️  今日已签到: ${message || '已签到'}`);
+                
+                // 检查系统记录的最后签到时间是否为今天
+                await this.checkAndUpdateCheckinTime(site.id);
+                
                 // 不记录日志，因为这是正常情况
 
             } else {
@@ -578,6 +582,42 @@ class SiteCheckService {
             console.log(`✅ 已更新站点 ${siteId} 的最后签到时间`);
         } catch (error) {
             console.error('更新最后签到时间失败:', error.message);
+        }
+    }
+
+    // 检查并更新签到时间（如果不是今天）
+    async checkAndUpdateCheckinTime(siteId) {
+        try {
+            // 获取站点的最后签到时间
+            const getSql = `SELECT last_checkin FROM api_sites WHERE id = ?`;
+            const stmt = this.db.prepare(getSql);
+            const result = stmt.get(siteId);
+            
+            if (!result || !result.last_checkin) {
+                // 如果没有签到记录，更新为当前时间
+                console.log(`站点 ${siteId} 无签到记录，更新为当前时间`);
+                await this.updateLastCheckinTime(siteId);
+                return;
+            }
+            
+            // 检查最后签到时间是否为今天
+            const lastCheckin = new Date(result.last_checkin);
+            const today = new Date();
+            
+            // 比较日期（忽略时间）
+            const lastCheckinDate = new Date(lastCheckin.getFullYear(), lastCheckin.getMonth(), lastCheckin.getDate());
+            const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            if (lastCheckinDate.getTime() !== todayDate.getTime()) {
+                // 最后签到时间不是今天，更新为当前时间
+                console.log(`站点 ${siteId} 最后签到时间不是今天 (${lastCheckin.toLocaleDateString()})，更新为当前时间`);
+                await this.updateLastCheckinTime(siteId);
+            } else {
+                console.log(`站点 ${siteId} 最后签到时间已是今天，无需更新`);
+            }
+            
+        } catch (error) {
+            console.error('检查签到时间失败:', error.message);
         }
     }
 
