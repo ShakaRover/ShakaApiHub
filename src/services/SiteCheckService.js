@@ -9,27 +9,37 @@ class SiteCheckService {
 
     // 检测单个站点
     async checkSite(siteId) {
+        let site = null;
         try {
             // 获取站点信息
-            const site = this.statements.findApiSiteById.get(siteId);
+            site = this.statements.findApiSiteById.get(siteId);
             if (!site) {
                 throw new Error('站点不存在');
             }
 
             console.log(`开始检测站点: ${site.name} (${site.url})`);
+            console.log(`站点认证方式: ${site.auth_method}`);
+            console.log(`Sessions数据: ${site.sessions ? '已提供' : '未提供'}`);
 
             // 第一步：访问站点获取 set-cookie
+            console.log('第一步：获取站点cookies...');
             const cookies = await this.getSiteCookies(site.url);
+            console.log(`获取到cookies: ${cookies ? cookies.substring(0, 100) + '...' : '无'}`);
             
             // 第二步：获取用户信息
+            console.log('第二步：获取用户信息...');
             const userInfo = await this.getUserInfo(site.url, cookies, site.sessions);
+            console.log('用户信息获取成功:', JSON.stringify(userInfo, null, 2));
             
             // 第三步：保存检测结果
+            console.log('第三步：保存检测结果...');
             await this.saveSiteInfo(siteId, userInfo);
             
             // 第四步：记录检测日志
+            console.log('第四步：记录检测日志...');
             await this.logCheckResult(siteId, 'success', '检测成功', JSON.stringify(userInfo));
 
+            console.log(`站点检测完成: ${site.name}`);
             return {
                 success: true,
                 message: '站点检测成功',
@@ -37,13 +47,30 @@ class SiteCheckService {
             };
 
         } catch (error) {
-            console.error(`站点检测失败 (ID: ${siteId}):`, error.message);
+            const siteName = site ? site.name : `ID:${siteId}`;
+            console.error(`\n=== 站点检测失败详情 ===`);
+            console.error(`站点: ${siteName}`);
+            console.error(`错误类型: ${error.constructor.name}`);
+            console.error(`错误消息: ${error.message}`);
+            console.error(`错误代码: ${error.code || '无'}`);
+            console.error(`错误状态: ${error.response?.status || '无'}`);
+            console.error(`完整错误:`, error);
+            console.error(`=== 错误详情结束 ===\n`);
             
             // 更新检测状态为失败
-            this.statements.updateSiteCheckStatus.run('error', error.message, siteId);
+            try {
+                this.statements.updateSiteCheckStatus.run('error', error.message, siteId);
+            } catch (dbError) {
+                console.error('更新数据库状态失败:', dbError.message);
+            }
             
             // 记录错误日志
-            await this.logCheckResult(siteId, 'error', error.message, null);
+            await this.logCheckResult(siteId, 'error', error.message, JSON.stringify({
+                errorType: error.constructor.name,
+                errorCode: error.code,
+                errorStatus: error.response?.status,
+                errorStack: error.stack
+            }));
 
             return {
                 success: false,
@@ -55,24 +82,40 @@ class SiteCheckService {
     // 获取站点 cookies
     async getSiteCookies(siteUrl) {
         try {
+            console.log(`正在访问站点: ${siteUrl}`);
             const response = await axios.get(siteUrl, {
                 timeout: 10000,
                 validateStatus: () => true, // 接受所有状态码
                 maxRedirects: 5
             });
 
+            console.log(`站点响应状态: ${response.status}`);
+            console.log(`响应头数量: ${Object.keys(response.headers).length}`);
+
             const cookies = [];
             const setCookieHeaders = response.headers['set-cookie'];
             
             if (setCookieHeaders) {
+                console.log(`找到 ${setCookieHeaders.length} 个set-cookie头`);
                 setCookieHeaders.forEach(cookie => {
                     const cookiePart = cookie.split(';')[0];
                     cookies.push(cookiePart);
                 });
+            } else {
+                console.log('未找到set-cookie头');
             }
 
-            return cookies.join('; ');
+            const cookieString = cookies.join('; ');
+            console.log(`合并后的cookies长度: ${cookieString.length}`);
+            return cookieString;
         } catch (error) {
+            console.error('获取站点cookies失败:', {
+                code: error.code,
+                message: error.message,
+                status: error.response?.status,
+                url: siteUrl
+            });
+            
             if (error.code === 'ECONNABORTED') {
                 throw new Error('连接超时');
             } else if (error.code === 'ENOTFOUND') {
@@ -89,6 +132,7 @@ class SiteCheckService {
     async getUserInfo(siteUrl, cookies, sessions) {
         try {
             const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/user/self`;
+            console.log(`正在请求API: ${apiUrl}`);
             
             const headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -99,29 +143,47 @@ class SiteCheckService {
             // 添加 cookies
             if (cookies) {
                 headers['Cookie'] = cookies;
+                console.log(`使用cookies: ${cookies.substring(0, 100)}...`);
             }
 
             // 添加 sessions 信息
             if (sessions) {
+                console.log(`处理sessions数据: ${sessions.substring(0, 100)}...`);
                 try {
                     const sessionData = JSON.parse(sessions);
+                    console.log('Sessions数据解析为JSON成功');
                     if (sessionData.token) {
                         headers['Authorization'] = `Bearer ${sessionData.token}`;
+                        console.log('添加Authorization头');
                     }
                     if (sessionData.cookie) {
                         headers['Cookie'] = sessionData.cookie;
+                        console.log('使用sessions中的cookie');
                     }
                 } catch (e) {
-                    // 如果不是 JSON，直接作为 cookie 使用
+                    console.log('Sessions数据不是JSON，直接作为cookie使用');
                     headers['Cookie'] = sessions;
                 }
             }
+
+            console.log('请求头:', JSON.stringify(headers, null, 2));
 
             const response = await axios.get(apiUrl, {
                 headers,
                 timeout: 15000,
                 validateStatus: (status) => status < 500 // 接受 4xx 和 2xx
             });
+
+            console.log(`API响应状态: ${response.status}`);
+            console.log(`响应数据类型: ${typeof response.data}`);
+            
+            // 检查是否返回了HTML页面（可能是反爬虫页面）
+            if (typeof response.data === 'string' && response.data.includes('<html>')) {
+                console.log('检测到HTML响应，可能是反爬虫保护');
+                throw new Error('站点返回HTML页面，可能有反爬虫保护或需要验证');
+            }
+            
+            console.log(`响应数据: ${JSON.stringify(response.data, null, 2)}`);
 
             if (response.status === 404) {
                 throw new Error('API接口不存在 (404)');
@@ -135,17 +197,44 @@ class SiteCheckService {
 
             const data = response.data;
             
+            if (!data || typeof data !== 'object') {
+                if (typeof data === 'string') {
+                    if (data.includes('<!DOCTYPE html>') || data.includes('<html>')) {
+                        throw new Error('API返回HTML页面而非JSON数据，请检查认证信息');
+                    } else {
+                        throw new Error(`API返回非JSON数据: ${data.substring(0, 100)}...`);
+                    }
+                }
+                throw new Error('API返回数据格式错误');
+            }
+            
             if (!data.success) {
                 throw new Error(data.message || '获取用户信息失败');
+            }
+
+            if (!data.data) {
+                throw new Error('API返回数据中缺少data字段');
             }
 
             return data.data;
 
         } catch (error) {
+            console.error('获取用户信息失败详情:', {
+                code: error.code,
+                message: error.message,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                responseData: error.response?.data,
+                url: siteUrl
+            });
+            
             if (error.code === 'ECONNABORTED') {
                 throw new Error('请求超时');
             } else if (error.response) {
-                throw new Error(`HTTP ${error.response.status}: ${error.response.statusText}`);
+                const responseText = typeof error.response.data === 'string' 
+                    ? error.response.data.substring(0, 200) 
+                    : JSON.stringify(error.response.data).substring(0, 200);
+                throw new Error(`HTTP ${error.response.status}: ${error.response.statusText} - ${responseText}`);
             } else {
                 throw error;
             }
