@@ -500,6 +500,18 @@ class SiteCheckService {
             const affQuota = userInfo.aff_quota ? userInfo.aff_quota / 500000 : 0;
             const affHistoryQuota = userInfo.aff_history_quota ? userInfo.aff_history_quota / 500000 : 0;
 
+            // 处理签到时间：如果用户信息中没有签到时间，保持数据库中的原有值
+            let lastCheckinTime = null;
+            if (userInfo.last_check_in_time) {
+                lastCheckinTime = userInfo.last_check_in_time;
+                console.log(`用户信息包含签到时间，将更新为: ${lastCheckinTime}`);
+            } else {
+                // 获取当前数据库中的签到时间
+                const currentSite = this.statements.findApiSiteById.get(siteId);
+                lastCheckinTime = currentSite ? currentSite.site_last_check_in_time : null;
+                console.log(`用户信息不包含签到时间，保持原有值: ${lastCheckinTime || '无'}`);
+            }
+
             this.statements.updateSiteCheckInfo.run(
                 quota,
                 usedQuota,
@@ -510,7 +522,7 @@ class SiteCheckService {
                 affQuota,
                 affHistoryQuota,
                 userInfo.username || '',
-                userInfo.last_check_in_time || null,
+                lastCheckinTime,
                 'success',
                 '检测成功',
                 siteId
