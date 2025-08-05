@@ -2,7 +2,7 @@
 
 // 全局状态管理
 const AdminApp = {
-    currentPage: 'dashboard',
+    currentPage: 'api-management',
     sidebarCollapsed: false,
     isMobile: false,
     loginTime: Date.now(),
@@ -19,6 +19,9 @@ const AdminApp = {
         if (this.isMobile) {
             this.collapseSidebar();
         }
+        
+        // 导航到默认页面
+        this.navigateToPage(this.currentPage);
     },
     
     // 检测移动设备
