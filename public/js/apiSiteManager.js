@@ -597,12 +597,94 @@ class ApiSiteManager {
         const lastCheckTime = new Date(site.last_check_time).toLocaleString('zh-CN');
         
         if (site.last_check_status === 'error') {
-            return `
-                <div class="site-info-box error">
-                    <div class="info-status">❌ 检测失败</div>
-                    <div class="info-message">${site.last_check_message || '未知错误'}</div>
-                </div>
-            `;
+            // 检测失败，但检查是否有用户数据可以显示
+            const hasUserData = site.site_username || site.site_quota || site.site_used_quota || 
+                               site.site_request_count || site.site_user_group || site.site_aff_code;
+            
+            if (hasUserData) {
+                // 有用户数据，显示数据但标记为检测失败状态
+                const quota = site.site_quota ? site.site_quota.toFixed(2) : '0.00';
+                const usedQuota = site.site_used_quota ? site.site_used_quota.toFixed(2) : '0.00';
+                const affQuota = site.site_aff_quota ? site.site_aff_quota.toFixed(2) : '0.00';
+                const affHistoryQuota = site.site_aff_history_quota ? site.site_aff_history_quota.toFixed(2) : '0.00';
+                
+                return `
+                    <div class="site-info-box error">
+                        <div class="info-status">⚠️ 检测失败但有历史数据</div>
+                        <div class="info-message" style="margin-bottom: 0.75rem; font-size: 0.7rem; opacity: 0.8;">${site.last_check_message || '未知错误'}</div>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">用户名</span>
+                                <span class="info-value">${site.site_username || '未知'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">当前余额</span>
+                                <span class="info-value">$${quota}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">历史消耗</span>
+                                <span class="info-value">$${usedQuota}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">请求次数</span>
+                                <span class="info-value">${site.site_request_count || 0}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">用户组</span>
+                                <span class="info-value">${site.site_user_group || '未知'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">最后签到时间</span>
+                                <span class="info-value">${site.site_last_check_in_time ? new Date(site.site_last_check_in_time).toLocaleString('zh-CN') : '未签到'}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">邀请码</span>
+                                <span class="info-value">
+                                    ${site.site_aff_code ? `
+                                        <span class="aff-code-container">
+                                            <span class="aff-code">${site.site_aff_code}</span>
+                                            <button class="btn-copy-aff" 
+                                                    data-site-url="${site.url}" 
+                                                    data-aff-code="${site.site_aff_code}"
+                                                    title="复制邀请链接">
+                                                📋
+                                            </button>
+                                        </span>
+                                    ` : '无'}
+                                </span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">邀请数量</span>
+                                <span class="info-value">${site.site_aff_count || 0}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">待使用收益</span>
+                                <span class="info-value">$${affQuota}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">总收益</span>
+                                <span class="info-value">$${affHistoryQuota}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">检测时间</span>
+                                <span class="info-value">${lastCheckTime}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">剩余额度</span>
+                                <span class="info-value">$${(parseFloat(quota) - parseFloat(usedQuota)).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 没有用户数据，只显示错误信息
+                return `
+                    <div class="site-info-box error">
+                        <div class="info-status">❌ 检测失败</div>
+                        <div class="info-message">${site.last_check_message || '未知错误'}</div>
+                    </div>
+                `;
+            }
         }
 
         if (site.last_check_status === 'success') {
