@@ -577,15 +577,10 @@ class ApiSiteManager {
         const totalElement = document.getElementById('totalApiSites');
         const enabledElement = document.getElementById('enabledApiSites');
         const disabledElement = document.getElementById('disabledApiSites');
-        const tokenElement = document.getElementById('tokenApiSites');
 
         if (totalElement) totalElement.textContent = stats.total || 0;
         if (enabledElement) enabledElement.textContent = stats.enabled || 0;
         if (disabledElement) disabledElement.textContent = stats.disabled || 0;
-        
-        // 计算Token授权方式数量
-        const tokenCount = this.apiSites.filter(site => site.auth_method === 'token').length;
-        if (tokenElement) tokenElement.textContent = tokenCount;
     }
 
     // 渲染API站点表格
