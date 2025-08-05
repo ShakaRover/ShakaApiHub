@@ -241,30 +241,23 @@ class ApiSiteManager {
             form.reset();
             document.getElementById('apiSiteEnabled').checked = true;
             
-            // 设置授权方式默认为Token（AnyRouter除外）
+            // 设置默认值
             const authMethodSelect = document.getElementById('apiSiteAuthMethod');
             const apiTypeSelect = document.getElementById('apiSiteType');
             
-            if (authMethodSelect && apiTypeSelect) {
-                // 如果已经选择了API类型，根据类型设置默认授权方式
-                if (apiTypeSelect.value === 'AnyRouter') {
-                    authMethodSelect.value = 'sessions';
-                    this.handleAuthMethodChange('sessions');
-                } else if (apiTypeSelect.value) {
-                    // 其他类型默认为token
-                    authMethodSelect.value = 'token';
-                    this.handleAuthMethodChange('token');
-                } else {
-                    // 未选择API类型时，默认为token
-                    authMethodSelect.value = 'token';
-                    this.handleAuthMethodChange('token');
-                }
-            } else {
-                // 如果选择器不存在，使用原有逻辑
-                this.handleAuthMethodChange('');
+            // 设置API类型默认为NewApi
+            if (apiTypeSelect) {
+                apiTypeSelect.value = 'NewApi';
             }
             
-            this.handleApiTypeChange('');
+            // 设置授权方式默认为Token（除非是AnyRouter）
+            if (authMethodSelect) {
+                authMethodSelect.value = 'token';
+                this.handleAuthMethodChange('token');
+            }
+            
+            // 触发API类型变更处理
+            this.handleApiTypeChange('NewApi');
         }
     }
 
@@ -366,8 +359,8 @@ class ApiSiteManager {
             if (autoCheckinInput) {
                 autoCheckinInput.checked = true;
             }
-        } else {
-            // 其他类型恢复token选项并设置为默认
+        } else if (apiType === 'NewApi' || !apiType) {
+            // NewApi类型或其他未指定类型，恢复token选项并设置为默认
             if (authMethodSelect) {
                 const tokenOption = authMethodSelect.querySelector('option[value="token"]');
                 if (tokenOption) {

@@ -506,8 +506,7 @@
                     <div class="form-group">
                         <label for="apiSiteType">API类型 *</label>
                         <select id="apiSiteType" name="apiType" class="form-control" required>
-                            <option value="">请选择API类型</option>
-                            <option value="NewApi">NewApi</option>
+                            <option value="NewApi" selected>NewApi</option>
                             <option value="Veloera">Veloera</option>
                             <option value="AnyRouter">AnyRouter</option>
                         </select>
@@ -529,9 +528,8 @@
                     <div class="form-group">
                         <label for="apiSiteAuthMethod">授权方式 *</label>
                         <select id="apiSiteAuthMethod" name="authMethod" class="form-control" required>
-                            <option value="">请选择授权方式</option>
                             <option value="sessions">Sessions</option>
-                            <option value="token">Token</option>
+                            <option value="token" selected>Token</option>
                         </select>
                         <small class="form-help">选择API的认证方式</small>
                     </div>
