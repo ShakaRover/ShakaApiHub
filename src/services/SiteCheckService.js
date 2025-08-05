@@ -158,6 +158,46 @@ class SiteCheckService {
         }
     }
 
+    // 智能合并cookies，set-cookies优先级最高
+    mergeCookies(setCookies, configCookies) {
+        const cookieMap = new Map();
+        
+        // 首先解析配置中的cookies
+        if (configCookies) {
+            const configPairs = configCookies.split(';').map(pair => pair.trim());
+            configPairs.forEach(pair => {
+                const [name, value] = pair.split('=').map(s => s.trim());
+                if (name && value) {
+                    cookieMap.set(name, value);
+                }
+            });
+            console.log(`解析配置cookies: ${configPairs.length} 个字段`);
+        }
+        
+        // 然后解析set-cookies，覆盖同名字段
+        if (setCookies) {
+            const setCookiePairs = setCookies.split(';').map(pair => pair.trim());
+            setCookiePairs.forEach(pair => {
+                const [name, value] = pair.split('=').map(s => s.trim());
+                if (name && value) {
+                    if (cookieMap.has(name)) {
+                        console.log(`set-cookies覆盖配置字段: ${name}=${cookieMap.get(name)} → ${value}`);
+                    }
+                    cookieMap.set(name, value);
+                }
+            });
+            console.log(`解析set-cookies: ${setCookiePairs.length} 个字段`);
+        }
+        
+        // 合并为最终的cookie字符串
+        const finalCookies = Array.from(cookieMap.entries())
+            .map(([name, value]) => `${name}=${value}`)
+            .join('; ');
+            
+        console.log(`合并后的cookies: ${cookieMap.size} 个唯一字段`);
+        return finalCookies;
+    }
+
     // 从响应中提取cookies的辅助方法
     extractCookiesFromResponse(response, url) {
         console.log(`从 ${url} 提取cookies`);
@@ -206,14 +246,8 @@ class SiteCheckService {
                 'Content-Type': 'application/json'
             };
 
-            // 处理认证信息
-            let finalCookies = '';
-
-            // 首先添加从站点获取的cookies
-            if (cookies) {
-                finalCookies = cookies;
-                console.log(`站点cookies: ${cookies.substring(0, 100)}...`);
-            }
+            // 处理认证信息和cookies
+            let configCookies = '';
 
             // 根据认证方式处理认证信息
             if (site.auth_method === 'token' && site.token) {
@@ -231,24 +265,17 @@ class SiteCheckService {
                         console.log('签到Sessions模式：从JSON中添加Authorization头');
                     }
                     if (sessionData.cookie) {
-                        // 合并cookies而不是覆盖
-                        if (finalCookies) {
-                            finalCookies += '; ' + sessionData.cookie;
-                        } else {
-                            finalCookies = sessionData.cookie;
-                        }
-                        console.log('签到Sessions模式：合并JSON中的cookie');
+                        configCookies = sessionData.cookie;
+                        console.log('签到Sessions模式：获取配置中的cookie');
                     }
                 } catch (e) {
                     console.log('签到Sessions数据不是JSON，直接作为cookie使用');
-                    // 合并cookies而不是覆盖
-                    if (finalCookies) {
-                        finalCookies += '; ' + sessions;
-                    } else {
-                        finalCookies = sessions;
-                    }
+                    configCookies = sessions;
                 }
             }
+
+            // 智能合并cookies：set-cookies优先级最高
+            const finalCookies = this.mergeCookies(cookies, configCookies);
 
             // 设置最终的cookies
             if (finalCookies) {
@@ -340,14 +367,8 @@ class SiteCheckService {
                 'Content-Type': 'application/json'
             };
 
-            // 合并cookies
-            let finalCookies = '';
-
-            // 首先添加从站点获取的cookies
-            if (cookies) {
-                finalCookies = cookies;
-                console.log(`站点cookies: ${cookies.substring(0, 100)}...`);
-            }
+            // 处理认证信息和cookies
+            let configCookies = '';
 
             // 根据认证方式处理认证信息
             if (site.auth_method === 'token' && site.token) {
@@ -365,24 +386,17 @@ class SiteCheckService {
                         console.log('Sessions模式：从JSON中添加Authorization头');
                     }
                     if (sessionData.cookie) {
-                        // 合并cookies而不是覆盖
-                        if (finalCookies) {
-                            finalCookies += '; ' + sessionData.cookie;
-                        } else {
-                            finalCookies = sessionData.cookie;
-                        }
-                        console.log('Sessions模式：合并JSON中的cookie');
+                        configCookies = sessionData.cookie;
+                        console.log('Sessions模式：获取配置中的cookie');
                     }
                 } catch (e) {
                     console.log('Sessions数据不是JSON，直接作为cookie使用');
-                    // 合并cookies而不是覆盖
-                    if (finalCookies) {
-                        finalCookies += '; ' + sessions;
-                    } else {
-                        finalCookies = sessions;
-                    }
+                    configCookies = sessions;
                 }
             }
+
+            // 智能合并cookies：set-cookies优先级最高
+            const finalCookies = this.mergeCookies(cookies, configCookies);
 
             // 设置最终的cookies
             if (finalCookies) {
