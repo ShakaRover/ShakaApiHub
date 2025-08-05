@@ -251,6 +251,11 @@ class ApiSiteService {
             return { isValid: false, message: 'AnyRouter只支持Sessions授权方式' };
         }
 
+        // AnyRouter必须提供User ID
+        if (apiType === 'AnyRouter' && (!userId || typeof userId !== 'string' || userId.trim().length === 0)) {
+            return { isValid: false, message: 'AnyRouter类型必须提供User ID信息' };
+        }
+
         // 根据授权方式验证特定字段
         if (authMethod === 'sessions') {
             if (!sessions || typeof sessions !== 'string' || sessions.trim().length === 0) {

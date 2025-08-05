@@ -28,7 +28,7 @@ class SiteCheckService {
             
             // 第二步：获取用户信息
             console.log('第二步：获取用户信息...');
-            const userInfo = await this.getUserInfo(site.url, cookies, site.sessions);
+            const userInfo = await this.getUserInfo(site.url, cookies, site.sessions, site);
             console.log('用户信息获取成功:', JSON.stringify(userInfo, null, 2));
             
             // 第三步：保存检测结果
@@ -174,7 +174,7 @@ class SiteCheckService {
     }
 
     // 获取用户信息
-    async getUserInfo(siteUrl, cookies, sessions) {
+    async getUserInfo(siteUrl, cookies, sessions, site) {
         try {
             const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/user/self`;
             console.log(`正在请求API: ${apiUrl}`);
@@ -228,6 +228,19 @@ class SiteCheckService {
             if (finalCookies) {
                 headers['Cookie'] = finalCookies;
                 console.log(`最终cookies: ${finalCookies.substring(0, 200)}...`);
+            }
+
+            // 根据API类型和User ID添加用户头信息
+            if (site && site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                    console.log(`添加new-api-user头: ${site.user_id}`);
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                    console.log(`添加veloera-user头: ${site.user_id}`);
+                }
+            } else {
+                console.log('未提供User ID，跳过用户头信息设置');
             }
 
             console.log('请求头:', JSON.stringify(headers, null, 2));

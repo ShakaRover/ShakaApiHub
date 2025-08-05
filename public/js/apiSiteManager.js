@@ -283,6 +283,9 @@ class ApiSiteManager {
                     // 设置默认授权方式为sessions
                     authMethodSelect.value = 'sessions';
                     this.handleAuthMethodChange('sessions');
+                } else {
+                    // 重新触发授权方式变更以显示User ID字段
+                    this.handleAuthMethodChange(authMethodSelect.value);
                 }
             }
             
@@ -301,6 +304,11 @@ class ApiSiteManager {
                     tokenOption.disabled = false;
                     tokenOption.textContent = 'Token';
                 }
+                
+                // 重新触发授权方式变更以隐藏不必要的字段
+                if (authMethodSelect.value) {
+                    this.handleAuthMethodChange(authMethodSelect.value);
+                }
             }
             
             // 隐藏签到选项
@@ -318,6 +326,7 @@ class ApiSiteManager {
         const sessionsGroup = document.getElementById('sessionsGroup');
         const tokenGroup = document.getElementById('tokenGroup');
         const userIdGroup = document.getElementById('userIdGroup');
+        const apiTypeSelect = document.getElementById('apiSiteType');
 
         // 隐藏所有可选字段
         [sessionsGroup, tokenGroup, userIdGroup].forEach(group => {
@@ -327,6 +336,11 @@ class ApiSiteManager {
         // 根据授权方式显示相应字段
         if (authMethod === 'sessions') {
             if (sessionsGroup) sessionsGroup.style.display = 'block';
+            
+            // AnyRouter类型的sessions模式也需要显示User ID字段
+            if (apiTypeSelect && apiTypeSelect.value === 'AnyRouter') {
+                if (userIdGroup) userIdGroup.style.display = 'block';
+            }
         } else if (authMethod === 'token') {
             if (tokenGroup) tokenGroup.style.display = 'block';
             if (userIdGroup) userIdGroup.style.display = 'block';
@@ -414,6 +428,12 @@ class ApiSiteManager {
         // AnyRouter只支持sessions模式
         if (data.apiType === 'AnyRouter' && data.authMethod === 'token') {
             this.showAlert('AnyRouter只支持Sessions授权方式', 'error');
+            return false;
+        }
+
+        // AnyRouter必须提供User ID
+        if (data.apiType === 'AnyRouter' && !data.userId) {
+            this.showAlert('AnyRouter类型必须提供User ID信息', 'error');
             return false;
         }
 
