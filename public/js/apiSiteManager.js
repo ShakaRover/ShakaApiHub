@@ -3,6 +3,8 @@ class ApiSiteManager {
     constructor() {
         this.currentEditingId = null;
         this.apiSites = [];
+        this.filteredApiSites = []; // 过滤后的站点列表
+        this.searchTerm = ''; // 搜索关键字
         this.showDetails = false; // 全局显示详情开关
         this.expandedSites = new Set(); // 记录展开的站点ID
         this.init();
@@ -13,6 +15,8 @@ class ApiSiteManager {
         this.bindEvents();
         this.loadApiSites();
         this.loadApiStats();
+        // 初始化过滤数组
+        this.filteredApiSites = this.apiSites;
     }
 
     // 绑定事件
@@ -33,6 +37,12 @@ class ApiSiteManager {
         const showDetailsToggle = document.getElementById('showDetailsToggle');
         if (showDetailsToggle) {
             showDetailsToggle.addEventListener('change', (e) => this.toggleAllDetails(e.target.checked));
+        }
+
+        // 搜索功能
+        const searchInput = document.getElementById('apiSiteSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
         }
 
         // 模态框事件
@@ -545,6 +555,7 @@ class ApiSiteManager {
 
             if (result.success) {
                 this.apiSites = result.data;
+                this.filterApiSites(); // 应用当前搜索过滤
                 this.renderApiSitesTable();
             } else {
                 console.error('加载API站点失败:', result.message);
@@ -583,10 +594,37 @@ class ApiSiteManager {
         if (disabledElement) disabledElement.textContent = stats.disabled || 0;
     }
 
+    // 处理搜索
+    handleSearch(searchTerm) {
+        this.searchTerm = searchTerm.toLowerCase().trim();
+        this.filterApiSites();
+        this.renderApiSitesTable();
+    }
+
+    // 过滤API站点
+    filterApiSites() {
+        if (!this.searchTerm) {
+            this.filteredApiSites = this.apiSites;
+        } else {
+            this.filteredApiSites = this.apiSites.filter(site => {
+                const name = site.name.toLowerCase();
+                const url = site.url.toLowerCase();
+                const apiType = site.api_type.toLowerCase();
+                
+                return name.includes(this.searchTerm) || 
+                       url.includes(this.searchTerm) || 
+                       apiType.includes(this.searchTerm);
+            });
+        }
+    }
+
     // 渲染API站点表格
     renderApiSitesTable() {
         const tbody = document.getElementById('apiSitesTableBody');
         if (!tbody) return;
+
+        // 使用过滤后的站点列表
+        const sitesToRender = this.filteredApiSites || this.apiSites;
 
         if (this.apiSites.length === 0) {
             tbody.innerHTML = `
@@ -603,7 +641,22 @@ class ApiSiteManager {
             return;
         }
 
-        const rows = this.apiSites.map(site => this.createTableRow(site)).join('');
+        if (sitesToRender.length === 0) {
+            tbody.innerHTML = `
+                <tr class="empty-state">
+                    <td colspan="7">
+                        <div class="empty-message">
+                            <div class="empty-icon">🔍</div>
+                            <div class="empty-text">没有找到匹配的站点</div>
+                            <div class="empty-description">请尝试其他搜索关键字</div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const rows = sitesToRender.map(site => this.createTableRow(site)).join('');
         tbody.innerHTML = rows;
     }
 
