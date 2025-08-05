@@ -194,15 +194,20 @@ class SiteCheckService {
                 console.log(`站点cookies: ${cookies.substring(0, 100)}...`);
             }
 
-            // 添加 sessions 信息
-            if (sessions) {
+            // 根据认证方式处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                // Token模式：直接使用token字段作为Authorization Bearer
+                headers['Authorization'] = `Bearer ${site.token}`;
+                console.log('Token模式：添加Authorization Bearer头');
+            } else if (site.auth_method === 'sessions' && sessions) {
+                // Sessions模式：处理sessions数据
                 console.log(`处理sessions数据: ${sessions.substring(0, 100)}...`);
                 try {
                     const sessionData = JSON.parse(sessions);
                     console.log('Sessions数据解析为JSON成功');
                     if (sessionData.token) {
                         headers['Authorization'] = `Bearer ${sessionData.token}`;
-                        console.log('添加Authorization头');
+                        console.log('Sessions模式：从JSON中添加Authorization头');
                     }
                     if (sessionData.cookie) {
                         // 合并cookies而不是覆盖
@@ -211,7 +216,7 @@ class SiteCheckService {
                         } else {
                             finalCookies = sessionData.cookie;
                         }
-                        console.log('合并sessions中的cookie');
+                        console.log('Sessions模式：合并JSON中的cookie');
                     }
                 } catch (e) {
                     console.log('Sessions数据不是JSON，直接作为cookie使用');

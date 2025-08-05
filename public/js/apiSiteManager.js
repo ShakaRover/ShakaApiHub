@@ -308,6 +308,37 @@ class ApiSiteManager {
             if (autoCheckinInput) {
                 autoCheckinInput.checked = true;
             }
+        } else if (apiType === 'Veloera') {
+            // 为Veloera设置默认值和显示签到选项
+            const urlInput = document.getElementById('apiSiteUrl');
+            
+            // 设置默认URL（如果需要的话）
+            if (urlInput && !urlInput.value) {
+                // 可以设置Veloera的默认URL，如果有的话
+                // urlInput.value = 'https://veloera.example.com';
+            }
+            
+            // Veloera支持所有授权方式，恢复token选项
+            if (authMethodSelect) {
+                const tokenOption = authMethodSelect.querySelector('option[value="token"]');
+                if (tokenOption) {
+                    tokenOption.disabled = false;
+                    tokenOption.textContent = 'Token';
+                }
+                
+                // 重新触发授权方式变更
+                if (authMethodSelect.value) {
+                    this.handleAuthMethodChange(authMethodSelect.value);
+                }
+            }
+            
+            // 显示签到选项并默认启用
+            if (autoCheckinGroup) {
+                autoCheckinGroup.style.display = 'block';
+            }
+            if (autoCheckinInput) {
+                autoCheckinInput.checked = true;
+            }
         } else {
             // 恢复token选项
             if (authMethodSelect) {
