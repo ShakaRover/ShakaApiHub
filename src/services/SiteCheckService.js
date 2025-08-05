@@ -249,18 +249,9 @@ class SiteCheckService {
             
             console.log(`响应数据: ${JSON.stringify(response.data, null, 2)}`);
 
-            if (response.status === 404) {
-                throw new Error('API接口不存在 (404)');
-            } else if (response.status === 401) {
-                throw new Error('认证失败 (401)');
-            } else if (response.status === 403) {
-                throw new Error('访问被禁止 (403)');
-            } else if (response.status >= 400) {
-                throw new Error(`HTTP错误 (${response.status})`);
-            }
-
             const data = response.data;
             
+            // 首先检查是否是有效的JSON对象
             if (!data || typeof data !== 'object') {
                 if (typeof data === 'string') {
                     if (data.includes('<!DOCTYPE html>') || data.includes('<html>')) {
@@ -269,7 +260,30 @@ class SiteCheckService {
                         throw new Error(`API返回非JSON数据: ${data.substring(0, 100)}...`);
                     }
                 }
+                
+                // 如果不是对象，根据HTTP状态码返回错误
+                if (response.status === 404) {
+                    throw new Error('API接口不存在 (404)');
+                } else if (response.status === 401) {
+                    throw new Error('认证失败 (401)');
+                } else if (response.status === 403) {
+                    throw new Error('访问被禁止 (403)');
+                } else if (response.status >= 400) {
+                    throw new Error(`HTTP错误 (${response.status})`);
+                }
+                
                 throw new Error('API返回数据格式错误');
+            }
+            
+            // 如果是JSON对象，优先使用其中的message
+            if (response.status >= 400) {
+                // 对于HTTP错误状态码，优先使用响应中的message
+                const errorMessage = data.message || 
+                    (response.status === 404 ? 'API接口不存在 (404)' :
+                     response.status === 401 ? '认证失败 (401)' :
+                     response.status === 403 ? '访问被禁止 (403)' :
+                     `HTTP错误 (${response.status})`);
+                throw new Error(errorMessage);
             }
             
             if (!data.success) {
