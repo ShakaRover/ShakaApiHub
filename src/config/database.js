@@ -36,16 +36,19 @@ class DatabaseConfig {
             const hasAutoCheckin = tableInfo.some(column => column.name === 'auto_checkin');
             const hasLastCheckin = tableInfo.some(column => column.name === 'last_checkin');
             
-            // 检查是否需要重建表以支持AnyRouter
+            // 检查是否需要重建表以支持AnyRouter和检测功能
             const currentSchema = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='api_sites'").get();
-            const needsRebuild = !currentSchema.sql.includes('AnyRouter');
+            const needsRebuild = !currentSchema.sql.includes('AnyRouter') || !currentSchema.sql.includes('site_quota');
             
             if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
                 console.log('需要重建api_sites表以支持新功能...');
                 this.rebuildApiSitesTable();
-            } else {
-                console.log('数据库结构已是最新版本');
             }
+            
+            // 创建检测日志表
+            this.createCheckLogTable();
+            
+            console.log('数据库结构已是最新版本');
         } catch (error) {
             console.error('数据库迁移失败:', error.message);
             // 迁移失败不应该阻止应用启动
@@ -77,6 +80,20 @@ class DatabaseConfig {
                     enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
                     auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
                     last_checkin DATETIME,
+                    -- 站点检测相关字段
+                    site_quota REAL DEFAULT 0,
+                    site_used_quota REAL DEFAULT 0,
+                    site_request_count INTEGER DEFAULT 0,
+                    site_user_group TEXT,
+                    site_aff_code TEXT,
+                    site_aff_count INTEGER DEFAULT 0,
+                    site_aff_quota REAL DEFAULT 0,
+                    site_aff_history_quota REAL DEFAULT 0,
+                    site_username TEXT,
+                    site_last_check_in_time DATETIME,
+                    last_check_time DATETIME,
+                    last_check_status TEXT DEFAULT 'pending',
+                    last_check_message TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     created_by INTEGER NOT NULL,
@@ -110,6 +127,38 @@ class DatabaseConfig {
         });
         
         transaction();
+    }
+
+    createCheckLogTable() {
+        const createCheckLogsTable = `
+            CREATE TABLE IF NOT EXISTS site_check_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                site_id INTEGER NOT NULL,
+                check_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status TEXT NOT NULL CHECK (status IN ('success', 'error', 'timeout')),
+                message TEXT,
+                response_data TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE
+            )
+        `;
+
+        const createCheckLogsIndex = `
+            CREATE INDEX IF NOT EXISTS idx_check_logs_site_id ON site_check_logs(site_id)
+        `;
+
+        const createCheckLogsTimeIndex = `
+            CREATE INDEX IF NOT EXISTS idx_check_logs_time ON site_check_logs(check_time)
+        `;
+
+        try {
+            this.db.exec(createCheckLogsTable);
+            this.db.exec(createCheckLogsIndex);
+            this.db.exec(createCheckLogsTimeIndex);
+            console.log('检测日志表创建完成');
+        } catch (error) {
+            console.error('创建检测日志表失败:', error.message);
+        }
     }
 
     initializeSchema() {
@@ -209,7 +258,29 @@ class DatabaseConfig {
             deleteApiSite: this.db.prepare('DELETE FROM api_sites WHERE id = ?'),
             toggleApiSiteEnabled: this.db.prepare('UPDATE api_sites SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
             countApiSites: this.db.prepare('SELECT COUNT(*) as count FROM api_sites'),
-            countEnabledApiSites: this.db.prepare('SELECT COUNT(*) as count FROM api_sites WHERE enabled = 1')
+            countEnabledApiSites: this.db.prepare('SELECT COUNT(*) as count FROM api_sites WHERE enabled = 1'),
+            
+            // 站点检测相关语句
+            updateSiteCheckInfo: this.db.prepare(`
+                UPDATE api_sites SET 
+                    site_quota = ?, site_used_quota = ?, site_request_count = ?, 
+                    site_user_group = ?, site_aff_code = ?, site_aff_count = ?, 
+                    site_aff_quota = ?, site_aff_history_quota = ?, site_username = ?,
+                    site_last_check_in_time = ?, last_check_time = CURRENT_TIMESTAMP,
+                    last_check_status = ?, last_check_message = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `),
+            updateSiteCheckStatus: this.db.prepare(`
+                UPDATE api_sites SET 
+                    last_check_time = CURRENT_TIMESTAMP, last_check_status = ?, 
+                    last_check_message = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `),
+            
+            // 检测日志相关语句
+            insertCheckLog: this.db.prepare('INSERT INTO site_check_logs (site_id, status, message, response_data) VALUES (?, ?, ?, ?)'),
+            findCheckLogsBySiteId: this.db.prepare('SELECT * FROM site_check_logs WHERE site_id = ? ORDER BY check_time DESC LIMIT 10'),
+            findLatestCheckLog: this.db.prepare('SELECT * FROM site_check_logs WHERE site_id = ? ORDER BY check_time DESC LIMIT 1')
         };
     }
 

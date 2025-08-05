@@ -1,8 +1,10 @@
 const ApiSiteService = require('../services/ApiSiteService');
+const SiteCheckService = require('../services/SiteCheckService');
 
 class ApiSiteController {
     constructor() {
         this.apiSiteService = new ApiSiteService();
+        this.siteCheckService = new SiteCheckService();
     }
 
     // 获取所有API站点
@@ -158,6 +160,57 @@ class ApiSiteController {
             res.json(result);
         } catch (error) {
             console.error('ApiSiteController.getApiSiteStats:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 检测站点
+    async checkSite(req, res) {
+        try {
+            const { id } = req.params;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.siteCheckService.checkSite(parseInt(id));
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.checkSite:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 获取检测历史
+    async getCheckHistory(req, res) {
+        try {
+            const { id } = req.params;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.siteCheckService.getCheckHistory(parseInt(id));
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.getCheckHistory:', error.message);
             res.status(500).json({
                 success: false,
                 message: '服务器内部错误'

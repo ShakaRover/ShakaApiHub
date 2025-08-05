@@ -16,6 +16,7 @@
   ],
   "author": "ShakaRover",
   "dependencies": {
+    "axios": "^1.11.0",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^8.7.0",
     "cors": "^2.8.5",

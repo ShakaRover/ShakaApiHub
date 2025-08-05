@@ -71,6 +71,8 @@ class ApiSiteManager {
 
         if (button.classList.contains('btn-edit')) {
             this.showEditModal(siteId);
+        } else if (button.classList.contains('btn-check')) {
+            this.checkSite(siteId, siteName);
         } else if (button.classList.contains('btn-toggle')) {
             this.toggleEnabled(siteId, !isEnabled);
         } else if (button.classList.contains('btn-delete')) {
@@ -507,7 +509,7 @@ class ApiSiteManager {
         if (this.apiSites.length === 0) {
             tbody.innerHTML = `
                 <tr class="empty-state">
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="empty-message">
                             <div class="empty-icon">🔗</div>
                             <div class="empty-text">暂无API站点</div>
@@ -521,6 +523,71 @@ class ApiSiteManager {
 
         const rows = this.apiSites.map(site => this.createTableRow(site)).join('');
         tbody.innerHTML = rows;
+    }
+
+    // 创建站点信息框
+    createSiteInfoBox(site) {
+        if (!site.last_check_time) {
+            return '<div class="site-info-box unchecked">未检测</div>';
+        }
+
+        const lastCheckTime = new Date(site.last_check_time).toLocaleString('zh-CN');
+        
+        if (site.last_check_status === 'error') {
+            return `
+                <div class="site-info-box error" title="最后检测: ${lastCheckTime}">
+                    <div class="info-status">❌ 检测失败</div>
+                    <div class="info-message">${site.last_check_message || '未知错误'}</div>
+                </div>
+            `;
+        }
+
+        if (site.last_check_status === 'success') {
+            const quota = site.site_quota ? site.site_quota.toFixed(2) : '0.00';
+            const usedQuota = site.site_used_quota ? site.site_used_quota.toFixed(2) : '0.00';
+            const affQuota = site.site_aff_quota ? site.site_aff_quota.toFixed(2) : '0.00';
+            
+            return `
+                <div class="site-info-box success" title="最后检测: ${lastCheckTime}">
+                    <div class="info-row">
+                        <span class="info-label">用户:</span>
+                        <span class="info-value">${site.site_username || '未知'}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">额度:</span>
+                        <span class="info-value">$${quota}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">已用:</span>
+                        <span class="info-value">$${usedQuota}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">请求:</span>
+                        <span class="info-value">${site.site_request_count || 0}</span>
+                    </div>
+                    ${site.site_user_group ? `
+                    <div class="info-row">
+                        <span class="info-label">组:</span>
+                        <span class="info-value">${site.site_user_group}</span>
+                    </div>
+                    ` : ''}
+                    ${site.site_aff_code ? `
+                    <div class="info-row">
+                        <span class="info-label">邀请码:</span>
+                        <span class="info-value">${site.site_aff_code}</span>
+                    </div>
+                    ` : ''}
+                    ${affQuota !== '0.00' ? `
+                    <div class="info-row">
+                        <span class="info-label">收益:</span>
+                        <span class="info-value">$${affQuota}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        return '<div class="site-info-box pending">检测中...</div>';
     }
 
     // 创建表格行
@@ -543,6 +610,9 @@ class ApiSiteManager {
             }
         }
 
+        // 站点信息显示
+        const siteInfoBox = this.createSiteInfoBox(site);
+
         return `
             <tr>
                 <td>${apiTypeBadge}</td>
@@ -551,6 +621,7 @@ class ApiSiteManager {
                 <td>${authMethodBadge}</td>
                 <td>${statusBadge}</td>
                 <td>${checkinBadge}</td>
+                <td>${siteInfoBox}</td>
                 <td>${createdAt}</td>
                 <td>
                     <div class="action-buttons">
@@ -559,6 +630,12 @@ class ApiSiteManager {
                                 data-site-name="${this.escapeHtml(site.name)}" 
                                 title="编辑">
                             ✏️
+                        </button>
+                        <button class="btn-icon btn-check" 
+                                data-site-id="${site.id}" 
+                                data-site-name="${this.escapeHtml(site.name)}" 
+                                title="检测站点">
+                            🔍
                         </button>
                         <button class="btn-icon btn-toggle ${site.enabled ? 'enabled' : ''}" 
                                 data-site-id="${site.id}" 
@@ -603,6 +680,32 @@ class ApiSiteManager {
             credentials: 'include'
         });
         return await response.json();
+    }
+
+    // 检测站点
+    async checkSite(id, name) {
+        try {
+            this.showAlert(`开始检测站点: ${name}`, 'info');
+            
+            const response = await fetch(`/api/sites/${id}/check`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`站点 ${name} 检测成功`, 'success');
+                // 刷新列表以显示最新信息
+                this.loadApiSites();
+            } else {
+                this.showAlert(`站点 ${name} 检测失败: ${result.message}`, 'error');
+                // 即使失败也刷新列表，显示错误状态
+                this.loadApiSites();
+            }
+        } catch (error) {
+            console.error('检测站点失败:', error);
+            this.showAlert(`检测站点失败: ${error.message}`, 'error');
+        }
     }
 
     // 切换启用状态

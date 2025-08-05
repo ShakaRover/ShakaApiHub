@@ -101,4 +101,14 @@ router.delete('/sites/:id', requireAuth, (req, res) => {
     apiSiteController.deleteApiSite(req, res);
 });
 
+// POST /api/sites/:id/check - 检测站点
+router.post('/sites/:id/check', requireAuth, (req, res) => {
+    apiSiteController.checkSite(req, res);
+});
+
+// GET /api/sites/:id/check-history - 获取检测历史
+router.get('/sites/:id/check-history', requireAuth, (req, res) => {
+    apiSiteController.getCheckHistory(req, res);
+});
+
 module.exports = router;
