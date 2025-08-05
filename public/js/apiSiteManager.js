@@ -240,7 +240,30 @@ class ApiSiteManager {
         if (form) {
             form.reset();
             document.getElementById('apiSiteEnabled').checked = true;
-            this.handleAuthMethodChange('');
+            
+            // 设置授权方式默认为Token（AnyRouter除外）
+            const authMethodSelect = document.getElementById('apiSiteAuthMethod');
+            const apiTypeSelect = document.getElementById('apiSiteType');
+            
+            if (authMethodSelect && apiTypeSelect) {
+                // 如果已经选择了API类型，根据类型设置默认授权方式
+                if (apiTypeSelect.value === 'AnyRouter') {
+                    authMethodSelect.value = 'sessions';
+                    this.handleAuthMethodChange('sessions');
+                } else if (apiTypeSelect.value) {
+                    // 其他类型默认为token
+                    authMethodSelect.value = 'token';
+                    this.handleAuthMethodChange('token');
+                } else {
+                    // 未选择API类型时，默认为token
+                    authMethodSelect.value = 'token';
+                    this.handleAuthMethodChange('token');
+                }
+            } else {
+                // 如果选择器不存在，使用原有逻辑
+                this.handleAuthMethodChange('');
+            }
+            
             this.handleApiTypeChange('');
         }
     }
@@ -318,7 +341,7 @@ class ApiSiteManager {
                 // urlInput.value = 'https://veloera.example.com';
             }
             
-            // Veloera支持所有授权方式，恢复token选项
+            // Veloera支持所有授权方式，恢复token选项并设置为默认
             if (authMethodSelect) {
                 const tokenOption = authMethodSelect.querySelector('option[value="token"]');
                 if (tokenOption) {
@@ -326,8 +349,12 @@ class ApiSiteManager {
                     tokenOption.textContent = 'Token';
                 }
                 
-                // 重新触发授权方式变更
-                if (authMethodSelect.value) {
+                // 如果没有选择授权方式，设置默认为token
+                if (!authMethodSelect.value) {
+                    authMethodSelect.value = 'token';
+                    this.handleAuthMethodChange('token');
+                } else {
+                    // 重新触发授权方式变更
                     this.handleAuthMethodChange(authMethodSelect.value);
                 }
             }
@@ -340,7 +367,7 @@ class ApiSiteManager {
                 autoCheckinInput.checked = true;
             }
         } else {
-            // 恢复token选项
+            // 其他类型恢复token选项并设置为默认
             if (authMethodSelect) {
                 const tokenOption = authMethodSelect.querySelector('option[value="token"]');
                 if (tokenOption) {
@@ -348,8 +375,12 @@ class ApiSiteManager {
                     tokenOption.textContent = 'Token';
                 }
                 
-                // 重新触发授权方式变更以隐藏不必要的字段
-                if (authMethodSelect.value) {
+                // 如果没有选择授权方式，设置默认为token
+                if (!authMethodSelect.value) {
+                    authMethodSelect.value = 'token';
+                    this.handleAuthMethodChange('token');
+                } else {
+                    // 重新触发授权方式变更以隐藏不必要的字段
                     this.handleAuthMethodChange(authMethodSelect.value);
                 }
             }
@@ -572,7 +603,7 @@ class ApiSiteManager {
         if (this.apiSites.length === 0) {
             tbody.innerHTML = `
                 <tr class="empty-state">
-                    <td colspan="8">
+                    <td colspan="7">
                         <div class="empty-message">
                             <div class="empty-icon">🔗</div>
                             <div class="empty-text">暂无API站点</div>
@@ -700,9 +731,15 @@ class ApiSiteManager {
 
     // 创建表格行
     createTableRow(site) {
-        const createdAt = new Date(site.created_at).toLocaleString('zh-CN');
+        // 检查时间显示：优先显示最后检查时间，如果没有则显示创建时间
+        let checkTimeDisplay = '未检查';
+        if (site.last_check_time) {
+            checkTimeDisplay = new Date(site.last_check_time).toLocaleString('zh-CN');
+        } else if (site.created_at) {
+            checkTimeDisplay = new Date(site.created_at).toLocaleString('zh-CN') + ' (创建)';
+        }
+        
         const apiTypeBadge = `<span class="api-type-badge api-type-${site.api_type.toLowerCase()}">${site.api_type}</span>`;
-        const authMethodBadge = `<span class="auth-method-badge auth-method-${site.auth_method}">${site.auth_method === 'sessions' ? 'Sessions' : 'Token'}</span>`;
         const statusBadge = site.enabled 
             ? '<span class="status-badge status-enabled">✅ 启用</span>'
             : '<span class="status-badge status-disabled">❌ 禁用</span>';
@@ -740,10 +777,9 @@ class ApiSiteManager {
                 </td>
                 <td>${this.escapeHtml(site.name)}</td>
                 <td><span class="api-url" title="${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</span></td>
-                <td>${authMethodBadge}</td>
                 <td>${statusBadge}</td>
                 <td>${checkinBadge}</td>
-                <td>${createdAt}</td>
+                <td>${checkTimeDisplay}</td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon btn-edit" 
@@ -781,7 +817,7 @@ class ApiSiteManager {
         if (shouldShowDetails) {
             infoRow = `
                 <tr class="site-info-row" id="info-row-${site.id}">
-                    <td colspan="8">
+                    <td colspan="7">
                         <div class="site-info-expanded">
                             ${siteInfoBox}
                         </div>
