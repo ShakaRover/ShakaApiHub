@@ -89,7 +89,7 @@ class SiteCheckService {
             const logoResponse = await axios.get(logoUrl, {
                 timeout: 10000,
                 validateStatus: () => true, // 接受所有状态码
-                maxRedirects: 5
+                maxRedirects: 0 // 不处理重定向
             });
 
             console.log(`Logo响应状态: ${logoResponse.status}`);
@@ -98,11 +98,25 @@ class SiteCheckService {
             if (logoResponse.status >= 200 && logoResponse.status < 300) {
                 console.log('Logo存在，使用logo响应的cookies');
                 return this.extractCookiesFromResponse(logoResponse, logoUrl);
+            } else if (logoResponse.status >= 300 && logoResponse.status < 400) {
+                // 处理重定向响应，从重定向中获取cookies
+                console.log(`Logo返回重定向 (${logoResponse.status})，从重定向响应中获取cookies`);
+                const redirectLocation = logoResponse.headers.location;
+                console.log(`重定向到: ${redirectLocation}`);
+                return this.extractCookiesFromResponse(logoResponse, logoUrl);
             } else {
                 console.log(`Logo不存在 (状态码: ${logoResponse.status})，回退到站点首页`);
             }
         } catch (error) {
-            console.log(`访问logo失败: ${error.message}，回退到站点首页`);
+            // 检查是否是重定向错误
+            if (error.response && error.response.status >= 300 && error.response.status < 400) {
+                console.log(`Logo重定向响应 (${error.response.status})，从重定向中获取cookies`);
+                const redirectLocation = error.response.headers.location;
+                console.log(`重定向到: ${redirectLocation}`);
+                return this.extractCookiesFromResponse(error.response, logoUrl);
+            } else {
+                console.log(`访问logo失败: ${error.message}，回退到站点首页`);
+            }
         }
 
         // 如果logo不存在或访问失败，使用站点首页
