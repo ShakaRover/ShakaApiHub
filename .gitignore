@@ -44,4 +44,4 @@ sessions/
 
 # Build outputs
 dist/
-build/
+build/shakaHub.db*
