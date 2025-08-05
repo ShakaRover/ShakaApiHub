@@ -807,8 +807,7 @@ class ApiSiteManager {
                 // 没有用户数据，只显示错误信息
                 return `
                     <div class="site-info-box error">
-                        <div class="info-status">❌ 检测失败</div>
-                        <div class="info-message">${site.last_check_message || '未知错误'}</div>
+                        <div class="info-status">❌ 检测失败 - ${site.last_check_message || '未知错误'}</div>
                     </div>
                 `;
             }
