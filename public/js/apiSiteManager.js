@@ -611,7 +611,7 @@ class ApiSiteManager {
                 return `
                     <div class="site-info-box error">
                         <div class="info-status">⚠️ 检测失败但有历史数据</div>
-                        <div class="info-message" style="margin-bottom: 0.75rem; font-size: 0.7rem; opacity: 0.8;">${site.last_check_message || '未知错误'}</div>
+                        <div class="info-message">${site.last_check_message || '未知错误'}</div>
                         <div class="info-grid">
                             <div class="info-item">
                                 <span class="info-label">用户名</span>
