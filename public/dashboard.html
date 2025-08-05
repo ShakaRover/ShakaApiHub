@@ -228,13 +228,14 @@
                                         <th>URL</th>
                                         <th>授权方式</th>
                                         <th>状态</th>
+                                        <th>签到</th>
                                         <th>创建时间</th>
                                         <th>操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="apiSitesTableBody">
                                     <tr class="empty-state">
-                                        <td colspan="7">
+                                        <td colspan="8">
                                             <div class="empty-message">
                                                 <div class="empty-icon">🔗</div>
                                                 <div class="empty-text">暂无API站点</div>
@@ -359,6 +360,7 @@
                             <option value="">请选择API类型</option>
                             <option value="NewApi">NewApi</option>
                             <option value="Veloera">Veloera</option>
+                            <option value="AnyRouter">AnyRouter</option>
                         </select>
                         <small class="form-help">选择API平台类型</small>
                     </div>
@@ -408,6 +410,14 @@
                             <input type="checkbox" id="apiSiteEnabled" name="enabled" class="form-check-input" checked>
                             <label for="apiSiteEnabled" class="form-check-label">启用此API站点</label>
                         </div>
+                    </div>
+                    
+                    <div class="form-group" id="autoCheckinGroup" style="display: none;">
+                        <div class="form-check">
+                            <input type="checkbox" id="apiSiteAutoCheckin" name="autoCheckin" class="form-check-input">
+                            <label for="apiSiteAutoCheckin" class="form-check-label">启用自动签到</label>
+                        </div>
+                        <small class="form-help">AnyRouter类型默认启用签到功能</small>
                     </div>
                 </form>
             </div>

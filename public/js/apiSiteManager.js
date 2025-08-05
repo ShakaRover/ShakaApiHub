@@ -39,7 +39,17 @@ class ApiSiteManager {
         // 授权方式切换事件
         const authMethodSelect = document.getElementById('apiSiteAuthMethod');
         if (authMethodSelect) {
-            authMethodSelect.addEventListener('change', (e) => this.handleAuthMethodChange(e.target.value));
+            authMethodSelect.addEventListener('change', (e) => {
+                // 检查是否是AnyRouter + token的无效组合
+                const apiTypeSelect = document.getElementById('apiSiteType');
+                if (apiTypeSelect && apiTypeSelect.value === 'AnyRouter' && e.target.value === 'token') {
+                    this.showAlert('AnyRouter只支持Sessions授权方式', 'error');
+                    e.target.value = 'sessions';
+                    this.handleAuthMethodChange('sessions');
+                    return;
+                }
+                this.handleAuthMethodChange(e.target.value);
+            });
         }
 
         // 事件委托 - 处理表格中的操作按钮
@@ -217,6 +227,7 @@ class ApiSiteManager {
             form.reset();
             document.getElementById('apiSiteEnabled').checked = true;
             this.handleAuthMethodChange('');
+            this.handleApiTypeChange('');
         }
     }
 
@@ -230,14 +241,74 @@ class ApiSiteManager {
         document.getElementById('apiSiteToken').value = site.token || '';
         document.getElementById('apiSiteUserId').value = site.user_id || '';
         document.getElementById('apiSiteEnabled').checked = Boolean(site.enabled);
+        document.getElementById('apiSiteAutoCheckin').checked = Boolean(site.auto_checkin);
         
         this.handleAuthMethodChange(site.auth_method);
+        this.handleApiTypeChange(site.api_type);
     }
 
-    // 处理API类型变更（现在只是展示，不需要特殊逻辑）
+    // 处理API类型变更
     handleApiTypeChange(apiType) {
-        // API类型变更时的处理逻辑（如果需要的话）
         console.log('API类型变更为:', apiType);
+        
+        const autoCheckinGroup = document.getElementById('autoCheckinGroup');
+        const autoCheckinInput = document.getElementById('apiSiteAutoCheckin');
+        const authMethodSelect = document.getElementById('apiSiteAuthMethod');
+        
+        // 为AnyRouter设置默认值和显示签到选项
+        if (apiType === 'AnyRouter') {
+            const urlInput = document.getElementById('apiSiteUrl');
+            
+            // 设置默认URL
+            if (urlInput && !urlInput.value) {
+                urlInput.value = 'https://anyrouter.top';
+            }
+            
+            // AnyRouter只支持sessions模式，禁用token选项
+            if (authMethodSelect) {
+                // 禁用token选项
+                const tokenOption = authMethodSelect.querySelector('option[value="token"]');
+                if (tokenOption) {
+                    tokenOption.disabled = true;
+                    tokenOption.textContent = 'Token (AnyRouter不支持)';
+                }
+                
+                // 如果当前选择的是token，自动切换到sessions
+                if (authMethodSelect.value === 'token') {
+                    authMethodSelect.value = 'sessions';
+                    this.handleAuthMethodChange('sessions');
+                } else if (!authMethodSelect.value) {
+                    // 设置默认授权方式为sessions
+                    authMethodSelect.value = 'sessions';
+                    this.handleAuthMethodChange('sessions');
+                }
+            }
+            
+            // 显示签到选项并默认启用
+            if (autoCheckinGroup) {
+                autoCheckinGroup.style.display = 'block';
+            }
+            if (autoCheckinInput) {
+                autoCheckinInput.checked = true;
+            }
+        } else {
+            // 恢复token选项
+            if (authMethodSelect) {
+                const tokenOption = authMethodSelect.querySelector('option[value="token"]');
+                if (tokenOption) {
+                    tokenOption.disabled = false;
+                    tokenOption.textContent = 'Token';
+                }
+            }
+            
+            // 隐藏签到选项
+            if (autoCheckinGroup) {
+                autoCheckinGroup.style.display = 'none';
+            }
+            if (autoCheckinInput) {
+                autoCheckinInput.checked = false;
+            }
+        }
     }
 
     // 处理授权方式变更
@@ -273,7 +344,8 @@ class ApiSiteManager {
             sessions: formData.get('sessions')?.trim() || null,
             token: formData.get('token')?.trim() || null,
             userId: formData.get('userId')?.trim() || null,
-            enabled: formData.has('enabled')
+            enabled: formData.has('enabled'),
+            autoCheckin: formData.has('autoCheckin')
         };
 
         // 客户端验证
@@ -334,6 +406,12 @@ class ApiSiteManager {
 
         if (!data.authMethod) {
             this.showAlert('请选择授权方式', 'error');
+            return false;
+        }
+
+        // AnyRouter只支持sessions模式
+        if (data.apiType === 'AnyRouter' && data.authMethod === 'token') {
+            this.showAlert('AnyRouter只支持Sessions授权方式', 'error');
             return false;
         }
 
@@ -429,7 +507,7 @@ class ApiSiteManager {
         if (this.apiSites.length === 0) {
             tbody.innerHTML = `
                 <tr class="empty-state">
-                    <td colspan="6">
+                    <td colspan="8">
                         <div class="empty-message">
                             <div class="empty-icon">🔗</div>
                             <div class="empty-text">暂无API站点</div>
@@ -453,6 +531,17 @@ class ApiSiteManager {
         const statusBadge = site.enabled 
             ? '<span class="status-badge status-enabled">✅ 启用</span>'
             : '<span class="status-badge status-disabled">❌ 禁用</span>';
+        
+        // 签到状态显示
+        let checkinBadge = '<span class="checkin-badge checkin-disabled">❌ 未启用</span>';
+        if (site.auto_checkin) {
+            if (site.last_checkin) {
+                const lastCheckin = new Date(site.last_checkin).toLocaleString('zh-CN');
+                checkinBadge = `<span class="checkin-badge checkin-enabled" title="最后签到: ${lastCheckin}">✅ 已启用</span>`;
+            } else {
+                checkinBadge = '<span class="checkin-badge checkin-enabled">✅ 已启用</span>';
+            }
+        }
 
         return `
             <tr>
@@ -461,6 +550,7 @@ class ApiSiteManager {
                 <td><span class="api-url" title="${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</span></td>
                 <td>${authMethodBadge}</td>
                 <td>${statusBadge}</td>
+                <td>${checkinBadge}</td>
                 <td>${createdAt}</td>
                 <td>
                     <div class="action-buttons">

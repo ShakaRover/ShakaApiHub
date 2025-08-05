@@ -29,6 +29,89 @@ class DatabaseConfig {
         }
     }
 
+    migrateDatabase() {
+        try {
+            // 检查当前表结构
+            const tableInfo = this.db.prepare("PRAGMA table_info(api_sites)").all();
+            const hasAutoCheckin = tableInfo.some(column => column.name === 'auto_checkin');
+            const hasLastCheckin = tableInfo.some(column => column.name === 'last_checkin');
+            
+            // 检查是否需要重建表以支持AnyRouter
+            const currentSchema = this.db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='api_sites'").get();
+            const needsRebuild = !currentSchema.sql.includes('AnyRouter');
+            
+            if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
+                console.log('需要重建api_sites表以支持新功能...');
+                this.rebuildApiSitesTable();
+            } else {
+                console.log('数据库结构已是最新版本');
+            }
+        } catch (error) {
+            console.error('数据库迁移失败:', error.message);
+            // 迁移失败不应该阻止应用启动
+        }
+    }
+
+    rebuildApiSitesTable() {
+        const transaction = this.db.transaction(() => {
+            // 1. 备份现有数据
+            this.db.exec(`
+                CREATE TABLE api_sites_backup AS 
+                SELECT * FROM api_sites
+            `);
+            
+            // 2. 删除旧表
+            this.db.exec('DROP TABLE api_sites');
+            
+            // 3. 创建新表
+            this.db.exec(`
+                CREATE TABLE api_sites (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter')),
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
+                    sessions TEXT,
+                    token TEXT,
+                    user_id TEXT,
+                    enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
+                    auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
+                    last_checkin DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER NOT NULL,
+                    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+                )
+            `);
+            
+            // 4. 恢复数据
+            this.db.exec(`
+                INSERT INTO api_sites (
+                    id, api_type, name, url, auth_method, sessions, token, user_id, 
+                    enabled, created_at, updated_at, created_by,
+                    auto_checkin, last_checkin
+                )
+                SELECT 
+                    id, api_type, name, url, auth_method, sessions, token, user_id,
+                    enabled, created_at, updated_at, created_by,
+                    COALESCE(auto_checkin, 0) as auto_checkin,
+                    last_checkin
+                FROM api_sites_backup
+            `);
+            
+            // 5. 删除备份表
+            this.db.exec('DROP TABLE api_sites_backup');
+            
+            // 6. 重建索引
+            this.db.exec('CREATE INDEX IF NOT EXISTS idx_api_sites_name ON api_sites(name)');
+            this.db.exec('CREATE INDEX IF NOT EXISTS idx_api_sites_enabled ON api_sites(enabled)');
+            
+            console.log('api_sites表重建完成，已支持AnyRouter类型');
+        });
+        
+        transaction();
+    }
+
     initializeSchema() {
         const createUsersTable = `
             CREATE TABLE IF NOT EXISTS users (
@@ -47,7 +130,7 @@ class DatabaseConfig {
         const createApiSitesTable = `
             CREATE TABLE IF NOT EXISTS api_sites (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera')),
+                api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter')),
                 name TEXT NOT NULL,
                 url TEXT NOT NULL,
                 auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
@@ -55,6 +138,8 @@ class DatabaseConfig {
                 token TEXT,
                 user_id TEXT,
                 enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
+                auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
+                last_checkin DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 created_by INTEGER NOT NULL,
@@ -78,6 +163,9 @@ class DatabaseConfig {
                 this.db.exec(createApiSitesTable);
                 this.db.exec(createApiSitesIndex);
                 this.db.exec(createApiSitesEnabledIndex);
+                
+                // 数据库迁移：为现有表添加新字段
+                this.migrateDatabase();
                 
                 // 创建默认管理员用户（仅在表为空时）
                 const userCount = this.db.prepare('SELECT COUNT(*) as count FROM users').get().count;
@@ -115,8 +203,9 @@ class DatabaseConfig {
             findAllApiSites: this.db.prepare('SELECT * FROM api_sites ORDER BY created_at DESC'),
             findApiSiteById: this.db.prepare('SELECT * FROM api_sites WHERE id = ?'),
             findApiSitesByCreatedBy: this.db.prepare('SELECT * FROM api_sites WHERE created_by = ? ORDER BY created_at DESC'),
-            insertApiSite: this.db.prepare('INSERT INTO api_sites (api_type, name, url, auth_method, sessions, token, user_id, enabled, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
-            updateApiSite: this.db.prepare('UPDATE api_sites SET api_type = ?, name = ?, url = ?, auth_method = ?, sessions = ?, token = ?, user_id = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+            insertApiSite: this.db.prepare('INSERT INTO api_sites (api_type, name, url, auth_method, sessions, token, user_id, enabled, auto_checkin, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+            updateApiSite: this.db.prepare('UPDATE api_sites SET api_type = ?, name = ?, url = ?, auth_method = ?, sessions = ?, token = ?, user_id = ?, enabled = ?, auto_checkin = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+            updateLastCheckin: this.db.prepare('UPDATE api_sites SET last_checkin = CURRENT_TIMESTAMP WHERE id = ?'),
             deleteApiSite: this.db.prepare('DELETE FROM api_sites WHERE id = ?'),
             toggleApiSiteEnabled: this.db.prepare('UPDATE api_sites SET enabled = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
             countApiSites: this.db.prepare('SELECT COUNT(*) as count FROM api_sites'),

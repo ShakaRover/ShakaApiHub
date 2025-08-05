@@ -219,7 +219,7 @@ class ApiSiteService {
         const { apiType, name, url, authMethod, sessions, token, userId } = data;
 
         // 必填字段验证
-        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera'].includes(apiType)) {
+        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
             return { isValid: false, message: '请选择有效的API类型' };
         }
 
@@ -244,6 +244,11 @@ class ApiSiteService {
 
         if (!authMethod || !['sessions', 'token'].includes(authMethod)) {
             return { isValid: false, message: '请选择有效的授权方式' };
+        }
+
+        // AnyRouter只支持sessions模式
+        if (apiType === 'AnyRouter' && authMethod === 'token') {
+            return { isValid: false, message: 'AnyRouter只支持Sessions授权方式' };
         }
 
         // 根据授权方式验证特定字段

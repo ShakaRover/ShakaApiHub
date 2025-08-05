@@ -38,7 +38,7 @@ class ApiSite {
 
     // 创建新API站点
     create(apiSiteData) {
-        const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, createdBy } = apiSiteData;
+        const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, autoCheckin = 0, createdBy } = apiSiteData;
         
         // 验证必填字段
         if (!apiType || !name || !url || !authMethod || !createdBy) {
@@ -46,7 +46,7 @@ class ApiSite {
         }
 
         // 验证API类型
-        if (!['NewApi', 'Veloera'].includes(apiType)) {
+        if (!['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
             throw new Error('无效的API类型');
         }
 
@@ -55,10 +55,18 @@ class ApiSite {
             throw new Error('无效的授权方式');
         }
 
+        // AnyRouter只支持sessions模式
+        if (apiType === 'AnyRouter' && authMethod === 'token') {
+            throw new Error('AnyRouter只支持Sessions授权方式');
+        }
+
         // 验证token类型必须有userId
         if (authMethod === 'token' && !userId) {
             throw new Error('Token授权方式必须提供userId');
         }
+
+        // AnyRouter默认启用签到功能
+        const finalAutoCheckin = apiType === 'AnyRouter' ? 1 : (autoCheckin ? 1 : 0);
 
         try {
             const result = this.statements.insertApiSite.run(
@@ -70,6 +78,7 @@ class ApiSite {
                 token || null,
                 userId || null,
                 enabled ? 1 : 0,
+                finalAutoCheckin,
                 createdBy
             );
             
@@ -85,7 +94,7 @@ class ApiSite {
 
     // 更新API站点
     update(id, apiSiteData) {
-        const { apiType, name, url, authMethod, sessions, token, userId, enabled } = apiSiteData;
+        const { apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin } = apiSiteData;
         
         // 验证必填字段
         if (!apiType || !name || !url || !authMethod) {
@@ -93,7 +102,7 @@ class ApiSite {
         }
 
         // 验证API类型
-        if (!['NewApi', 'Veloera'].includes(apiType)) {
+        if (!['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
             throw new Error('无效的API类型');
         }
 
@@ -102,10 +111,18 @@ class ApiSite {
             throw new Error('无效的授权方式');
         }
 
+        // AnyRouter只支持sessions模式
+        if (apiType === 'AnyRouter' && authMethod === 'token') {
+            throw new Error('AnyRouter只支持Sessions授权方式');
+        }
+
         // 验证token类型必须有userId
         if (authMethod === 'token' && !userId) {
             throw new Error('Token授权方式必须提供userId');
         }
+
+        // AnyRouter默认启用签到功能
+        const finalAutoCheckin = apiType === 'AnyRouter' ? 1 : (autoCheckin ? 1 : 0);
 
         try {
             const result = this.statements.updateApiSite.run(
@@ -117,6 +134,7 @@ class ApiSite {
                 token || null,
                 userId || null,
                 enabled !== undefined ? (enabled ? 1 : 0) : 1,
+                finalAutoCheckin,
                 id
             );
 
@@ -186,6 +204,20 @@ class ApiSite {
         } catch (error) {
             console.error('获取API站点统计失败:', error.message);
             throw new Error('获取统计数据失败');
+        }
+    }
+
+    // 更新签到时间
+    updateLastCheckin(id) {
+        try {
+            const result = this.statements.updateLastCheckin.run(id);
+            if (result.changes === 0) {
+                throw new Error('API站点不存在');
+            }
+            return true;
+        } catch (error) {
+            console.error('更新签到时间失败:', error.message);
+            throw new Error('更新签到时间失败');
         }
     }
 }
