@@ -52,3 +52,6 @@ sessions/
 # Build outputs
 dist/
 build/shakaHub.db*
+
+# docker test data dir
+app/

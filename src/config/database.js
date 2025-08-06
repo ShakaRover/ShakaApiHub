@@ -3,7 +3,11 @@ const path = require('path');
 
 class DatabaseConfig {
     constructor() {
-        this.dbPath = path.join(__dirname, '../../shakaHub.db');
+        // Docker环境下使用持久化目录，否则使用项目根目录
+        const dataDir = process.env.NODE_ENV === 'production' && process.env.DOCKER_ENV 
+            ? '/app/data' 
+            : path.join(__dirname, '../..');
+        this.dbPath = path.join(dataDir, 'shakaHub.db');
         this.db = null;
         this.statements = null;
     }

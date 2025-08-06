@@ -1,0 +1,66 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 开发工具
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志文件
+*.log
+logs/
+app.log
+server.log
+
+# 数据库文件（可选，如果想在容器内创建新数据库）
+*.db
+*.db-wal
+*.db-shm
+
+# 备份文件
+backups/
+
+# 临时文件
+*.tmp
+*.temp
+cookies.txt
+
+# Git
+.git/
+.gitignore
+
+# 测试文件
+test/
+*.test.js
+coverage/
+
+# 文档
+README.md
+CLAUDE.md
+*.md
+
+# 图片文件
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# OS生成的文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
