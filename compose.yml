@@ -1,0 +1,26 @@
+services:
+  shaka-hub:
+    build: .
+    container_name: shaka-api-hub-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    volumes:
+      # 数据持久化
+      - ./app/data:/app/data
+      - ./app/backups:/app/backups
+      - ./app/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - shaka-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  shaka-network:
+    driver: bridge

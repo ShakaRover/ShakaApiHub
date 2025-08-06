@@ -1,5 +1,5 @@
-# 使用官方Node.js node:lts-slim 镜像作为基础镜像
-FROM node:20
+# 使用官方Node.js node 镜像作为基础镜像
+FROM node:20-alpine
 
 # 设置工作目录
 WORKDIR /app
