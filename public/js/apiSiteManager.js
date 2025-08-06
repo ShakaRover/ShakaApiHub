@@ -851,17 +851,17 @@ class ApiSiteManager {
         
         const apiTypeBadge = `<span class="api-type-badge api-type-${site.api_type.toLowerCase()}">${site.api_type}</span>`;
         const statusBadge = site.enabled 
-            ? '<span class="status-badge status-enabled">✅ 启用</span>'
-            : '<span class="status-badge status-disabled">❌ 禁用</span>';
+            ? '<span class="status-badge status-enabled" title="已启用">✅</span>'
+            : '<span class="status-badge status-disabled" title="已禁用">❌</span>';
         
         // 签到状态显示
-        let checkinBadge = '<span class="checkin-badge checkin-disabled">❌ 未启用</span>';
+        let checkinBadge = '<span class="checkin-badge checkin-disabled" title="自动签到未启用">❌</span>';
         if (site.auto_checkin) {
             if (site.last_checkin) {
                 const lastCheckin = new Date(site.last_checkin).toLocaleString('zh-CN');
-                checkinBadge = `<span class="checkin-badge checkin-enabled" title="最后签到: ${lastCheckin}">✅ 已启用</span>`;
+                checkinBadge = `<span class="checkin-badge checkin-enabled" title="自动签到已启用 - 最后签到: ${lastCheckin}">✅</span>`;
             } else {
-                checkinBadge = '<span class="checkin-badge checkin-enabled">✅ 已启用</span>';
+                checkinBadge = '<span class="checkin-badge checkin-enabled" title="自动签到已启用">✅</span>';
             }
         }
 
