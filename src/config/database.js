@@ -42,44 +42,66 @@ class DatabaseConfig {
 
     async migrateDatabase() {
         return new Promise((resolve) => {
-            this.db.all("PRAGMA table_info(api_sites)", (err, tableInfo) => {
+            // 首先检查 api_sites 表是否存在
+            this.db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='api_sites'", (err, tableExists) => {
                 if (err) {
                     console.error('数据库迁移失败:', err.message);
                     resolve();
                     return;
                 }
                 
-                const hasAutoCheckin = tableInfo.some(column => column.name === 'auto_checkin');
-                const hasLastCheckin = tableInfo.some(column => column.name === 'last_checkin');
+                // 如果表不存在，跳过迁移（表会在 initializeSchema 中创建）
+                if (!tableExists) {
+                    console.log('api_sites表不存在，跳过迁移');
+                    this.createCheckLogTable()
+                        .then(() => {
+                            console.log('数据库结构已是最新版本');
+                            resolve();
+                        })
+                        .catch(() => resolve());
+                    return;
+                }
                 
-                // 检查是否需要重建表以支持AnyRouter和检测功能
-                this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='api_sites'", (err, currentSchema) => {
+                // 表存在，检查结构
+                this.db.all("PRAGMA table_info(api_sites)", (err, tableInfo) => {
                     if (err) {
                         console.error('数据库迁移失败:', err.message);
                         resolve();
                         return;
                     }
                     
-                    const needsRebuild = !currentSchema || !currentSchema.sql.includes('AnyRouter') || !currentSchema.sql.includes('site_quota');
+                    const hasAutoCheckin = tableInfo.some(column => column.name === 'auto_checkin');
+                    const hasLastCheckin = tableInfo.some(column => column.name === 'last_checkin');
                     
-                    if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
-                        console.log('需要重建api_sites表以支持新功能...');
-                        this.rebuildApiSitesTable()
-                            .then(() => this.createCheckLogTable())
-                            .then(() => {
-                                console.log('数据库结构已是最新版本');
-                                resolve();
-                            })
-                            .catch(() => resolve());
-                    } else {
-                        // 创建检测日志表
-                        this.createCheckLogTable()
-                            .then(() => {
-                                console.log('数据库结构已是最新版本');
-                                resolve();
-                            })
-                            .catch(() => resolve());
-                    }
+                    // 检查是否需要重建表以支持AnyRouter和检测功能
+                    this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='api_sites'", (err, currentSchema) => {
+                        if (err) {
+                            console.error('数据库迁移失败:', err.message);
+                            resolve();
+                            return;
+                        }
+                        
+                        const needsRebuild = !currentSchema || !currentSchema.sql.includes('AnyRouter') || !currentSchema.sql.includes('site_quota');
+                        
+                        if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
+                            console.log('需要重建api_sites表以支持新功能...');
+                            this.rebuildApiSitesTable()
+                                .then(() => this.createCheckLogTable())
+                                .then(() => {
+                                    console.log('数据库结构已是最新版本');
+                                    resolve();
+                                })
+                                .catch(() => resolve());
+                        } else {
+                            // 创建检测日志表
+                            this.createCheckLogTable()
+                                .then(() => {
+                                    console.log('数据库结构已是最新版本');
+                                    resolve();
+                                })
+                                .catch(() => resolve());
+                        }
+                    });
                 });
             });
         });
@@ -87,122 +109,104 @@ class DatabaseConfig {
 
     async rebuildApiSitesTable() {
         return new Promise((resolve, reject) => {
-            this.db.serialize(() => {
-                this.db.run('BEGIN TRANSACTION');
+            // 简化版本，不使用事务，避免嵌套事务问题
+            // 1. 备份现有数据
+            this.db.run(`
+                CREATE TABLE api_sites_backup AS 
+                SELECT * FROM api_sites
+            `, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
                 
-                // 1. 备份现有数据
-                this.db.run(`
-                    CREATE TABLE api_sites_backup AS 
-                    SELECT * FROM api_sites
-                `, (err) => {
+                // 2. 删除旧表
+                this.db.run('DROP TABLE api_sites', (err) => {
                     if (err) {
-                        this.db.run('ROLLBACK');
                         reject(err);
                         return;
                     }
                     
-                    // 2. 删除旧表
-                    this.db.run('DROP TABLE api_sites', (err) => {
+                    // 3. 创建新表
+                    this.db.run(`
+                        CREATE TABLE api_sites (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter')),
+                            name TEXT NOT NULL,
+                            url TEXT NOT NULL,
+                            auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
+                            sessions TEXT,
+                            token TEXT,
+                            user_id TEXT,
+                            enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
+                            auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
+                            last_checkin DATETIME,
+                            -- 站点检测相关字段
+                            site_quota REAL DEFAULT 0,
+                            site_used_quota REAL DEFAULT 0,
+                            site_request_count INTEGER DEFAULT 0,
+                            site_user_group TEXT,
+                            site_aff_code TEXT,
+                            site_aff_count INTEGER DEFAULT 0,
+                            site_aff_quota REAL DEFAULT 0,
+                            site_aff_history_quota REAL DEFAULT 0,
+                            site_username TEXT,
+                            site_last_check_in_time DATETIME,
+                            last_check_time DATETIME,
+                            last_check_status TEXT DEFAULT 'pending',
+                            last_check_message TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            created_by INTEGER NOT NULL,
+                            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+                        )
+                    `, (err) => {
                         if (err) {
-                            this.db.run('ROLLBACK');
                             reject(err);
                             return;
                         }
                         
-                        // 3. 创建新表
+                        // 4. 恢复数据
                         this.db.run(`
-                            CREATE TABLE api_sites (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter')),
-                                name TEXT NOT NULL,
-                                url TEXT NOT NULL,
-                                auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
-                                sessions TEXT,
-                                token TEXT,
-                                user_id TEXT,
-                                enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
-                                auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
-                                last_checkin DATETIME,
-                                -- 站点检测相关字段
-                                site_quota REAL DEFAULT 0,
-                                site_used_quota REAL DEFAULT 0,
-                                site_request_count INTEGER DEFAULT 0,
-                                site_user_group TEXT,
-                                site_aff_code TEXT,
-                                site_aff_count INTEGER DEFAULT 0,
-                                site_aff_quota REAL DEFAULT 0,
-                                site_aff_history_quota REAL DEFAULT 0,
-                                site_username TEXT,
-                                site_last_check_in_time DATETIME,
-                                last_check_time DATETIME,
-                                last_check_status TEXT DEFAULT 'pending',
-                                last_check_message TEXT,
-                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                created_by INTEGER NOT NULL,
-                                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+                            INSERT INTO api_sites (
+                                id, api_type, name, url, auth_method, sessions, token, user_id, 
+                                enabled, created_at, updated_at, created_by,
+                                auto_checkin, last_checkin
                             )
+                            SELECT 
+                                id, api_type, name, url, auth_method, sessions, token, user_id,
+                                enabled, created_at, updated_at, created_by,
+                                COALESCE(auto_checkin, 0) as auto_checkin,
+                                last_checkin
+                            FROM api_sites_backup
                         `, (err) => {
                             if (err) {
-                                this.db.run('ROLLBACK');
                                 reject(err);
                                 return;
                             }
                             
-                            // 4. 恢复数据
-                            this.db.run(`
-                                INSERT INTO api_sites (
-                                    id, api_type, name, url, auth_method, sessions, token, user_id, 
-                                    enabled, created_at, updated_at, created_by,
-                                    auto_checkin, last_checkin
-                                )
-                                SELECT 
-                                    id, api_type, name, url, auth_method, sessions, token, user_id,
-                                    enabled, created_at, updated_at, created_by,
-                                    COALESCE(auto_checkin, 0) as auto_checkin,
-                                    last_checkin
-                                FROM api_sites_backup
-                            `, (err) => {
+                            // 5. 删除备份表
+                            this.db.run('DROP TABLE api_sites_backup', (err) => {
                                 if (err) {
-                                    this.db.run('ROLLBACK');
                                     reject(err);
                                     return;
                                 }
                                 
-                                // 5. 删除备份表
-                                this.db.run('DROP TABLE api_sites_backup', (err) => {
+                                // 6. 重建索引
+                                this.db.run('CREATE INDEX IF NOT EXISTS idx_api_sites_name ON api_sites(name)', (err) => {
                                     if (err) {
-                                        this.db.run('ROLLBACK');
                                         reject(err);
                                         return;
                                     }
                                     
-                                    // 6. 重建索引
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_sites_name ON api_sites(name)', (err) => {
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_sites_enabled ON api_sites(enabled)', (err) => {
                                         if (err) {
-                                            this.db.run('ROLLBACK');
                                             reject(err);
                                             return;
                                         }
                                         
-                                        this.db.run('CREATE INDEX IF NOT EXISTS idx_api_sites_enabled ON api_sites(enabled)', (err) => {
-                                            if (err) {
-                                                this.db.run('ROLLBACK');
-                                                reject(err);
-                                                return;
-                                            }
-                                            
-                                            this.db.run('COMMIT', (err) => {
-                                                if (err) {
-                                                    this.db.run('ROLLBACK');
-                                                    reject(err);
-                                                    return;
-                                                }
-                                                
-                                                console.log('api_sites表重建完成，已支持AnyRouter类型');
-                                                resolve();
-                                            });
-                                        });
+                                        console.log('api_sites表重建完成，已支持AnyRouter类型');
+                                        resolve();
                                     });
                                 });
                             });

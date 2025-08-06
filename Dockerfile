@@ -26,8 +26,8 @@ ENV DOCKER_ENV=true
 EXPOSE 3000
 
 # 创建非root用户
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN addgroup --gid 1001 --system nodejs && \
+    adduser --system --uid 1001 --ingroup nodejs nextjs
 
 # 设置数据目录权限
 RUN chown -R nextjs:nodejs /app

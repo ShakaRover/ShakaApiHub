@@ -1,4 +1,5 @@
 const ApiSite = require('../models/ApiSite');
+const ImportDiagnostic = require('../utils/importDiagnostic');
 
 class ApiSiteService {
     constructor() {
@@ -98,7 +99,7 @@ class ApiSiteService {
                 createdBy: parseInt(createdBy)
             };
 
-            const newSite = this.apiSiteModel.create(data);
+            const newSite = await this.apiSiteModel.create(data);
             return {
                 success: true,
                 data: newSite,
@@ -132,7 +133,7 @@ class ApiSiteService {
                 };
             }
 
-            const updatedSite = this.apiSiteModel.update(parseInt(id), apiSiteData);
+            const updatedSite = await this.apiSiteModel.update(parseInt(id), apiSiteData);
             return {
                 success: true,
                 data: updatedSite,
@@ -272,19 +273,26 @@ class ApiSiteService {
     // 导入API站点配置
     async importApiSites(importData, createdBy, options = { skipExisting: false, overwrite: false }) {
         try {
-            // 验证导入数据格式
-            if (!importData || typeof importData !== 'object') {
+            // 使用诊断工具验证导入数据
+            const diagnostic = ImportDiagnostic.diagnoseImportData(importData);
+            
+            if (!diagnostic.isValid) {
+                const report = ImportDiagnostic.generateReport(diagnostic);
+                console.error('数据导入验证失败:\n', report);
+                
+                // 返回第一个严重问题的信息
+                const firstIssue = diagnostic.issues[0];
                 return {
                     success: false,
-                    message: '无效的导入数据格式'
+                    message: firstIssue ? firstIssue.message : '导入数据格式验证失败',
+                    diagnostic: diagnostic,
+                    report: report
                 };
             }
 
-            if (!importData.sites || !Array.isArray(importData.sites)) {
-                return {
-                    success: false,
-                    message: '导入数据中未找到有效的站点配置'
-                };
+            // 如果有警告，记录但继续处理
+            if (diagnostic.warnings.length > 0) {
+                console.warn('数据导入警告:', diagnostic.warnings.map(w => w.message).join('; '));
             }
 
             const results = {
@@ -312,7 +320,7 @@ class ApiSiteService {
                     }
 
                     // 检查是否已存在同名站点
-                    const existingSites = this.apiSiteModel.findAll();
+                    const existingSites = await this.apiSiteModel.findAll();
                     const existingSite = existingSites.find(site => 
                         site.name === siteData.name && site.created_by === parseInt(createdBy)
                     );
@@ -432,6 +440,63 @@ class ApiSiteService {
         }
 
         return { isValid: true };
+    }
+
+    // 获取导入帮助信息
+    getImportHelp() {
+        return {
+            success: true,
+            data: {
+                format: '导入数据必须是JSON格式，包含sites数组',
+                requiredFields: {
+                    apiType: 'API类型 (NewApi, Veloera, AnyRouter)',
+                    name: '站点名称 (不超过100字符)',
+                    url: 'API地址 (有效的URL)',
+                    authMethod: '授权方式 (sessions, token)'
+                },
+                conditionalFields: {
+                    sessions: '当authMethod为sessions时必需',
+                    token: '当authMethod为token时必需',
+                    userId: '当authMethod为token或apiType为AnyRouter时必需'
+                },
+                optionalFields: {
+                    enabled: '是否启用 (默认true)',
+                    autoCheckin: '是否自动签到 (默认false)'
+                },
+                specialRules: {
+                    AnyRouter: '只支持sessions授权方式，必须提供userId',
+                    token: '授权方式必须同时提供token和userId'
+                },
+                sampleData: ImportDiagnostic.generateSampleData()
+            },
+            message: '导入数据格式说明'
+        };
+    }
+
+    // 诊断导入数据
+    async diagnoseImportData(importData) {
+        try {
+            const diagnostic = ImportDiagnostic.diagnoseImportData(importData);
+            const report = ImportDiagnostic.generateReport(diagnostic);
+            
+            return {
+                success: true,
+                data: {
+                    isValid: diagnostic.isValid,
+                    issues: diagnostic.issues,
+                    warnings: diagnostic.warnings,
+                    suggestions: diagnostic.suggestions,
+                    report: report
+                },
+                message: diagnostic.isValid ? '数据格式验证通过' : '数据格式存在问题'
+            };
+        } catch (error) {
+            console.error('ApiSiteService.diagnoseImportData:', error.message);
+            return {
+                success: false,
+                message: '诊断过程中发生错误: ' + error.message
+            };
+        }
     }
 }
 

@@ -426,6 +426,35 @@ class ApiSiteController {
             });
         }
     }
+
+    // 获取导入帮助信息
+    getImportHelp(req, res) {
+        try {
+            const result = this.apiSiteService.getImportHelp();
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.getImportHelp:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '获取导入帮助失败'
+            });
+        }
+    }
+
+    // 诊断导入数据
+    async diagnoseImportData(req, res) {
+        try {
+            const { importData } = req.body;
+            const result = await this.apiSiteService.diagnoseImportData(importData);
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.diagnoseImportData:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '诊断导入数据失败'
+            });
+        }
+    }
 }
 
 module.exports = ApiSiteController;

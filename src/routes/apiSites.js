@@ -84,6 +84,21 @@ router.get('/sites/export', requireAuth, (req, res) => {
     apiSiteController.exportApiSites(req, res);
 });
 
+// GET /api/sites/import/help - 获取导入帮助信息
+router.get('/sites/import/help', requireAuth, (req, res) => {
+    apiSiteController.getImportHelp(req, res);
+});
+
+// POST /api/sites/import/diagnose - 诊断导入数据
+router.post('/sites/import/diagnose', requireAuth, (req, res) => {
+    apiSiteController.diagnoseImportData(req, res);
+});
+
+// POST /api/sites/import - 导入API站点配置
+router.post('/sites/import', requireAuth, (req, res) => {
+    apiSiteController.importApiSites(req, res);
+});
+
 // GET /api/sites/:id - 根据ID获取API站点
 router.get('/sites/:id', requireAuth, (req, res) => {
     apiSiteController.getApiSiteById(req, res);
@@ -119,10 +134,7 @@ router.get('/sites/:id/check-history', requireAuth, (req, res) => {
     apiSiteController.getCheckHistory(req, res);
 });
 
-// POST /api/sites/import - 导入API站点配置
-router.post('/sites/import', requireAuth, (req, res) => {
-    apiSiteController.importApiSites(req, res);
-});
+
 
 // POST /api/backups - 创建备份
 router.post('/backups', requireAuth, (req, res) => {
