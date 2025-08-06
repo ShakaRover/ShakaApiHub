@@ -1,5 +1,5 @@
 # 使用官方Node.js node:lts-slim 镜像作为基础镜像
-FROM node:lts-slim
+FROM node:20
 
 # 设置工作目录
 WORKDIR /app
@@ -24,14 +24,6 @@ ENV DOCKER_ENV=true
 
 # 暴露端口
 EXPOSE 3000
-
-# 创建非root用户
-RUN addgroup --gid 1001 --system nodejs && \
-    adduser --system --uid 1001 --ingroup nodejs nextjs
-
-# 设置数据目录权限
-RUN chown -R nextjs:nodejs /app
-USER nextjs
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

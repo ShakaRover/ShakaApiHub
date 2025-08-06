@@ -38,6 +38,7 @@ test_*.js
 test_*.json
 test_cookies.txt
 cookies*.txt
+*_test.png
 
 # Temporary files
 *.tmp

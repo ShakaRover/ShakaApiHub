@@ -1,7 +1,7 @@
 {
   "name": "shaka-hub-auth",
   "version": "1.0.0",
-  "description": "ShakaApiHub认证系统",
+  "description": "ShakaApiHub",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
@@ -17,6 +17,7 @@
   "author": "ShakaRover",
   "dependencies": {
     "axios": "^1.11.0",
+    "connect-sqlite3": "^0.9.16",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^6.10.0",
