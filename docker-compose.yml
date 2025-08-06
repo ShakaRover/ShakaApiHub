@@ -1,6 +1,7 @@
 services:
   shaka-hub:
-    build: .
+    image: shakarover/shaka-api-hub:latest
+    container_name: shaka-api-hub
     ports:
       - "3000:3000"
     environment:
