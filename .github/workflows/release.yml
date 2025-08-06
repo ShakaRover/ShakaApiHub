@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # 获取最新的两个标签
+        CURRENT_TAG=${GITHUB_REF#refs/tags/}
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        echo "current_tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+        
+        # 生成变更日志
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "## Changes since $PREVIOUS_TAG" > CHANGELOG.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..$CURRENT_TAG >> CHANGELOG.md
+        else
+          echo "## Initial Release" > CHANGELOG.md
+          git log --pretty=format:"- %s (%h)" >> CHANGELOG.md
+        fi
+        
+        # 读取变更日志内容
+        CHANGELOG_CONTENT=$(cat CHANGELOG.md)
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.changelog.outputs.current_tag }}
+        body: |
+          # ShakaApiHub ${{ steps.changelog.outputs.current_tag }}
+          
+          ## 🚀 Docker Images
+          
+          ### GitHub Container Registry
+          ```bash
+          docker pull ghcr.io/${{ github.repository }}:${{ steps.changelog.outputs.current_tag }}
+          docker pull ghcr.io/${{ github.repository }}:latest
+          ```
+          
+          ### Docker Hub (if configured)
+          ```bash
+          docker pull shakarover/shaka-api-hub:${{ steps.changelog.outputs.current_tag }}
+          docker pull shakarover/shaka-api-hub:latest
+          ```
+          
+          ## 📋 Quick Start
+          
+          ```bash
+          # Using docker-compose
+          curl -O https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+          docker-compose up -d
+          
+          # Using docker run
+          docker run -d \
+            --name shaka-api-hub \
+            -p 3000:3000 \
+            -v $(pwd)/data:/app/data \
+            ghcr.io/${{ github.repository }}:${{ steps.changelog.outputs.current_tag }}
+          ```
+          
+          ${{ steps.changelog.outputs.changelog }}
+        draft: false
+        prerelease: false
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: create-release
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      if: secrets.DOCKERHUB_USERNAME != ''
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ghcr.io/${{ github.repository }}
+          ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/shaka-api-hub', secrets.DOCKERHUB_USERNAME) || '' }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Update Docker Hub description
+      if: secrets.DOCKERHUB_USERNAME != ''
+      uses: peter-evans/dockerhub-description@v4
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        repository: ${{ secrets.DOCKERHUB_USERNAME }}/shaka-api-hub
+        readme-filepath: ./README.md

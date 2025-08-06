@@ -1,0 +1,37 @@
+name: Cleanup Old Docker Images
+
+on:
+  schedule:
+    # 每周日凌晨 2 点运行
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      keep_count:
+        description: 'Number of images to keep'
+        required: false
+        default: '10'
+        type: string
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+    - name: Delete old container images
+      uses: actions/delete-package-versions@v5
+      with:
+        package-name: ${{ github.event.repository.name }}
+        package-type: 'container'
+        min-versions-to-keep: ${{ github.event.inputs.keep_count || '10' }}
+        delete-only-untagged-versions: 'true'
+
+    - name: Delete old container images (keep only recent versions)
+      uses: actions/delete-package-versions@v5
+      with:
+        package-name: ${{ github.event.repository.name }}
+        package-type: 'container'
+        min-versions-to-keep: 5
+        ignore-versions: '^latest$|^main$|^develop$|^v\d+\.\d+\.\d+$'

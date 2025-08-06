@@ -49,10 +49,19 @@ backups/
 
 # Session storage
 sessions/
+sessions.db*
 
 # Build outputs
 dist/
-build/shakaHub.db*
+build/
+shakaHub.db*
 
-# docker test data dir
+# Docker test data dir
 app/
+data/
+
+# GitHub Actions artifacts
+.github/workflows/test-results/
+
+# Docker build cache
+.docker/
