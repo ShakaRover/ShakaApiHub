@@ -210,6 +210,9 @@
                             <button class="btn btn-sm btn-primary" id="batchCheckBtn">
                                 🔍 一键检查
                             </button>
+                            <button class="btn btn-sm btn-secondary" id="scheduledCheckConfigBtn" style="margin-left: 0.5rem;">
+                                ⏰ 定时检测
+                            </button>
                             <button class="btn btn-sm btn-primary" id="addApiSiteBtn" style="margin-left: 0.5rem;">
                                 ➕ 添加API站点
                             </button>
@@ -588,6 +591,7 @@
     <script src="/js/app.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/apiSiteManager.js"></script>
+    <script src="/js/scheduledCheckManager.js"></script>
     <script>
         // 确保所有脚本加载完成后再执行认证检查
         window.addEventListener('load', async function() {
@@ -649,5 +653,162 @@
             }
         });
     </script>
+
+    <!-- 定时检测配置模态框 -->
+    <div class="modal" id="scheduledCheckModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">定时检测配置</h2>
+                <button class="modal-close" id="scheduledCheckModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <!-- 当前状态显示 -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3>当前状态</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-label">服务状态</span>
+                                <span class="status-value" id="scheduledCheckStatus">
+                                    <span class="loading-spinner"></span> 加载中...
+                                </span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">检测间隔</span>
+                                <span class="status-value" id="currentInterval">-- 分钟</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">上次运行</span>
+                                <span class="status-value" id="lastRunTime">--</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">下次运行</span>
+                                <span class="status-value" id="nextRunTime">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 配置表单 -->
+                <form id="scheduledCheckConfigForm">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>检测设置</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="intervalMinutes">检测间隔 (分钟)</label>
+                                <input type="number" 
+                                       id="intervalMinutes" 
+                                       name="intervalMinutes" 
+                                       class="form-control" 
+                                       min="1" 
+                                       max="1440" 
+                                       step="1" 
+                                       value="15" 
+                                       required>
+                                <small class="form-help">
+                                    设置定时检测的间隔时间，范围：1-1440分钟（1分钟-24小时）
+                                </small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="scheduledCheckEnabled" name="enabled" checked>
+                                        <span class="checkmark"></span>
+                                        启用定时检测
+                                    </label>
+                                </div>
+                                <small class="form-help">
+                                    开启后系统将按设定间隔自动检测所有启用的API站点
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- 快捷设置 -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h3>快捷设置</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="quick-settings">
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-interval" data-interval="5">
+                                5分钟
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-interval" data-interval="15">
+                                15分钟
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-interval" data-interval="30">
+                                30分钟
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-interval" data-interval="60">
+                                1小时
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-interval" data-interval="180">
+                                3小时
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary quick-interval" data-interval="360">
+                                6小时
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h3>操作</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="action-buttons">
+                            <button type="button" class="btn btn-outline-info" id="triggerManualCheckBtn">
+                                🚀 立即执行检测
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="viewCheckHistoryBtn">
+                                📊 查看检测历史
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="scheduledCheckModalCancel">取消</button>
+                <button type="button" class="btn btn-primary" id="scheduledCheckModalSave">
+                    <span id="scheduledCheckModalSaveText">保存配置</span>
+                    <span id="scheduledCheckModalSaveLoading" class="loading-spinner" style="display: none;"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 检测历史模态框 -->
+    <div class="modal" id="checkHistoryModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2 class="modal-title">定时检测历史</h2>
+                <button class="modal-close" id="checkHistoryModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="history-container">
+                    <div class="loading-state" id="historyLoading">
+                        <div class="loading-spinner"></div>
+                        <span>加载历史记录中...</span>
+                    </div>
+                    <div class="history-list" id="checkHistoryList">
+                        <!-- 历史记录将在这里动态加载 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="checkHistoryModalClose2">关闭</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

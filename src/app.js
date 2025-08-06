@@ -8,6 +8,7 @@ const path = require('path');
 const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
 const BackupService = require('./services/BackupService');
+const ScheduledCheckService = require('./services/ScheduledCheckService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -102,6 +103,13 @@ async function startApp() {
         // 启动自动备份服务
         const backupService = new BackupService();
         await backupService.scheduleAutoBackup();
+
+        // 启动定时检测服务
+        const scheduledCheckService = new ScheduledCheckService();
+        await scheduledCheckService.start();
+        
+        // 将服务实例添加到app，供路由访问
+        app.locals.scheduledCheckService = scheduledCheckService;
     } catch (error) {
         console.error('应用启动失败:', error.message);
         process.exit(1);

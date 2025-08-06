@@ -147,4 +147,74 @@ router.get('/backups/:fileName/validate', requireAuth, (req, res) => {
     apiSiteController.validateBackup(req, res);
 });
 
+// 定时检测相关路由
+
+// GET /api/scheduled-check/config - 获取定时检测配置
+router.get('/scheduled-check/config', requireAuth, (req, res) => {
+    const scheduledCheckService = req.app.locals.scheduledCheckService;
+    if (!scheduledCheckService) {
+        return res.status(500).json({ success: false, message: '定时检测服务未启动' });
+    }
+    
+    scheduledCheckService.getConfig().then(result => {
+        res.json(result);
+    }).catch(error => {
+        res.status(500).json({ success: false, message: error.message });
+    });
+});
+
+// PUT /api/scheduled-check/config - 更新定时检测配置
+router.put('/scheduled-check/config', requireAuth, (req, res) => {
+    const { interval, enabled } = req.body;
+    
+    // 输入验证
+    if (typeof interval !== 'number' || interval < 1 || interval > 1440) {
+        return res.status(400).json({
+            success: false,
+            message: '检测间隔必须在1-1440分钟之间'
+        });
+    }
+    
+    const scheduledCheckService = req.app.locals.scheduledCheckService;
+    if (!scheduledCheckService) {
+        return res.status(500).json({ success: false, message: '定时检测服务未启动' });
+    }
+    
+    scheduledCheckService.updateConfig(interval, enabled).then(result => {
+        res.json(result);
+    }).catch(error => {
+        res.status(500).json({ success: false, message: error.message });
+    });
+});
+
+// POST /api/scheduled-check/trigger - 手动触发检测
+router.post('/scheduled-check/trigger', requireAuth, (req, res) => {
+    const scheduledCheckService = req.app.locals.scheduledCheckService;
+    if (!scheduledCheckService) {
+        return res.status(500).json({ success: false, message: '定时检测服务未启动' });
+    }
+    
+    scheduledCheckService.triggerManualCheck().then(result => {
+        res.json(result);
+    }).catch(error => {
+        res.status(500).json({ success: false, message: error.message });
+    });
+});
+
+// GET /api/scheduled-check/history - 获取定时检测历史
+router.get('/scheduled-check/history', requireAuth, (req, res) => {
+    const limit = parseInt(req.query.limit) || 50;
+    
+    const scheduledCheckService = req.app.locals.scheduledCheckService;
+    if (!scheduledCheckService) {
+        return res.status(500).json({ success: false, message: '定时检测服务未启动' });
+    }
+    
+    scheduledCheckService.getCheckHistory(limit).then(result => {
+        res.json(result);
+    }).catch(error => {
+        res.status(500).json({ success: false, message: error.message });
+    });
+});
+
 module.exports = router;
