@@ -204,49 +204,67 @@
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title">API站点列表</h3>
-                        <div class="card-actions">
-                            <div class="search-box" style="margin-right: 1rem;">
-                                <input type="text" id="apiSiteSearch" placeholder="搜索站点名称或URL..." class="form-control form-control-sm" style="width: 200px; display: inline-block;">
+                        <div class="card-actions" style="flex-direction: column; align-items: stretch; gap: 1rem;">
+                            <!-- 搜索和操作按钮行 -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                                <div class="search-box">
+                                    <input type="text" id="apiSiteSearch" placeholder="搜索站点名称或URL..." class="form-control form-control-sm" style="width: 250px;">
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="showDetailsToggle">
+                                        <span class="toggle-slider"></span>
+                                        <span class="toggle-label">显示详情</span>
+                                    </label>
+                                    <button class="btn btn-sm btn-primary" id="batchCheckBtn">
+                                        🔍 一键检查
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" id="scheduledCheckConfigBtn">
+                                        ⏰ 定时检测
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" id="addApiSiteBtn">
+                                        ➕ 添加API站点
+                                    </button>
+                                </div>
                             </div>
-                            <!-- 过滤控件 -->
-                            <div class="filter-controls" style="display: inline-flex; gap: 0.5rem; margin-right: 1rem;">
-                                <select id="apiTypeFilter" class="form-control form-control-sm" style="width: 120px;">
-                                    <option value="">所有类型</option>
-                                    <option value="NewApi">NewApi</option>
-                                    <option value="Veloera">Veloera</option>
-                                    <option value="AnyRouter">AnyRouter</option>
-                                </select>
-                                <select id="enabledStatusFilter" class="form-control form-control-sm" style="width: 100px;">
-                                    <option value="">所有状态</option>
-                                    <option value="enabled">已启用</option>
-                                    <option value="disabled">已禁用</option>
-                                </select>
-                                <select id="checkinStatusFilter" class="form-control form-control-sm" style="width: 100px;">
-                                    <option value="">所有签到</option>
-                                    <option value="enabled">已启用</option>
-                                    <option value="disabled">未启用</option>
-                                </select>
-                                <select id="checkStatusFilter" class="form-control form-control-sm" style="width: 100px;">
-                                    <option value="">所有检测</option>
-                                    <option value="success">成功</option>
-                                    <option value="error">失败</option>
-                                    <option value="pending">未检测</option>
-                                </select>
+                            
+                            <!-- 过滤控件行 -->
+                            <div class="filter-controls-row" style="display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+                                <div class="filter-group">
+                                    <label class="filter-label">API类型:</label>
+                                    <select id="apiTypeFilter" class="form-control form-control-sm" style="width: 100px;">
+                                        <option value="">全部</option>
+                                        <option value="NewApi">NewApi</option>
+                                        <option value="Veloera">Veloera</option>
+                                        <option value="AnyRouter">AnyRouter</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label class="filter-label">启用状态:</label>
+                                    <select id="enabledStatusFilter" class="form-control form-control-sm" style="width: 90px;">
+                                        <option value="">全部</option>
+                                        <option value="enabled">启用</option>
+                                        <option value="disabled">禁用</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label class="filter-label">签到状态:</label>
+                                    <select id="checkinStatusFilter" class="form-control form-control-sm" style="width: 90px;">
+                                        <option value="">全部</option>
+                                        <option value="enabled">启用</option>
+                                        <option value="disabled">禁用</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label class="filter-label">检测状态:</label>
+                                    <select id="checkStatusFilter" class="form-control form-control-sm" style="width: 90px;">
+                                        <option value="">全部</option>
+                                        <option value="success">成功</option>
+                                        <option value="error">失败</option>
+                                        <option value="pending">待检测</option>
+                                    </select>
+                                </div>
                             </div>
-                            <label class="toggle-switch" style="margin-right: 1rem;">
-                                <input type="checkbox" id="showDetailsToggle">
-                                <span class="toggle-slider"></span>
-                                <span class="toggle-label">显示详情</span>
-                            </label>
-                            <button class="btn btn-sm btn-primary" id="batchCheckBtn">
-                                🔍 一键检查
-                            </button>
-                            <button class="btn btn-sm btn-secondary" id="scheduledCheckConfigBtn" style="margin-left: 0.5rem;">
-                                ⏰ 定时检测
-                            </button>
-                            <button class="btn btn-sm btn-primary" id="addApiSiteBtn" style="margin-left: 0.5rem;">
-                                ➕ 添加API站点
-                            </button>
                         </div>
                     </div>
                     <div class="card-body">
