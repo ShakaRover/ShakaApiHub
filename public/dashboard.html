@@ -208,6 +208,31 @@
                             <div class="search-box" style="margin-right: 1rem;">
                                 <input type="text" id="apiSiteSearch" placeholder="搜索站点名称或URL..." class="form-control form-control-sm" style="width: 200px; display: inline-block;">
                             </div>
+                            <!-- 过滤控件 -->
+                            <div class="filter-controls" style="display: inline-flex; gap: 0.5rem; margin-right: 1rem;">
+                                <select id="apiTypeFilter" class="form-control form-control-sm" style="width: 120px;">
+                                    <option value="">所有类型</option>
+                                    <option value="NewApi">NewApi</option>
+                                    <option value="Veloera">Veloera</option>
+                                    <option value="AnyRouter">AnyRouter</option>
+                                </select>
+                                <select id="enabledStatusFilter" class="form-control form-control-sm" style="width: 100px;">
+                                    <option value="">所有状态</option>
+                                    <option value="enabled">已启用</option>
+                                    <option value="disabled">已禁用</option>
+                                </select>
+                                <select id="checkinStatusFilter" class="form-control form-control-sm" style="width: 100px;">
+                                    <option value="">所有签到</option>
+                                    <option value="enabled">已启用</option>
+                                    <option value="disabled">未启用</option>
+                                </select>
+                                <select id="checkStatusFilter" class="form-control form-control-sm" style="width: 100px;">
+                                    <option value="">所有检测</option>
+                                    <option value="success">成功</option>
+                                    <option value="error">失败</option>
+                                    <option value="pending">未检测</option>
+                                </select>
+                            </div>
                             <label class="toggle-switch" style="margin-right: 1rem;">
                                 <input type="checkbox" id="showDetailsToggle">
                                 <span class="toggle-slider"></span>

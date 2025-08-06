@@ -740,6 +740,7 @@ body {
     background: var(--secondary-background);
 }
 
+/* API类型标签样式 */
 .api-type-badge {
     display: inline-block;
     padding: 0.25rem 0.5rem;
@@ -747,6 +748,25 @@ body {
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.5px;
+    border: 1px solid transparent;
+}
+
+.api-type-newapi {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.api-type-veloera {
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.api-type-anyrouter {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .api-type-session {
@@ -1053,13 +1073,6 @@ body {
 .checkin-disabled {
     background-color: #fef2f2;
     color: #991b1b;
-}
-
-/* AnyRouter API类型样式 */
-.api-type-anyrouter {
-    background-color: #f0f9ff;
-    color: #0c4a6e;
-    border: 1px solid #bae6fd;
 }
 
 /* 自动签到表单组样式 */
@@ -2153,5 +2166,68 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.25rem;
+    }
+}
+
+/* 过滤控件样式 */
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-controls select {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    background: var(--card-background);
+    color: var(--text-color);
+    transition: all 0.2s ease;
+}
+
+.filter-controls select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+.filter-controls select:hover {
+    border-color: var(--primary-color);
+}
+
+/* 过滤控件移动端适配 */
+@media (max-width: 1024px) {
+    .card-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .filter-controls {
+        justify-content: space-between;
+    }
+    
+    .filter-controls select {
+        flex: 1;
+        min-width: 80px;
+    }
+}
+
+@media (max-width: 768px) {
+    .filter-controls {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        display: grid;
+    }
+    
+    .search-box {
+        margin-right: 0 !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    .search-box input {
+        width: 100% !important;
     }
 }

@@ -45,6 +45,18 @@ class ApiSiteManager {
             searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
         }
 
+        // 过滤器功能
+        const apiTypeFilter = document.getElementById('apiTypeFilter');
+        const enabledStatusFilter = document.getElementById('enabledStatusFilter');
+        const checkinStatusFilter = document.getElementById('checkinStatusFilter');
+        const checkStatusFilter = document.getElementById('checkStatusFilter');
+
+        [apiTypeFilter, enabledStatusFilter, checkinStatusFilter, checkStatusFilter].forEach(filter => {
+            if (filter) {
+                filter.addEventListener('change', () => this.applyFilters());
+            }
+        });
+
         // 模态框事件
         this.bindModalEvents();
 
@@ -597,25 +609,63 @@ class ApiSiteManager {
     // 处理搜索
     handleSearch(searchTerm) {
         this.searchTerm = searchTerm.toLowerCase().trim();
-        this.filterApiSites();
-        this.renderApiSitesTable();
+        this.applyFilters();
     }
 
-    // 过滤API站点
-    filterApiSites() {
-        if (!this.searchTerm) {
-            this.filteredApiSites = this.apiSites;
-        } else {
-            this.filteredApiSites = this.apiSites.filter(site => {
+    // 应用所有过滤条件
+    applyFilters() {
+        this.filteredApiSites = this.apiSites.filter(site => {
+            // 搜索过滤
+            if (this.searchTerm) {
                 const name = site.name.toLowerCase();
                 const url = site.url.toLowerCase();
                 const apiType = site.api_type.toLowerCase();
                 
-                return name.includes(this.searchTerm) || 
-                       url.includes(this.searchTerm) || 
-                       apiType.includes(this.searchTerm);
-            });
-        }
+                const matchesSearch = name.includes(this.searchTerm) || 
+                                    url.includes(this.searchTerm) || 
+                                    apiType.includes(this.searchTerm);
+                
+                if (!matchesSearch) return false;
+            }
+
+            // API类型过滤
+            const apiTypeFilter = document.getElementById('apiTypeFilter')?.value;
+            if (apiTypeFilter && site.api_type !== apiTypeFilter) {
+                return false;
+            }
+
+            // 启用状态过滤
+            const enabledStatusFilter = document.getElementById('enabledStatusFilter')?.value;
+            if (enabledStatusFilter) {
+                const isEnabled = site.enabled === 1;
+                if (enabledStatusFilter === 'enabled' && !isEnabled) return false;
+                if (enabledStatusFilter === 'disabled' && isEnabled) return false;
+            }
+
+            // 签到状态过滤
+            const checkinStatusFilter = document.getElementById('checkinStatusFilter')?.value;
+            if (checkinStatusFilter) {
+                const checkinEnabled = site.auto_checkin === 1;
+                if (checkinStatusFilter === 'enabled' && !checkinEnabled) return false;
+                if (checkinStatusFilter === 'disabled' && checkinEnabled) return false;
+            }
+
+            // 最后检测状态过滤
+            const checkStatusFilter = document.getElementById('checkStatusFilter')?.value;
+            if (checkStatusFilter) {
+                const checkStatus = site.last_check_status || 'pending';
+                if (checkStatusFilter !== checkStatus) return false;
+            }
+
+            return true;
+        });
+
+        this.renderApiSitesTable();
+    }
+
+    // 过滤API站点（保留向后兼容）
+    filterApiSites() {
+        this.applyFilters();
     }
 
     // 渲染API站点表格
