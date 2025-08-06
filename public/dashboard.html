@@ -65,6 +65,12 @@
                     <span class="nav-text">系统管理</span>
                 </a>
             </div>
+            <div class="nav-item">
+                <a href="#" class="nav-link" data-page="logs">
+                    <div class="nav-icon">📋</div>
+                    <span class="nav-text">日志管理</span>
+                </a>
+            </div>
         </div>
     </nav>
     
@@ -477,6 +483,132 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 日志管理页面 -->
+            <div id="logs-page" class="page-content">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">日志管理</h1>
+                        <p class="page-subtitle">查看系统运行日志和操作记录</p>
+                    </div>
+                </div>
+
+                <!-- 日志统计卡片 -->
+                <div class="stats-grid mb-4" id="logStatsGrid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">系统日志</div>
+                            <div class="stat-icon">🔧</div>
+                        </div>
+                        <div class="stat-value" id="systemLogCount">-</div>
+                        <div class="stat-description">系统运行记录</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">用户操作</div>
+                            <div class="stat-icon">👤</div>
+                        </div>
+                        <div class="stat-value" id="userLogCount">-</div>
+                        <div class="stat-description">用户操作记录</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">API请求</div>
+                            <div class="stat-icon">🌐</div>
+                        </div>
+                        <div class="stat-value" id="apiLogCount">-</div>
+                        <div class="stat-description">接口调用记录</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">站点检测</div>
+                            <div class="stat-icon">🔍</div>
+                        </div>
+                        <div class="stat-value" id="siteCheckLogCount">-</div>
+                        <div class="stat-description">站点检测记录</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">最近错误</div>
+                            <div class="stat-icon">⚠️</div>
+                        </div>
+                        <div class="stat-value" id="recentErrorCount">-</div>
+                        <div class="stat-description">24小时内错误</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <div class="stat-title">今日请求</div>
+                            <div class="stat-icon">📈</div>
+                        </div>
+                        <div class="stat-value" id="todayRequestCount">-</div>
+                        <div class="stat-description">今天的请求数</div>
+                    </div>
+                </div>
+
+                <!-- 日志查看卡片 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>日志查看</h3>
+                        <div class="card-actions">
+                            <button class="btn btn-sm btn-secondary" id="refreshLogsBtn">
+                                🔄 刷新
+                            </button>
+                            <button class="btn btn-sm btn-warning" id="cleanLogsBtn">
+                                🗑️ 清理日志
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- 日志筛选控件 -->
+                        <div class="log-filters mb-3">
+                            <div class="filter-row">
+                                <div class="filter-group">
+                                    <label for="logType">日志类型</label>
+                                    <select id="logType" class="form-control">
+                                        <option value="all">所有日志</option>
+                                        <option value="system">系统日志</option>
+                                        <option value="user">用户操作</option>
+                                        <option value="api">API请求</option>
+                                        <option value="site">站点检测</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label for="logSearch">搜索关键字</label>
+                                    <input type="text" id="logSearch" class="form-control" placeholder="输入关键字搜索...">
+                                </div>
+                                <div class="filter-group">
+                                    <label for="startDate">开始日期</label>
+                                    <input type="datetime-local" id="startDate" class="form-control">
+                                </div>
+                                <div class="filter-group">
+                                    <label for="endDate">结束日期</label>
+                                    <input type="datetime-local" id="endDate" class="form-control">
+                                </div>
+                            </div>
+                            <div class="filter-actions">
+                                <button class="btn btn-primary" id="applyFiltersBtn">应用筛选</button>
+                                <button class="btn btn-secondary" id="clearFiltersBtn">清除筛选</button>
+                            </div>
+                        </div>
+
+                        <!-- 日志列表 -->
+                        <div class="log-container">
+                            <div class="loading-state" id="logsLoading">
+                                <div class="loading-spinner"></div>
+                                <span>正在加载日志...</span>
+                            </div>
+                            <div class="log-list" id="logsList">
+                                <!-- 日志内容将在这里动态加载 -->
+                            </div>
+                            <div class="pagination-container" id="logsPagination" style="display: none;">
+                                <button class="btn btn-outline-primary btn-sm" id="prevPageBtn" disabled>上一页</button>
+                                <span class="pagination-info" id="paginationInfo">第 1 页</span>
+                                <button class="btn btn-outline-primary btn-sm" id="nextPageBtn">下一页</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
     
@@ -592,6 +724,7 @@
     <script src="/js/admin.js"></script>
     <script src="/js/apiSiteManager.js"></script>
     <script src="/js/scheduledCheckManager.js"></script>
+    <script src="/js/logManager.js"></script>
     <script>
         // 确保所有脚本加载完成后再执行认证检查
         window.addEventListener('load', async function() {
@@ -806,6 +939,57 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="checkHistoryModalClose2">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 清理日志模态框 -->
+    <div class="modal" id="cleanLogsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">清理旧日志</h2>
+                <button class="modal-close" id="cleanLogsModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>⚠️ 注意：</strong> 清理操作将永久删除指定天数之前的日志记录，无法恢复！
+                </div>
+                
+                <div class="form-group">
+                    <label for="daysToKeep">保留天数</label>
+                    <input type="number" 
+                           id="daysToKeep" 
+                           class="form-control" 
+                           value="30" 
+                           min="7" 
+                           max="365"
+                           required>
+                    <small class="form-help">
+                        保留最近几天的日志记录，删除更早的记录。最少保留7天，最多365天。
+                    </small>
+                </div>
+
+                <div class="cleanup-preview" id="cleanupPreview" style="display: none;">
+                    <h4>清理预览</h4>
+                    <div class="preview-stats">
+                        <div class="preview-item">
+                            <span class="preview-label">将清理的记录数：</span>
+                            <span class="preview-value" id="recordsToDelete">-</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">保留的记录数：</span>
+                            <span class="preview-value" id="recordsToKeep">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cleanLogsModalCancel">取消</button>
+                <button type="button" class="btn btn-outline-info" id="previewCleanupBtn">预览清理</button>
+                <button type="button" class="btn btn-danger" id="confirmCleanupBtn" disabled>
+                    <span id="cleanupBtnText">确认清理</span>
+                    <span id="cleanupBtnLoading" class="loading-spinner" style="display: none;"></span>
+                </button>
             </div>
         </div>
     </div>

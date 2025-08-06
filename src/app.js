@@ -9,6 +9,7 @@ const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
 const BackupService = require('./services/BackupService');
 const ScheduledCheckService = require('./services/ScheduledCheckService');
+const logMiddleware = require('./middleware/logging');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,9 @@ async function startApp() {
         app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
         app.use(session(sessionConfig));
+
+        // 添加日志记录中间件
+        app.use(logMiddleware.apiLogger());
 
         // 保护dashboard页面 - 服务器端检查（在静态文件中间件之前）
         app.get('/dashboard.html', (req, res, next) => {

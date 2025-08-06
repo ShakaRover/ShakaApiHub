@@ -924,6 +924,13 @@ AdminApp.navigateToPage = function(pageName) {
             DataManager.init();
         }, 100);
     }
+    
+    // 如果切换到日志管理页面，初始化日志管理功能
+    if (pageName === 'logs' && typeof logManager !== 'undefined') {
+        setTimeout(() => {
+            logManager.initLogPage();
+        }, 100);
+    }
 };
 
 // 导出数据管理器供全局使用

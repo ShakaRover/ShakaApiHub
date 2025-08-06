@@ -1,8 +1,10 @@
 const express = require('express');
 const ApiSiteController = require('../controllers/ApiSiteController');
+const LogController = require('../controllers/LogController');
 
 const router = express.Router();
 const apiSiteController = new ApiSiteController();
+const logController = new LogController();
 
 // 认证中间件 - 检查用户是否已登录
 const requireAuth = (req, res, next) => {
@@ -215,6 +217,48 @@ router.get('/scheduled-check/history', requireAuth, (req, res) => {
     }).catch(error => {
         res.status(500).json({ success: false, message: error.message });
     });
+});
+
+// 日志管理相关路由
+
+// GET /api/logs/stats - 获取日志统计信息
+router.get('/logs/stats', requireAuth, (req, res) => {
+    logController.getLogStats(req, res);
+});
+
+// GET /api/logs/types - 获取日志类型列表
+router.get('/logs/types', requireAuth, (req, res) => {
+    logController.getLogTypes(req, res);
+});
+
+// GET /api/logs/all - 获取综合日志
+router.get('/logs/all', requireAuth, (req, res) => {
+    logController.getAllLogs(req, res);
+});
+
+// GET /api/logs/system - 获取系统日志
+router.get('/logs/system', requireAuth, (req, res) => {
+    logController.getSystemLogs(req, res);
+});
+
+// GET /api/logs/user - 获取用户操作日志
+router.get('/logs/user', requireAuth, (req, res) => {
+    logController.getUserLogs(req, res);
+});
+
+// GET /api/logs/api - 获取API请求日志
+router.get('/logs/api', requireAuth, (req, res) => {
+    logController.getApiLogs(req, res);
+});
+
+// GET /api/logs/site - 获取站点检测日志
+router.get('/logs/site', requireAuth, (req, res) => {
+    logController.getSiteCheckLogs(req, res);
+});
+
+// POST /api/logs/clean - 清理旧日志
+router.post('/logs/clean', requireAuth, (req, res) => {
+    logController.cleanOldLogs(req, res);
 });
 
 module.exports = router;
