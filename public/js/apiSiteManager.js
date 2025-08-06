@@ -822,12 +822,31 @@ class ApiSiteManager {
 
     // 创建表格行
     createTableRow(site) {
-        // 检查时间显示：优先显示最后检查时间，如果没有则显示创建时间
+        // 检查时间和状态显示
         let checkTimeDisplay = '未检查';
+        let checkStatusClass = 'check-status-pending';
+        let checkStatusTitle = '';
+        
         if (site.last_check_time) {
-            checkTimeDisplay = new Date(site.last_check_time).toLocaleString('zh-CN');
+            const checkTime = new Date(site.last_check_time).toLocaleString('zh-CN');
+            
+            if (site.last_check_status === 'error') {
+                const errorMsg = site.last_check_message || '未知错误';
+                checkTimeDisplay = `<span class="check-failed">${checkTime}<br><small class="error-message">❌ ${errorMsg}</small></span>`;
+                checkStatusClass = 'check-status-error';
+                checkStatusTitle = `检测失败: ${errorMsg}`;
+            } else if (site.last_check_status === 'success') {
+                checkTimeDisplay = `<span class="check-success">${checkTime}<br><small class="success-message">✅ 检测成功</small></span>`;
+                checkStatusClass = 'check-status-success';
+                checkStatusTitle = '检测成功';
+            } else {
+                checkTimeDisplay = `<span class="check-pending">${checkTime}<br><small class="pending-message">⏳ 检测中...</small></span>`;
+                checkStatusClass = 'check-status-pending';
+                checkStatusTitle = '正在检测';
+            }
         } else if (site.created_at) {
-            checkTimeDisplay = new Date(site.created_at).toLocaleString('zh-CN') + ' (创建)';
+            checkTimeDisplay = new Date(site.created_at).toLocaleString('zh-CN') + '<br><small class="text-muted">(创建时间)</small>';
+            checkStatusTitle = '尚未检测';
         }
         
         const apiTypeBadge = `<span class="api-type-badge api-type-${site.api_type.toLowerCase()}">${site.api_type}</span>`;
@@ -855,7 +874,7 @@ class ApiSiteManager {
 
         // 主要信息行
         const mainRow = `
-            <tr class="site-main-row">
+            <tr class="site-main-row ${checkStatusClass}" title="${checkStatusTitle}">
                 <td>
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <button class="btn-expand" 
@@ -870,7 +889,7 @@ class ApiSiteManager {
                 <td><span class="api-url" title="${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</span></td>
                 <td>${statusBadge}</td>
                 <td>${checkinBadge}</td>
-                <td>${checkTimeDisplay}</td>
+                <td class="check-time-cell">${checkTimeDisplay}</td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon btn-edit" 

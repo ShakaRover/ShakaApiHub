@@ -2239,6 +2239,72 @@ body {
     border-color: var(--primary-color);
 }
 
+/* 检测状态显示样式 */
+.check-time-cell {
+    min-width: 140px;
+    font-size: 0.875rem;
+}
+
+.check-success {
+    color: var(--text-color);
+}
+
+.check-success .success-message {
+    color: var(--success-color);
+    font-weight: 500;
+}
+
+.check-failed {
+    color: var(--text-color);
+}
+
+.check-failed .error-message {
+    color: var(--error-color);
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.check-pending {
+    color: var(--text-color);
+}
+
+.check-pending .pending-message {
+    color: var(--warning-color);
+    font-weight: 500;
+}
+
+/* 检测状态行样式 */
+.check-status-success {
+    border-left: 3px solid var(--success-color);
+}
+
+.check-status-error {
+    border-left: 3px solid var(--error-color);
+    background-color: rgba(239, 68, 68, 0.02);
+}
+
+.check-status-pending {
+    border-left: 3px solid var(--warning-color);
+}
+
+.check-status-error:hover {
+    background-color: rgba(239, 68, 68, 0.05);
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .check-time-cell {
+        min-width: 100px;
+        font-size: 0.8rem;
+    }
+    
+    .check-failed .error-message,
+    .check-success .success-message,
+    .check-pending .pending-message {
+        font-size: 0.75rem;
+    }
+}
+
 /* 过滤控件移动端适配 */
 @media (max-width: 1024px) {
     .card-actions {
