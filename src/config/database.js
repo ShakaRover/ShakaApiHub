@@ -351,8 +351,8 @@ class DatabaseConfig {
                                         }
                                         
                                         if (row.count === 0) {
-                                            const bcrypt = require('bcrypt');
-                                            const defaultPasswordHash = bcrypt.hashSync('admin123', 12);
+                                            const PasswordUtils = require('../utils/passwordUtils');
+                                            const defaultPasswordHash = PasswordUtils.hashPasswordSync('admin123');
                                             this.db.run('INSERT INTO users (username, password_hash) VALUES (?, ?)', 
                                                 ['admin', defaultPasswordHash], (err) => {
                                                     if (err) {

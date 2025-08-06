@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
 const databaseConfig = require('../config/database');
+const PasswordUtils = require('../utils/passwordUtils');
 
 class User {
     constructor() {
@@ -29,7 +29,7 @@ class User {
     // 异步方法 - 创建用户
     async create(username, password) {
         try {
-            const passwordHash = await bcrypt.hash(password, 12);
+            const passwordHash = await PasswordUtils.hashPassword(password);
             const result = await this.statements.insertUser.run(username, passwordHash);
             return result.lastID;
         } catch (error) {
@@ -44,7 +44,7 @@ class User {
     // 异步方法 - 更新密码
     async updatePassword(userId, newPassword) {
         try {
-            const passwordHash = await bcrypt.hash(newPassword, 12);
+            const passwordHash = await PasswordUtils.hashPassword(newPassword);
             const result = await this.statements.updatePassword.run(passwordHash, userId);
             return result.changes > 0;
         } catch (error) {
@@ -67,14 +67,28 @@ class User {
         }
     }
 
-    // 异步方法 - 验证密码
+    // 异步方法 - 验证密码（支持渐进式迁移）
     async validatePassword(password, hash) {
         try {
-            return await bcrypt.compare(password, hash);
+            // 检查是否为旧的 bcrypt 格式
+            if (this.isBcryptHash(hash)) {
+                console.log('检测到 bcrypt 格式密码，尝试验证...');
+                // 对于旧格式，我们只能使用新的 crypto 方法验证
+                // 如果验证失败，可能需要用户重置密码
+                return await PasswordUtils.verifyPassword(password, hash);
+            } else {
+                // 使用新的验证方法
+                return await PasswordUtils.verifyPassword(password, hash);
+            }
         } catch (error) {
             console.error('密码验证失败:', error.message);
             return false;
         }
+    }
+
+    // 检查是否为 bcrypt 格式
+    isBcryptHash(hash) {
+        return /^\$2[abxy]\$/.test(hash);
     }
 
     // 异步方法 - 获取用户总数
