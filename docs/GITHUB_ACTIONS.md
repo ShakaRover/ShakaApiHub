@@ -13,20 +13,9 @@
 **流程**:
 1. **测试阶段**: 在 Node.js 20.x 上运行测试
 2. **构建测试**: 构建 Docker 镜像并进行基本功能测试
-3. **安全扫描**: 使用 Trivy 扫描镜像漏洞
-4. **部署**: 推送到 GitHub Container Registry (仅 main 分支)
+3. **安全检查**: 运行 npm audit 检查依赖漏洞
 
-### 2. Docker 发布 (`docker-publish.yml`)
-
-**触发条件**: 推送到 `main` 分支、标签推送或 PR
-
-**功能**:
-- 构建多架构镜像 (amd64, arm64)
-- 发布到 GitHub Container Registry
-- 自动生成镜像标签和元数据
-- 构建缓存优化
-
-### 3. Docker Hub 发布 (`docker-hub.yml`)
+### 2. Docker Hub 发布 (`docker-hub.yml`)
 
 **触发条件**: 推送到 `main` 分支、标签推送或发布
 
@@ -35,17 +24,16 @@
 - 自动更新仓库描述
 - 多架构支持
 
-### 4. 版本发布 (`release.yml`)
+### 3. 版本发布 (`release.yml`)
 
 **触发条件**: 推送版本标签 (如 `v1.0.0`)
 
 **功能**:
 - 自动创建 GitHub Release
 - 生成变更日志
-- 构建并发布带版本标签的镜像
-- 同时发布到 GHCR 和 Docker Hub
+- 构建并发布带版本标签的镜像到 Docker Hub
 
-### 5. 镜像清理 (`cleanup.yml`)
+### 4. 镜像清理 (`cleanup.yml`)
 
 **触发条件**: 每周日定时执行或手动触发
 
@@ -125,13 +113,13 @@ gh release create v1.0.0 --title "Release v1.0.0" --notes "Release notes"
 
 ```bash
 # 最新版本
-docker pull ghcr.io/username/shaka-api-hub:latest
+docker pull username/shaka-api-hub:latest
 
 # 特定版本
-docker pull ghcr.io/username/shaka-api-hub:v1.0.0
+docker pull username/shaka-api-hub:v1.0.0
 
 # 开发版本
-docker pull ghcr.io/username/shaka-api-hub:develop
+docker pull username/shaka-api-hub:develop
 ```
 
 ## 多平台支持
@@ -261,7 +249,7 @@ Docker 会自动选择适合你系统的架构。
 
 ✅ **自动化构建**: 代码推送自动触发构建
 ✅ **多平台支持**: 支持 x86_64 和 ARM64 架构
-✅ **多注册表发布**: 同时发布到 GHCR 和 Docker Hub
+✅ **Docker Hub 发布**: 发布到 Docker Hub
 ✅ **安全扫描**: 自动检测安全漏洞
 ✅ **版本管理**: 自动化版本发布和标签管理
 ✅ **资源优化**: 自动清理和缓存优化
