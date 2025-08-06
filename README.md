@@ -1,21 +1,12 @@
 # ShakaApiHub
 
 [![CI/CD Pipeline](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/ci-cd.yml)
-[![Docker Publish](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/docker-publish.yml)
+[![Docker Hub](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/docker-hub.yml/badge.svg)](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/docker-hub.yml)
 [![Release](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/release.yml/badge.svg)](https://github.com/ShakaRover/ShakaApiHub/actions/workflows/release.yml)
 
 基于Node.js + Express + SQLite的现代化API站点管理系统，具备完整的用户认证、站点监控和自动化功能。
 
 ## 🚀 Docker 快速部署
-
-### GitHub Container Registry
-```bash
-# 最新版本
-docker pull ghcr.io/shakarover/shakaapiHub:latest
-
-# 特定版本
-docker pull ghcr.io/shakarover/shakaapiHub:v1.0.0
-```
 
 ### Docker Hub
 ```bash
@@ -37,7 +28,7 @@ docker run -d \
   --name shaka-api-hub \
   -p 3000:3000 \
   -v $(pwd)/data:/app/data \
-  ghcr.io/shakarover/shakaapiHub:latest
+  shakarover/shaka-api-hub:latest
 ```
 
 ## ✨ 功能特性
@@ -110,7 +101,7 @@ docker run -d \
   -v $(pwd)/data:/app/data \
   -e NODE_ENV=production \
   -e DOCKER_ENV=true \
-  ghcr.io/shakarover/shakaapiHub:latest
+  shakarover/shaka-api-hub:latest
 ```
 
 ### 方式三：源码部署
@@ -154,7 +145,6 @@ npm start
 - **Pull Request**: 自动运行测试和安全扫描
 
 ### 镜像仓库
-- **GitHub Container Registry**: `ghcr.io/shakarover/shakaapiHub`
 - **Docker Hub**: `shakarover/shaka-api-hub`
 
 ### 版本发布
