@@ -8,6 +8,9 @@ on:
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       
@@ -87,6 +90,10 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: create-release
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
     
     steps:
     - uses: actions/checkout@v4
