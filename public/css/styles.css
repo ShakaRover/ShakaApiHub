@@ -138,11 +138,12 @@ body {
 #alert-container {
     position: fixed;
     top: 80px;
-    right: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 9999;
     pointer-events: none;
     max-width: 400px;
-    width: 100%;
+    width: auto;
 }
 
 .alert {
@@ -184,9 +185,9 @@ body {
 /* 移动端适配 */
 @media (max-width: 768px) {
     #alert-container {
-        right: 10px;
-        left: 10px;
-        max-width: none;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: calc(100vw - 20px);
         top: 70px;
     }
     
