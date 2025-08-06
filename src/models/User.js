@@ -3,36 +3,35 @@ const databaseConfig = require('../config/database');
 
 class User {
     constructor() {
-        this.db = databaseConfig.getDatabase();
         this.statements = databaseConfig.getStatements();
     }
 
-    // 同步方法 - 根据用户名查找用户
-    findByUsername(username) {
+    // 异步方法 - 根据用户名查找用户
+    async findByUsername(username) {
         try {
-            return this.statements.findUserByUsername.get(username);
+            return await this.statements.findUserByUsername.get(username);
         } catch (error) {
             console.error('查询用户失败:', error.message);
             throw new Error('数据库查询失败');
         }
     }
 
-    // 同步方法 - 根据ID查找用户
-    findById(id) {
+    // 异步方法 - 根据ID查找用户
+    async findById(id) {
         try {
-            return this.statements.findUserById.get(id);
+            return await this.statements.findUserById.get(id);
         } catch (error) {
             console.error('查询用户失败:', error.message);
             throw new Error('数据库查询失败');
         }
     }
 
-    // 异步方法 - 创建用户（保持异步因为需要密码哈希）
+    // 异步方法 - 创建用户
     async create(username, password) {
         try {
             const passwordHash = await bcrypt.hash(password, 12);
-            const result = this.statements.insertUser.run(username, passwordHash);
-            return result.lastInsertRowid;
+            const result = await this.statements.insertUser.run(username, passwordHash);
+            return result.lastID;
         } catch (error) {
             if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
                 throw new Error('用户名已存在');
@@ -42,11 +41,11 @@ class User {
         }
     }
 
-    // 异步方法 - 更新密码（保持异步因为需要密码哈希）
+    // 异步方法 - 更新密码
     async updatePassword(userId, newPassword) {
         try {
             const passwordHash = await bcrypt.hash(newPassword, 12);
-            const result = this.statements.updatePassword.run(passwordHash, userId);
+            const result = await this.statements.updatePassword.run(passwordHash, userId);
             return result.changes > 0;
         } catch (error) {
             console.error('更新密码失败:', error.message);
@@ -54,10 +53,10 @@ class User {
         }
     }
 
-    // 同步方法 - 更新用户名
-    updateUsername(userId, newUsername) {
+    // 异步方法 - 更新用户名
+    async updateUsername(userId, newUsername) {
         try {
-            const result = this.statements.updateUsername.run(newUsername, userId);
+            const result = await this.statements.updateUsername.run(newUsername, userId);
             return result.changes > 0;
         } catch (error) {
             if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -68,7 +67,7 @@ class User {
         }
     }
 
-    // 异步方法 - 验证密码（保持异步因为bcrypt.compare是异步的）
+    // 异步方法 - 验证密码
     async validatePassword(password, hash) {
         try {
             return await bcrypt.compare(password, hash);
@@ -78,25 +77,15 @@ class User {
         }
     }
 
-    // 同步方法 - 获取用户总数
-    getUserCount() {
+    // 异步方法 - 获取用户总数
+    async getUserCount() {
         try {
-            return this.statements.countUsers.get().count;
+            const result = await this.statements.countUsers.get();
+            return result.count;
         } catch (error) {
             console.error('获取用户数量失败:', error.message);
             throw new Error('数据库查询失败');
         }
-    }
-
-    // 事务方法 - 批量操作示例
-    createUserTransaction(username, password) {
-        const transaction = this.db.transaction(async () => {
-            const passwordHash = await bcrypt.hash(password, 12);
-            const result = this.statements.insertUser.run(username, passwordHash);
-            return result.lastInsertRowid;
-        });
-        
-        return transaction();
     }
 }
 

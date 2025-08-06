@@ -4,7 +4,6 @@ const SiteCheckService = require('./SiteCheckService');
 
 class ScheduledCheckService {
     constructor() {
-        this.db = databaseConfig.getDatabase();
         this.statements = databaseConfig.getStatements();
         this.siteCheckService = new SiteCheckService();
         this.scheduledTask = null;
@@ -22,6 +21,9 @@ class ScheduledCheckService {
      */
     async start() {
         try {
+            // 初始化数据库连接
+            this.db = await databaseConfig.getDatabase();
+            
             // 创建配置表
             await this.createConfigTable();
             
@@ -76,18 +78,38 @@ class ScheduledCheckService {
                 )
             `;
 
-            this.db.exec(createConfigTable);
-
-            // 插入默认配置（如果不存在）
-            const existingConfig = this.db.prepare('SELECT COUNT(*) as count FROM scheduled_check_config').get();
-            if (existingConfig.count === 0) {
-                this.db.prepare(`
-                    INSERT INTO scheduled_check_config (interval_minutes, enabled)
-                    VALUES (?, ?)
-                `).run(this.defaultInterval, 1);
-                
-                console.log(`✅ 创建默认定时检测配置: ${this.defaultInterval} 分钟间隔`);
-            }
+            return new Promise((resolve, reject) => {
+                this.db.run(createConfigTable, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    
+                    // 插入默认配置（如果不存在）
+                    this.db.get('SELECT COUNT(*) as count FROM scheduled_check_config', (err, row) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        
+                        if (row.count === 0) {
+                            this.db.run(`
+                                INSERT INTO scheduled_check_config (interval_minutes, enabled)
+                                VALUES (?, ?)
+                            `, [this.defaultInterval, 1], (err) => {
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+                                console.log(`✅ 创建默认定时检测配置: ${this.defaultInterval} 分钟间隔`);
+                                resolve();
+                            });
+                        } else {
+                            resolve();
+                        }
+                    });
+                });
+            });
         } catch (error) {
             console.error('创建配置表失败:', error.message);
             throw error;
@@ -98,57 +120,68 @@ class ScheduledCheckService {
      * 加载配置
      */
     async loadConfig() {
-        try {
-            const config = this.db.prepare('SELECT * FROM scheduled_check_config WHERE id = 1').get();
-            
-            if (!config) {
-                // 如果没有配置，返回默认值
-                return {
-                    interval: this.defaultInterval,
-                    enabled: true
-                };
-            }
+        return new Promise((resolve, reject) => {
+            this.db.get('SELECT * FROM scheduled_check_config WHERE id = 1', (err, config) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                if (!config) {
+                    // 如果没有配置，返回默认值
+                    resolve({
+                        interval: this.defaultInterval,
+                        enabled: true
+                    });
+                    return;
+                }
 
-            return {
-                interval: config.interval_minutes,
-                enabled: config.enabled === 1,
-                lastRun: config.last_run,
-                nextRun: config.next_run
-            };
-        } catch (error) {
+                resolve({
+                    interval: config.interval_minutes,
+                    enabled: config.enabled === 1,
+                    lastRun: config.last_run,
+                    nextRun: config.next_run
+                });
+            });
+        }).catch(error => {
             console.error('加载配置失败:', error.message);
             return {
                 interval: this.defaultInterval,
                 enabled: true
             };
-        }
+        });
     }
 
     /**
      * 更新配置
      */
     async updateConfig(intervalMinutes, enabled = true) {
-        try {
+        return new Promise((resolve) => {
             const nextRun = this.calculateNextRun(intervalMinutes);
             
-            this.db.prepare(`
+            this.db.run(`
                 UPDATE scheduled_check_config 
                 SET interval_minutes = ?, enabled = ?, next_run = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = 1
-            `).run(intervalMinutes, enabled ? 1 : 0, nextRun);
+            `, [intervalMinutes, enabled ? 1 : 0, nextRun], (err) => {
+                if (err) {
+                    console.error('更新配置失败:', err.message);
+                    resolve({ success: false, message: err.message });
+                    return;
+                }
 
-            this.currentInterval = intervalMinutes;
-            
-            console.log(`✅ 定时检测配置已更新: ${intervalMinutes} 分钟间隔, 启用: ${enabled}`);
-            
-            // 重启定时任务以应用新配置
-            await this.restart();
-            
-            return { success: true, message: '配置更新成功' };
-        } catch (error) {
-            console.error('更新配置失败:', error.message);
-            return { success: false, message: error.message };
-        }
+                this.currentInterval = intervalMinutes;
+                
+                console.log(`✅ 定时检测配置已更新: ${intervalMinutes} 分钟间隔, 启用: ${enabled}`);
+                
+                // 重启定时任务以应用新配置
+                this.restart().then(() => {
+                    resolve({ success: true, message: '配置更新成功' });
+                }).catch(error => {
+                    resolve({ success: false, message: error.message });
+                });
+            });
+        });
     }
 
     /**
@@ -277,8 +310,8 @@ class ScheduledCheckService {
             `).run();
 
             // 获取所有启用的站点
-            const enabledSites = this.statements.findAllApiSites.all()
-                .filter(site => site.enabled === 1);
+            const allSites = await this.statements.findAllApiSites.all();
+            const enabledSites = (allSites || []).filter(site => site.enabled === 1);
 
             if (enabledSites.length === 0) {
                 console.log('📝 没有启用的站点需要检测');
@@ -495,34 +528,44 @@ class ScheduledCheckService {
      * 获取检测历史
      */
     async getCheckHistory(limit = 50) {
-        try {
-            await this.createSystemLogsTable();
-            
-            const logs = this.db.prepare(`
-                SELECT * FROM system_logs 
-                WHERE type IN ('scheduled_check', 'scheduled_check_error')
-                ORDER BY created_at DESC 
-                LIMIT ?
-            `).all(limit);
+        return new Promise((resolve) => {
+            this.createSystemLogsTable().then(() => {
+                this.db.all(`
+                    SELECT * FROM system_logs 
+                    WHERE type IN ('scheduled_check', 'scheduled_check_error')
+                    ORDER BY created_at DESC 
+                    LIMIT ?
+                `, [limit], (err, logs) => {
+                    if (err) {
+                        console.error('获取检测历史失败:', err.message);
+                        resolve({
+                            success: false,
+                            message: err.message,
+                            data: []
+                        });
+                        return;
+                    }
 
-            return {
-                success: true,
-                data: logs.map(log => ({
-                    id: log.id,
-                    type: log.type,
-                    message: log.message,
-                    data: log.data ? JSON.parse(log.data) : null,
-                    timestamp: log.created_at
-                }))
-            };
-        } catch (error) {
-            console.error('获取检测历史失败:', error.message);
-            return {
-                success: false,
-                message: error.message,
-                data: []
-            };
-        }
+                    resolve({
+                        success: true,
+                        data: (logs || []).map(log => ({
+                            id: log.id,
+                            type: log.type,
+                            message: log.message,
+                            data: log.data ? JSON.parse(log.data) : null,
+                            timestamp: log.created_at
+                        }))
+                    });
+                });
+            }).catch(error => {
+                console.error('创建系统日志表失败:', error.message);
+                resolve({
+                    success: false,
+                    message: error.message,
+                    data: []
+                });
+            });
+        });
     }
 }
 

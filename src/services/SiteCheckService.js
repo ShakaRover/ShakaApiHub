@@ -3,7 +3,6 @@ const databaseConfig = require('../config/database');
 
 class SiteCheckService {
     constructor() {
-        this.db = databaseConfig.getDatabase();
         this.statements = databaseConfig.getStatements();
     }
 
@@ -12,7 +11,7 @@ class SiteCheckService {
         let site = null;
         try {
             // 获取站点信息
-            site = this.statements.findApiSiteById.get(siteId);
+            site = await this.statements.findApiSiteById.get(siteId);
             if (!site) {
                 throw new Error('站点不存在');
             }
@@ -67,7 +66,7 @@ class SiteCheckService {
 
             // 更新检测状态为失败
             try {
-                this.statements.updateSiteCheckStatus.run('error', error.message, siteId);
+                await this.statements.updateSiteCheckStatus.run('error', error.message, siteId);
             } catch (dbError) {
                 console.error('更新数据库状态失败:', dbError.message);
             }
@@ -529,12 +528,12 @@ class SiteCheckService {
                 console.log(`用户信息包含签到时间，将更新为: ${lastCheckinTime}`);
             } else {
                 // 获取当前数据库中的签到时间
-                const currentSite = this.statements.findApiSiteById.get(siteId);
+                const currentSite = await this.statements.findApiSiteById.get(siteId);
                 lastCheckinTime = currentSite ? currentSite.site_last_check_in_time : null;
                 console.log(`用户信息不包含签到时间，保持原有值: ${lastCheckinTime || '无'}`);
             }
 
-            this.statements.updateSiteCheckInfo.run(
+            await this.statements.updateSiteCheckInfo.run(
                 quota,
                 usedQuota,
                 userInfo.request_count || 0,
@@ -560,7 +559,7 @@ class SiteCheckService {
     // 记录检测日志
     async logCheckResult(siteId, status, message, responseData) {
         try {
-            this.statements.insertCheckLog.run(siteId, status, message, responseData);
+            await this.statements.insertCheckLog.run(siteId, status, message, responseData);
         } catch (error) {
             console.error('记录检测日志失败:', error.message);
         }
@@ -569,7 +568,7 @@ class SiteCheckService {
     // 获取站点检测历史
     async getCheckHistory(siteId) {
         try {
-            const logs = this.statements.findCheckLogsBySiteId.all(siteId);
+            const logs = await this.statements.findCheckLogsBySiteId.all(siteId);
             return {
                 success: true,
                 data: logs
@@ -586,7 +585,7 @@ class SiteCheckService {
     // 获取最新检测结果
     async getLatestCheckResult(siteId) {
         try {
-            const log = this.statements.findLatestCheckLog.get(siteId);
+            const log = await this.statements.findLatestCheckLog.get(siteId);
             return {
                 success: true,
                 data: log

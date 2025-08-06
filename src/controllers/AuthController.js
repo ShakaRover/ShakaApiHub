@@ -70,13 +70,12 @@ class AuthController {
         }
     }
 
-    updateUsername(req, res) {
+    async updateUsername(req, res) {
         try {
             const { newUsername } = req.body;
             const userId = req.session.userId;
 
-            // 同步调用（性能提升）
-            const result = this.userService.updateUserUsername(userId, newUsername);
+            const result = await this.userService.updateUserUsername(userId, newUsername);
             
             if (result.success) {
                 req.session.username = newUsername;
@@ -93,12 +92,11 @@ class AuthController {
         }
     }
 
-    getProfile(req, res) {
+    async getProfile(req, res) {
         try {
             const userId = req.session.userId;
             
-            // 同步调用（性能提升）
-            const result = this.userService.getUserProfile(userId);
+            const result = await this.userService.getUserProfile(userId);
             
             if (result.success) {
                 res.json(result);

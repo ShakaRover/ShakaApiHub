@@ -5,16 +5,16 @@ class UserService {
         this.userModel = new User();
     }
 
-    // 用户认证 - 混合同步/异步操作
+    // 用户认证 - 异步操作
     async authenticateUser(username, password) {
         try {
-            // 同步查找用户（性能提升）
-            const user = this.userModel.findByUsername(username);
+            // 异步查找用户
+            const user = await this.userModel.findByUsername(username);
             if (!user) {
                 return { success: false, message: '用户名或密码错误' };
             }
 
-            // 异步验证密码（bcrypt需要异步）
+            // 异步验证密码
             const isValidPassword = await this.userModel.validatePassword(password, user.password_hash);
             if (!isValidPassword) {
                 return { success: false, message: '用户名或密码错误' };
@@ -34,11 +34,11 @@ class UserService {
         }
     }
 
-    // 更新密码 - 优化性能
+    // 更新密码 - 异步操作
     async updateUserPassword(userId, currentPassword, newPassword) {
         try {
-            // 同步查找用户（快速失败）
-            const user = this.userModel.findById(userId);
+            // 异步查找用户
+            const user = await this.userModel.findById(userId);
             if (!user) {
                 return { success: false, message: '用户不存在' };
             }
@@ -49,7 +49,7 @@ class UserService {
                 return { success: false, message: '当前密码错误' };
             }
 
-            // 异步更新密码（bcrypt哈希是异步的）
+            // 异步更新密码
             const success = await this.userModel.updatePassword(userId, newPassword);
             if (success) {
                 return { success: true, message: '密码更新成功' };
@@ -62,11 +62,11 @@ class UserService {
         }
     }
 
-    // 更新用户名 - 完全同步化
-    updateUserUsername(userId, newUsername) {
+    // 更新用户名 - 异步操作
+    async updateUserUsername(userId, newUsername) {
         try {
-            // 同步查找用户
-            const user = this.userModel.findById(userId);
+            // 异步查找用户
+            const user = await this.userModel.findById(userId);
             if (!user) {
                 return { success: false, message: '用户不存在' };
             }
@@ -75,8 +75,8 @@ class UserService {
                 return { success: false, message: '新用户名不能与当前用户名相同' };
             }
 
-            // 同步更新用户名
-            const success = this.userModel.updateUsername(userId, newUsername);
+            // 异步更新用户名
+            const success = await this.userModel.updateUsername(userId, newUsername);
             if (success) {
                 return { success: true, message: '用户名更新成功' };
             } else {
@@ -88,10 +88,10 @@ class UserService {
         }
     }
 
-    // 获取用户资料 - 完全同步化
-    getUserProfile(userId) {
+    // 获取用户资料 - 异步操作
+    async getUserProfile(userId) {
         try {
-            const user = this.userModel.findById(userId);
+            const user = await this.userModel.findById(userId);
             if (!user) {
                 return { success: false, message: '用户不存在' };
             }
@@ -126,10 +126,10 @@ class UserService {
         }
     }
 
-    // 新增：获取用户统计 - 同步方法
-    getUserStats() {
+    // 新增：获取用户统计 - 异步方法
+    async getUserStats() {
         try {
-            const totalUsers = this.userModel.getUserCount();
+            const totalUsers = await this.userModel.getUserCount();
             return {
                 success: true,
                 stats: {
@@ -143,10 +143,10 @@ class UserService {
         }
     }
 
-    // 新增：验证用户名是否可用 - 同步方法
-    isUsernameAvailable(username) {
+    // 新增：验证用户名是否可用 - 异步方法
+    async isUsernameAvailable(username) {
         try {
-            const existingUser = this.userModel.findByUsername(username);
+            const existingUser = await this.userModel.findByUsername(username);
             return {
                 success: true,
                 available: !existingUser

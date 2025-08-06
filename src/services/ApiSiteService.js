@@ -8,7 +8,7 @@ class ApiSiteService {
     // 获取所有API站点
     async getAllApiSites() {
         try {
-            const sites = this.apiSiteModel.findAll();
+            const sites = await this.apiSiteModel.findAll();
             return {
                 success: true,
                 data: sites,
@@ -33,7 +33,7 @@ class ApiSiteService {
                 };
             }
 
-            const site = this.apiSiteModel.findById(parseInt(id));
+            const site = await this.apiSiteModel.findById(parseInt(id));
             if (!site) {
                 return {
                     success: false,
@@ -222,17 +222,17 @@ class ApiSiteService {
                 // 导出指定站点
                 sites = [];
                 for (const id of siteIds) {
-                    const site = this.apiSiteModel.findById(parseInt(id));
+                    const site = await this.apiSiteModel.findById(parseInt(id));
                     if (site) {
                         sites.push(site);
                     }
                 }
             } else if (userId) {
                 // 导出指定用户的站点
-                sites = this.apiSiteModel.findByCreatedBy(parseInt(userId));
+                sites = await this.apiSiteModel.findByCreatedBy(parseInt(userId));
             } else {
                 // 导出所有站点
-                sites = this.apiSiteModel.findAll();
+                sites = await this.apiSiteModel.findAll();
             }
 
             // 过滤掉敏感的数据库信息并添加导出元数据

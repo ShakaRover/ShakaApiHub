@@ -2,14 +2,13 @@ const databaseConfig = require('../config/database');
 
 class ApiSite {
     constructor() {
-        this.db = databaseConfig.getDatabase();
         this.statements = databaseConfig.getStatements();
     }
 
     // 获取所有API站点
-    findAll() {
+    async findAll() {
         try {
-            return this.statements.findAllApiSites.all();
+            return await this.statements.findAllApiSites.all();
         } catch (error) {
             console.error('获取API站点列表失败:', error.message);
             throw new Error('数据库查询失败');
@@ -17,9 +16,9 @@ class ApiSite {
     }
 
     // 根据ID获取API站点
-    findById(id) {
+    async findById(id) {
         try {
-            return this.statements.findApiSiteById.get(id);
+            return await this.statements.findApiSiteById.get(id);
         } catch (error) {
             console.error('根据ID获取API站点失败:', error.message);
             throw new Error('数据库查询失败');
@@ -27,9 +26,9 @@ class ApiSite {
     }
 
     // 根据创建者获取API站点
-    findByCreatedBy(userId) {
+    async findByCreatedBy(userId) {
         try {
-            return this.statements.findApiSitesByCreatedBy.all(userId);
+            return await this.statements.findApiSitesByCreatedBy.all(userId);
         } catch (error) {
             console.error('根据创建者获取API站点失败:', error.message);
             throw new Error('数据库查询失败');
@@ -37,7 +36,7 @@ class ApiSite {
     }
 
     // 创建新API站点
-    create(apiSiteData) {
+    async create(apiSiteData) {
         const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, autoCheckin = 0, createdBy } = apiSiteData;
         
         // 验证必填字段
@@ -69,7 +68,7 @@ class ApiSite {
         const finalAutoCheckin = apiType === 'AnyRouter' ? 1 : (autoCheckin ? 1 : 0);
 
         try {
-            const result = this.statements.insertApiSite.run(
+            const result = await this.statements.insertApiSite.run(
                 apiType,
                 name,
                 url,
@@ -82,7 +81,7 @@ class ApiSite {
                 createdBy
             );
             
-            return this.findById(result.lastInsertRowid);
+            return await this.findById(result.lastID);
         } catch (error) {
             console.error('创建API站点失败:', error.message);
             if (error.message.includes('UNIQUE constraint failed')) {
@@ -93,7 +92,7 @@ class ApiSite {
     }
 
     // 更新API站点
-    update(id, apiSiteData) {
+    async update(id, apiSiteData) {
         const { apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin } = apiSiteData;
         
         // 验证必填字段
@@ -125,7 +124,7 @@ class ApiSite {
         const finalAutoCheckin = apiType === 'AnyRouter' ? 1 : (autoCheckin ? 1 : 0);
 
         try {
-            const result = this.statements.updateApiSite.run(
+            const result = await this.statements.updateApiSite.run(
                 apiType,
                 name,
                 url,
@@ -142,7 +141,7 @@ class ApiSite {
                 throw new Error('API站点不存在');
             }
 
-            return this.findById(id);
+            return await this.findById(id);
         } catch (error) {
             console.error('更新API站点失败:', error.message);
             if (error.message.includes('UNIQUE constraint failed')) {
@@ -156,9 +155,9 @@ class ApiSite {
     }
 
     // 删除API站点
-    delete(id) {
+    async delete(id) {
         try {
-            const result = this.statements.deleteApiSite.run(id);
+            const result = await this.statements.deleteApiSite.run(id);
             if (result.changes === 0) {
                 throw new Error('API站点不存在');
             }
@@ -173,13 +172,13 @@ class ApiSite {
     }
 
     // 切换API站点启用状态
-    toggleEnabled(id, enabled) {
+    async toggleEnabled(id, enabled) {
         try {
-            const result = this.statements.toggleApiSiteEnabled.run(enabled ? 1 : 0, id);
+            const result = await this.statements.toggleApiSiteEnabled.run(enabled ? 1 : 0, id);
             if (result.changes === 0) {
                 throw new Error('API站点不存在');
             }
-            return this.findById(id);
+            return await this.findById(id);
         } catch (error) {
             console.error('切换API站点状态失败:', error.message);
             if (error.message === 'API站点不存在') {
@@ -190,10 +189,12 @@ class ApiSite {
     }
 
     // 获取API站点统计
-    getStats() {
+    async getStats() {
         try {
-            const total = this.statements.countApiSites.get().count;
-            const enabled = this.statements.countEnabledApiSites.get().count;
+            const totalResult = await this.statements.countApiSites.get();
+            const enabledResult = await this.statements.countEnabledApiSites.get();
+            const total = totalResult.count;
+            const enabled = enabledResult.count;
             const disabled = total - enabled;
 
             return {
@@ -208,9 +209,9 @@ class ApiSite {
     }
 
     // 更新签到时间
-    updateLastCheckin(id) {
+    async updateLastCheckin(id) {
         try {
-            const result = this.statements.updateLastCheckin.run(id);
+            const result = await this.statements.updateLastCheckin.run(id);
             if (result.changes === 0) {
                 throw new Error('API站点不存在');
             }

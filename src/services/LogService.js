@@ -2,14 +2,13 @@ const databaseConfig = require('../config/database');
 
 class LogService {
     constructor() {
-        this.db = databaseConfig.getDatabase();
-        this.statements = databaseConfig.getStatements();
         this.init();
     }
 
     // 初始化日志表
     async init() {
         try {
+            this.db = await databaseConfig.getDatabase();
             await this.createLogTables();
             console.log('日志服务已初始化');
         } catch (error) {
@@ -19,8 +18,7 @@ class LogService {
 
     // 创建日志相关表
     async createLogTables() {
-        try {
-            // 系统日志表 (已存在于ScheduledCheckService中，这里确保存在)
+        return new Promise((resolve, reject) => {
             const createSystemLogsTable = `
                 CREATE TABLE IF NOT EXISTS system_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +29,6 @@ class LogService {
                 )
             `;
 
-            // 用户操作日志表
             const createUserLogsTable = `
                 CREATE TABLE IF NOT EXISTS user_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +44,6 @@ class LogService {
                 )
             `;
 
-            // API请求日志表
             const createApiLogsTable = `
                 CREATE TABLE IF NOT EXISTS api_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,39 +60,63 @@ class LogService {
                 )
             `;
 
-            // 创建索引
-            const createIndexes = `
-                CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type);
-                CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at);
-                CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id);
-                CREATE INDEX IF NOT EXISTS idx_user_logs_action ON user_logs(action);
-                CREATE INDEX IF NOT EXISTS idx_user_logs_created_at ON user_logs(created_at);
-                CREATE INDEX IF NOT EXISTS idx_api_logs_endpoint ON api_logs(endpoint);
-                CREATE INDEX IF NOT EXISTS idx_api_logs_status_code ON api_logs(status_code);
-                CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at);
-            `;
-
-            this.db.exec(createSystemLogsTable);
-            this.db.exec(createUserLogsTable);
-            this.db.exec(createApiLogsTable);
-            this.db.exec(createIndexes);
-
-            console.log('日志表创建完成');
-        } catch (error) {
-            console.error('创建日志表失败:', error.message);
-            throw error;
-        }
+            this.db.serialize(() => {
+                this.db.run(createSystemLogsTable, (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    
+                    this.db.run(createUserLogsTable, (err) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        
+                        this.db.run(createApiLogsTable, (err) => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+                            
+                            // 创建索引
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_action ON user_logs(action)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_created_at ON user_logs(created_at)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_endpoint ON api_logs(endpoint)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_status_code ON api_logs(status_code)');
+                            this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at)', (err) => {
+                                if (err) {
+                                    reject(err);
+                                } else {
+                                    console.log('日志表创建完成');
+                                    resolve();
+                                }
+                            });
+                        });
+                    });
+                });
+            });
+        });
     }
 
     // 记录系统日志
     async logSystem(type, message, data = null) {
         try {
-            const stmt = this.db.prepare(`
+            if (!this.db) {
+                this.db = await databaseConfig.getDatabase();
+            }
+            
+            this.db.run(`
                 INSERT INTO system_logs (type, message, data) 
                 VALUES (?, ?, ?)
-            `);
-            
-            stmt.run(type, message, data ? JSON.stringify(data) : null);
+            `, [type, message, data ? JSON.stringify(data) : null], (err) => {
+                if (err) {
+                    console.error('记录系统日志失败:', err.message);
+                }
+            });
         } catch (error) {
             console.error('记录系统日志失败:', error.message);
         }
@@ -105,15 +125,17 @@ class LogService {
     // 记录用户操作日志
     async logUserAction(userId, action, resourceType = null, resourceId = null, details = null, req = null) {
         try {
-            const stmt = this.db.prepare(`
-                INSERT INTO user_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `);
+            if (!this.db) {
+                this.db = await databaseConfig.getDatabase();
+            }
             
             const ipAddress = req ? (req.ip || req.connection.remoteAddress) : null;
             const userAgent = req ? req.get('User-Agent') : null;
             
-            stmt.run(
+            this.db.run(`
+                INSERT INTO user_logs (user_id, action, resource_type, resource_id, details, ip_address, user_agent) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [
                 userId, 
                 action, 
                 resourceType, 
@@ -121,7 +143,11 @@ class LogService {
                 details ? JSON.stringify(details) : null,
                 ipAddress,
                 userAgent
-            );
+            ], (err) => {
+                if (err) {
+                    console.error('记录用户操作日志失败:', err.message);
+                }
+            });
         } catch (error) {
             console.error('记录用户操作日志失败:', error.message);
         }
@@ -130,15 +156,17 @@ class LogService {
     // 记录API请求日志
     async logApiRequest(method, endpoint, statusCode, responseTime = null, userId = null, req = null, errorMessage = null) {
         try {
-            const stmt = this.db.prepare(`
-                INSERT INTO api_logs (method, endpoint, status_code, response_time, user_id, ip_address, user_agent, error_message) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `);
+            if (!this.db) {
+                this.db = await databaseConfig.getDatabase();
+            }
             
             const ipAddress = req ? (req.ip || req.connection.remoteAddress) : null;
             const userAgent = req ? req.get('User-Agent') : null;
             
-            stmt.run(
+            this.db.run(`
+                INSERT INTO api_logs (method, endpoint, status_code, response_time, user_id, ip_address, user_agent, error_message) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
                 method,
                 endpoint,
                 statusCode,
@@ -147,7 +175,11 @@ class LogService {
                 ipAddress,
                 userAgent,
                 errorMessage
-            );
+            ], (err) => {
+                if (err) {
+                    console.error('记录API请求日志失败:', err.message);
+                }
+            });
         } catch (error) {
             console.error('记录API请求日志失败:', error.message);
         }
@@ -155,255 +187,303 @@ class LogService {
 
     // 获取系统日志
     async getSystemLogs(options = {}) {
-        try {
-            const {
-                type = null,
-                limit = 50,
-                offset = 0,
-                startDate = null,
-                endDate = null
-            } = options;
+        return new Promise((resolve) => {
+            try {
+                const {
+                    type = null,
+                    limit = 50,
+                    offset = 0,
+                    startDate = null,
+                    endDate = null
+                } = options;
 
-            let query = 'SELECT * FROM system_logs WHERE 1=1';
-            const params = [];
+                let query = 'SELECT * FROM system_logs WHERE 1=1';
+                const params = [];
 
-            if (type) {
-                query += ' AND type = ?';
-                params.push(type);
+                if (type) {
+                    query += ' AND type = ?';
+                    params.push(type);
+                }
+
+                if (startDate) {
+                    query += ' AND created_at >= ?';
+                    params.push(startDate);
+                }
+
+                if (endDate) {
+                    query += ' AND created_at <= ?';
+                    params.push(endDate);
+                }
+
+                query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+
+                if (!this.db) {
+                    resolve({ success: false, message: '数据库未初始化', data: [] });
+                    return;
+                }
+
+                this.db.all(query, params, (err, logs) => {
+                    if (err) {
+                        console.error('获取系统日志失败:', err.message);
+                        resolve({ success: false, message: err.message, data: [] });
+                        return;
+                    }
+
+                    // 解析data字段
+                    const parsedLogs = (logs || []).map(log => ({
+                        ...log,
+                        data: log && log.data ? JSON.parse(log.data) : null
+                    }));
+
+                    resolve({
+                        success: true,
+                        data: parsedLogs,
+                        total: parsedLogs.length
+                    });
+                });
+            } catch (error) {
+                console.error('获取系统日志失败:', error.message);
+                resolve({ success: false, message: error.message, data: [] });
             }
-
-            if (startDate) {
-                query += ' AND created_at >= ?';
-                params.push(startDate);
-            }
-
-            if (endDate) {
-                query += ' AND created_at <= ?';
-                params.push(endDate);
-            }
-
-            query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-            params.push(limit, offset);
-
-            const stmt = this.db.prepare(query);
-            const logs = stmt.all(...params);
-
-            // 解析data字段
-            const parsedLogs = logs.map(log => ({
-                ...log,
-                data: log.data ? JSON.parse(log.data) : null
-            }));
-
-            return {
-                success: true,
-                data: parsedLogs,
-                total: this.getSystemLogsCount({ type, startDate, endDate })
-            };
-        } catch (error) {
-            console.error('获取系统日志失败:', error.message);
-            return { success: false, message: error.message, data: [] };
-        }
+        });
     }
 
     // 获取用户操作日志
     async getUserLogs(options = {}) {
-        try {
-            const {
-                userId = null,
-                action = null,
-                resourceType = null,
-                limit = 50,
-                offset = 0,
-                startDate = null,
-                endDate = null
-            } = options;
+        return new Promise((resolve) => {
+            try {
+                const {
+                    userId = null,
+                    action = null,
+                    resourceType = null,
+                    limit = 50,
+                    offset = 0,
+                    startDate = null,
+                    endDate = null
+                } = options;
 
-            let query = `
-                SELECT ul.*, u.username 
-                FROM user_logs ul 
-                LEFT JOIN users u ON ul.user_id = u.id 
-                WHERE 1=1
-            `;
-            const params = [];
+                let query = `
+                    SELECT ul.*, u.username 
+                    FROM user_logs ul 
+                    LEFT JOIN users u ON ul.user_id = u.id 
+                    WHERE 1=1
+                `;
+                const params = [];
 
-            if (userId) {
-                query += ' AND ul.user_id = ?';
-                params.push(userId);
+                if (userId) {
+                    query += ' AND ul.user_id = ?';
+                    params.push(userId);
+                }
+
+                if (action) {
+                    query += ' AND ul.action LIKE ?';
+                    params.push(`%${action}%`);
+                }
+
+                if (resourceType) {
+                    query += ' AND ul.resource_type = ?';
+                    params.push(resourceType);
+                }
+
+                if (startDate) {
+                    query += ' AND ul.created_at >= ?';
+                    params.push(startDate);
+                }
+
+                if (endDate) {
+                    query += ' AND ul.created_at <= ?';
+                    params.push(endDate);
+                }
+
+                query += ' ORDER BY ul.created_at DESC LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+
+                if (!this.db) {
+                    resolve({ success: false, message: '数据库未初始化', data: [] });
+                    return;
+                }
+
+                this.db.all(query, params, (err, logs) => {
+                    if (err) {
+                        console.error('获取用户操作日志失败:', err.message);
+                        resolve({ success: false, message: err.message, data: [] });
+                        return;
+                    }
+
+                    // 解析details字段
+                    const parsedLogs = (logs || []).map(log => ({
+                        ...log,
+                        details: log && log.details ? JSON.parse(log.details) : null
+                    }));
+
+                    resolve({
+                        success: true,
+                        data: parsedLogs,
+                        total: parsedLogs.length
+                    });
+                });
+            } catch (error) {
+                console.error('获取用户操作日志失败:', error.message);
+                resolve({ success: false, message: error.message, data: [] });
             }
-
-            if (action) {
-                query += ' AND ul.action LIKE ?';
-                params.push(`%${action}%`);
-            }
-
-            if (resourceType) {
-                query += ' AND ul.resource_type = ?';
-                params.push(resourceType);
-            }
-
-            if (startDate) {
-                query += ' AND ul.created_at >= ?';
-                params.push(startDate);
-            }
-
-            if (endDate) {
-                query += ' AND ul.created_at <= ?';
-                params.push(endDate);
-            }
-
-            query += ' ORDER BY ul.created_at DESC LIMIT ? OFFSET ?';
-            params.push(limit, offset);
-
-            const stmt = this.db.prepare(query);
-            const logs = stmt.all(...params);
-
-            // 解析details字段
-            const parsedLogs = logs.map(log => ({
-                ...log,
-                details: log.details ? JSON.parse(log.details) : null
-            }));
-
-            return {
-                success: true,
-                data: parsedLogs,
-                total: this.getUserLogsCount({ userId, action, resourceType, startDate, endDate })
-            };
-        } catch (error) {
-            console.error('获取用户操作日志失败:', error.message);
-            return { success: false, message: error.message, data: [] };
-        }
+        });
     }
 
     // 获取API请求日志
     async getApiLogs(options = {}) {
-        try {
-            const {
-                method = null,
-                endpoint = null,
-                statusCode = null,
-                userId = null,
-                limit = 50,
-                offset = 0,
-                startDate = null,
-                endDate = null
-            } = options;
+        return new Promise((resolve) => {
+            try {
+                const {
+                    method = null,
+                    endpoint = null,
+                    statusCode = null,
+                    userId = null,
+                    limit = 50,
+                    offset = 0,
+                    startDate = null,
+                    endDate = null
+                } = options;
 
-            let query = `
-                SELECT al.*, u.username 
-                FROM api_logs al 
-                LEFT JOIN users u ON al.user_id = u.id 
-                WHERE 1=1
-            `;
-            const params = [];
+                let query = `
+                    SELECT al.*, u.username 
+                    FROM api_logs al 
+                    LEFT JOIN users u ON al.user_id = u.id 
+                    WHERE 1=1
+                `;
+                const params = [];
 
-            if (method) {
-                query += ' AND al.method = ?';
-                params.push(method);
+                if (method) {
+                    query += ' AND al.method = ?';
+                    params.push(method);
+                }
+
+                if (endpoint) {
+                    query += ' AND al.endpoint LIKE ?';
+                    params.push(`%${endpoint}%`);
+                }
+
+                if (statusCode) {
+                    query += ' AND al.status_code = ?';
+                    params.push(statusCode);
+                }
+
+                if (userId) {
+                    query += ' AND al.user_id = ?';
+                    params.push(userId);
+                }
+
+                if (startDate) {
+                    query += ' AND al.created_at >= ?';
+                    params.push(startDate);
+                }
+
+                if (endDate) {
+                    query += ' AND al.created_at <= ?';
+                    params.push(endDate);
+                }
+
+                query += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+
+                if (!this.db) {
+                    resolve({ success: false, message: '数据库未初始化', data: [] });
+                    return;
+                }
+
+                this.db.all(query, params, (err, logs) => {
+                    if (err) {
+                        console.error('获取API请求日志失败:', err.message);
+                        resolve({ success: false, message: err.message, data: [] });
+                        return;
+                    }
+
+                    resolve({
+                        success: true,
+                        data: logs || [],
+                        total: (logs || []).length
+                    });
+                });
+            } catch (error) {
+                console.error('获取API请求日志失败:', error.message);
+                resolve({ success: false, message: error.message, data: [] });
             }
-
-            if (endpoint) {
-                query += ' AND al.endpoint LIKE ?';
-                params.push(`%${endpoint}%`);
-            }
-
-            if (statusCode) {
-                query += ' AND al.status_code = ?';
-                params.push(statusCode);
-            }
-
-            if (userId) {
-                query += ' AND al.user_id = ?';
-                params.push(userId);
-            }
-
-            if (startDate) {
-                query += ' AND al.created_at >= ?';
-                params.push(startDate);
-            }
-
-            if (endDate) {
-                query += ' AND al.created_at <= ?';
-                params.push(endDate);
-            }
-
-            query += ' ORDER BY al.created_at DESC LIMIT ? OFFSET ?';
-            params.push(limit, offset);
-
-            const stmt = this.db.prepare(query);
-            const logs = stmt.all(...params);
-
-            return {
-                success: true,
-                data: logs,
-                total: this.getApiLogsCount({ method, endpoint, statusCode, userId, startDate, endDate })
-            };
-        } catch (error) {
-            console.error('获取API请求日志失败:', error.message);
-            return { success: false, message: error.message, data: [] };
-        }
+        });
     }
 
     // 获取站点检测日志
     async getSiteCheckLogs(options = {}) {
-        try {
-            const {
-                siteId = null,
-                status = null,
-                limit = 50,
-                offset = 0,
-                startDate = null,
-                endDate = null
-            } = options;
+        return new Promise((resolve) => {
+            try {
+                const {
+                    siteId = null,
+                    status = null,
+                    limit = 50,
+                    offset = 0,
+                    startDate = null,
+                    endDate = null
+                } = options;
 
-            let query = `
-                SELECT scl.*, aps.name as site_name 
-                FROM site_check_logs scl 
-                LEFT JOIN api_sites aps ON scl.site_id = aps.id 
-                WHERE 1=1
-            `;
-            const params = [];
+                let query = `
+                    SELECT scl.*, aps.name as site_name 
+                    FROM site_check_logs scl 
+                    LEFT JOIN api_sites aps ON scl.site_id = aps.id 
+                    WHERE 1=1
+                `;
+                const params = [];
 
-            if (siteId) {
-                query += ' AND scl.site_id = ?';
-                params.push(siteId);
+                if (siteId) {
+                    query += ' AND scl.site_id = ?';
+                    params.push(siteId);
+                }
+
+                if (status) {
+                    query += ' AND scl.status = ?';
+                    params.push(status);
+                }
+
+                if (startDate) {
+                    query += ' AND scl.check_time >= ?';
+                    params.push(startDate);
+                }
+
+                if (endDate) {
+                    query += ' AND scl.check_time <= ?';
+                    params.push(endDate);
+                }
+
+                query += ' ORDER BY scl.check_time DESC LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+
+                if (!this.db) {
+                    resolve({ success: false, message: '数据库未初始化', data: [] });
+                    return;
+                }
+
+                this.db.all(query, params, (err, logs) => {
+                    if (err) {
+                        console.error('获取站点检测日志失败:', err.message);
+                        resolve({ success: false, message: err.message, data: [] });
+                        return;
+                    }
+
+                    // 解析response_data字段
+                    const parsedLogs = (logs || []).map(log => ({
+                        ...log,
+                        response_data: log && log.response_data ? JSON.parse(log.response_data) : null
+                    }));
+
+                    resolve({
+                        success: true,
+                        data: parsedLogs,
+                        total: parsedLogs.length
+                    });
+                });
+            } catch (error) {
+                console.error('获取站点检测日志失败:', error.message);
+                resolve({ success: false, message: error.message, data: [] });
             }
-
-            if (status) {
-                query += ' AND scl.status = ?';
-                params.push(status);
-            }
-
-            if (startDate) {
-                query += ' AND scl.check_time >= ?';
-                params.push(startDate);
-            }
-
-            if (endDate) {
-                query += ' AND scl.check_time <= ?';
-                params.push(endDate);
-            }
-
-            query += ' ORDER BY scl.check_time DESC LIMIT ? OFFSET ?';
-            params.push(limit, offset);
-
-            const stmt = this.db.prepare(query);
-            const logs = stmt.all(...params);
-
-            // 解析response_data字段
-            const parsedLogs = logs.map(log => ({
-                ...log,
-                response_data: log.response_data ? JSON.parse(log.response_data) : null
-            }));
-
-            return {
-                success: true,
-                data: parsedLogs,
-                total: this.getSiteCheckLogsCount({ siteId, status, startDate, endDate })
-            };
-        } catch (error) {
-            console.error('获取站点检测日志失败:', error.message);
-            return { success: false, message: error.message, data: [] };
-        }
+        });
     }
 
     // 获取日志统计信息
