@@ -56,13 +56,7 @@ jobs:
           
           ## 🚀 Docker Images
           
-          ### GitHub Container Registry
-          ```bash
-          docker pull ghcr.io/${{ github.repository }}:${{ steps.changelog.outputs.current_tag }}
-          docker pull ghcr.io/${{ github.repository }}:latest
-          ```
-          
-          ### Docker Hub (if configured)
+          ### Docker Hub
           ```bash
           docker pull shakarover/shaka-api-hub:${{ steps.changelog.outputs.current_tag }}
           docker pull shakarover/shaka-api-hub:latest
@@ -80,7 +74,7 @@ jobs:
             --name shaka-api-hub \
             -p 3000:3000 \
             -v $(pwd)/data:/app/data \
-            ghcr.io/${{ github.repository }}:${{ steps.changelog.outputs.current_tag }}
+            shakarover/shaka-api-hub:${{ steps.changelog.outputs.current_tag }}
           ```
           
           ${{ steps.changelog.outputs.changelog }}
@@ -104,15 +98,7 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Login to Docker Hub
-      if: secrets.DOCKERHUB_USERNAME != ''
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -123,8 +109,7 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: |
-          ghcr.io/${{ github.repository }}
-          ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/shaka-api-hub', secrets.DOCKERHUB_USERNAME) || '' }}
+          ${{ secrets.DOCKERHUB_USERNAME }}/shaka-api-hub
         tags: |
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
@@ -143,7 +128,6 @@ jobs:
         cache-to: type=gha,mode=max
 
     - name: Update Docker Hub description
-      if: secrets.DOCKERHUB_USERNAME != ''
       uses: peter-evans/dockerhub-description@v4
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
