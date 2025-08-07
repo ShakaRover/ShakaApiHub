@@ -426,6 +426,9 @@ document.addEventListener('DOMContentLoaded', addPageContentStyles);
 // 数据管理功能模块
 const DataManager = {
     initialized: false, // 添加初始化标志
+    allBackups: [], // 存储所有备份数据
+    filteredBackups: [], // 存储过滤后的备份数据
+    selectedBackups: new Set(), // 存储选中的备份
     
     // 初始化数据管理功能
     init() {
@@ -440,6 +443,7 @@ const DataManager = {
         this.bindExportEvents();
         this.bindImportEvents();
         this.bindBackupEvents();
+        this.bindBackupFilterEvents(); // 绑定过滤事件
         this.loadBackupList();
         this.updateNextBackupTime();
         
@@ -721,6 +725,119 @@ const DataManager = {
         });
     },
 
+    // 绑定备份过滤事件
+    bindBackupFilterEvents() {
+        const applyFiltersBtn = document.getElementById('applyBackupFiltersBtn');
+        const clearFiltersBtn = document.getElementById('clearBackupFiltersBtn');
+        const selectAllBtn = document.getElementById('selectAllBackupsBtn');
+        const batchDeleteBtn = document.getElementById('batchDeleteBackupsBtn');
+
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', () => {
+                this.applyBackupFilters();
+            });
+        }
+
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearBackupFilters();
+            });
+        }
+
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('change', (e) => {
+                this.toggleSelectAllBackups(e.target.checked);
+            });
+        }
+
+        if (batchDeleteBtn) {
+            batchDeleteBtn.addEventListener('click', () => {
+                this.showBatchDeleteConfirm();
+            });
+        }
+    },
+
+    // 应用备份过滤
+    applyBackupFilters() {
+        const typeFilter = document.getElementById('backupTypeFilter')?.value;
+        const dateFilter = document.getElementById('backupDateFilter')?.value;
+        const sizeFilter = document.getElementById('backupSizeFilter')?.value;
+
+        this.filteredBackups = this.allBackups.filter(backup => {
+            // 类型过滤
+            if (typeFilter && backup.backupType !== typeFilter) {
+                return false;
+            }
+
+            // 日期过滤
+            if (dateFilter) {
+                const backupDate = new Date(backup.createdAt).toISOString().split('T')[0];
+                if (backupDate !== dateFilter) {
+                    return false;
+                }
+            }
+
+            // 大小过滤
+            if (sizeFilter) {
+                const fileSizeInMB = backup.fileSize / (1024 * 1024);
+                if (sizeFilter === 'small' && fileSizeInMB >= 1) return false;
+                if (sizeFilter === 'medium' && (fileSizeInMB < 1 || fileSizeInMB > 5)) return false;
+                if (sizeFilter === 'large' && fileSizeInMB <= 5) return false;
+            }
+
+            return true;
+        });
+
+        this.renderBackupList(this.filteredBackups);
+        showAlert(`已筛选出 ${this.filteredBackups.length} 个备份文件`, 'info');
+    },
+
+    // 清除备份过滤
+    clearBackupFilters() {
+        // 清空过滤条件
+        const typeFilter = document.getElementById('backupTypeFilter');
+        const dateFilter = document.getElementById('backupDateFilter');
+        const sizeFilter = document.getElementById('backupSizeFilter');
+
+        if (typeFilter) typeFilter.value = '';
+        if (dateFilter) dateFilter.value = '';
+        if (sizeFilter) sizeFilter.value = '';
+
+        // 重置过滤结果
+        this.filteredBackups = [...this.allBackups];
+        this.renderBackupList(this.filteredBackups);
+        showAlert('过滤条件已清除', 'success');
+    },
+
+    // 全选/取消全选备份
+    toggleSelectAllBackups(selectAll) {
+        const checkboxes = document.querySelectorAll('.backup-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll;
+            const fileName = checkbox.dataset.filename;
+            if (selectAll) {
+                this.selectedBackups.add(fileName);
+            } else {
+                this.selectedBackups.delete(fileName);
+            }
+        });
+
+        this.updateBatchDeleteButton();
+    },
+
+    // 更新批量删除按钮状态
+    updateBatchDeleteButton() {
+        const batchDeleteBtn = document.getElementById('batchDeleteBackupsBtn');
+        if (batchDeleteBtn) {
+            if (this.selectedBackups.size > 0) {
+                batchDeleteBtn.style.display = 'inline-block';
+                batchDeleteBtn.textContent = `🗑️ 批量删除 (${this.selectedBackups.size})`;
+            } else {
+                batchDeleteBtn.style.display = 'none';
+            }
+        }
+    },
+
     // 创建备份
     async createBackup() {
         try {
@@ -758,7 +875,9 @@ const DataManager = {
             const result = await response.json();
 
             if (result.success) {
-                this.renderBackupList(result.data);
+                this.allBackups = result.data;
+                this.filteredBackups = [...this.allBackups]; // 初始化过滤数据
+                this.renderBackupList(this.filteredBackups);
             } else {
                 showAlert('加载备份列表失败: ' + result.message, 'error');
             }
@@ -774,6 +893,7 @@ const DataManager = {
         
         if (backups.length === 0) {
             container.innerHTML = '<p class="text-muted">暂无备份文件</p>';
+            this.updateBatchDeleteButton();
             return;
         }
 
@@ -782,9 +902,16 @@ const DataManager = {
             const createdAt = new Date(backup.createdAt).toLocaleString('zh-CN');
             const fileSize = this.formatFileSize(backup.fileSize);
             const backupTypeText = backup.backupType === 'auto' ? '自动' : '手动';
+            const isSelected = this.selectedBackups.has(backup.fileName);
             
             html += `
                 <div class="backup-item">
+                    <div class="backup-checkbox-wrapper">
+                        <label class="checkbox-label">
+                            <input type="checkbox" class="backup-checkbox" data-filename="${backup.fileName}" ${isSelected ? 'checked' : ''} />
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
                     <div class="backup-info">
                         <div class="backup-name">${backup.fileName}</div>
                         <div class="backup-meta">
@@ -795,10 +922,13 @@ const DataManager = {
                         </div>
                     </div>
                     <div class="backup-actions">
-                        <button class="btn btn-sm btn-secondary restore-backup-btn" data-filename="${backup.fileName}">
+                        <button class="btn btn-sm btn-info download-backup-btn" data-filename="${backup.fileName}" title="下载备份文件">
+                            📥 下载
+                        </button>
+                        <button class="btn btn-sm btn-secondary restore-backup-btn" data-filename="${backup.fileName}" title="恢复备份">
                             🔄 恢复
                         </button>
-                        <button class="btn btn-sm btn-danger delete-backup-btn" data-filename="${backup.fileName}">
+                        <button class="btn btn-sm btn-danger delete-backup-btn" data-filename="${backup.fileName}" title="删除备份">
                             🗑️ 删除
                         </button>
                     </div>
@@ -811,12 +941,34 @@ const DataManager = {
         
         // 重新绑定事件监听器
         this.bindBackupActionEvents();
+        this.updateBatchDeleteButton();
     },
 
     // 绑定备份操作事件
     bindBackupActionEvents() {
         const container = document.getElementById('backupsList');
         if (!container) return;
+
+        // 复选框事件
+        container.querySelectorAll('.backup-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const fileName = e.target.getAttribute('data-filename');
+                if (e.target.checked) {
+                    this.selectedBackups.add(fileName);
+                } else {
+                    this.selectedBackups.delete(fileName);
+                }
+                this.updateBatchDeleteButton();
+            });
+        });
+
+        // 下载备份按钮事件
+        container.querySelectorAll('.download-backup-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const fileName = e.target.getAttribute('data-filename');
+                this.downloadBackup(fileName);
+            });
+        });
 
         // 恢复备份按钮事件
         container.querySelectorAll('.restore-backup-btn').forEach(btn => {
@@ -894,6 +1046,7 @@ const DataManager = {
 
             if (result.success) {
                 showAlert(result.message, 'success');
+                this.selectedBackups.delete(fileName); // 从选中集合中移除
                 this.loadBackupList();
             } else {
                 showAlert('删除备份失败: ' + result.message, 'error');
@@ -901,6 +1054,97 @@ const DataManager = {
         } catch (error) {
             console.error('删除备份失败:', error);
             showAlert('删除备份失败: ' + error.message, 'error');
+        }
+    },
+
+    // 下载备份文件
+    downloadBackup(fileName) {
+        try {
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = `/api/backups/${encodeURIComponent(fileName)}/download`;
+            link.download = fileName;
+            link.style.display = 'none';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showAlert('备份文件下载已开始', 'success');
+        } catch (error) {
+            console.error('下载备份失败:', error);
+            showAlert('下载备份失败: ' + error.message, 'error');
+        }
+    },
+
+    // 显示批量删除确认对话框
+    showBatchDeleteConfirm() {
+        const selectedFiles = Array.from(this.selectedBackups);
+        if (selectedFiles.length === 0) {
+            showAlert('请先选择要删除的备份文件', 'warning');
+            return;
+        }
+
+        const fileList = selectedFiles.map(f => `• ${f}`).join('\n');
+        const confirmMessage = `确定要删除以下 ${selectedFiles.length} 个备份文件吗？此操作不可恢复。\n\n${fileList}`;
+        
+        if (confirm(confirmMessage)) {
+            this.batchDeleteBackups(selectedFiles);
+        }
+    },
+
+    // 批量删除备份
+    async batchDeleteBackups(fileNames) {
+        try {
+            showAlert(`正在删除 ${fileNames.length} 个备份文件...`, 'info');
+            
+            let successCount = 0;
+            let errorCount = 0;
+            const errors = [];
+
+            // 逐个删除备份文件
+            for (const fileName of fileNames) {
+                try {
+                    const response = await fetch(`/api/backups/${encodeURIComponent(fileName)}`, {
+                        method: 'DELETE'
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        successCount++;
+                        this.selectedBackups.delete(fileName);
+                    } else {
+                        errorCount++;
+                        errors.push(`${fileName}: ${result.message}`);
+                    }
+                } catch (error) {
+                    errorCount++;
+                    errors.push(`${fileName}: ${error.message}`);
+                }
+            }
+
+            // 显示结果
+            let message = `批量删除完成！成功删除 ${successCount} 个文件`;
+            if (errorCount > 0) {
+                message += `，失败 ${errorCount} 个文件`;
+                console.error('批量删除错误:', errors);
+            }
+
+            showAlert(message, errorCount === 0 ? 'success' : 'warning');
+            
+            // 刷新备份列表
+            this.loadBackupList();
+            
+            // 取消全选状态
+            const selectAllBtn = document.getElementById('selectAllBackupsBtn');
+            if (selectAllBtn) {
+                selectAllBtn.checked = false;
+            }
+
+        } catch (error) {
+            console.error('批量删除失败:', error);
+            showAlert('批量删除失败: ' + error.message, 'error');
         }
     },
 

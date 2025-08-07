@@ -426,8 +426,50 @@
                                 <h3 class="card-title">备份历史</h3>
                                 <p class="card-description">管理您的备份文件</p>
                             </div>
-                            <button class="btn btn-secondary" id="refreshBackupsBtn">🔄 刷新</button>
+                            <div class="card-actions" style="display: flex; align-items: center; gap: 1rem;">
+                                <button class="btn btn-secondary btn-sm" id="refreshBackupsBtn">🔄 刷新</button>
+                                <button class="btn btn-danger btn-sm" id="batchDeleteBackupsBtn" style="display: none;">🗑️ 批量删除</button>
+                            </div>
                         </div>
+                        
+                        <!-- 备份过滤控件 -->
+                        <div class="card-body" style="border-bottom: 1px solid #e0e0e0;">
+                            <div class="backup-filters" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                                <div class="filter-group">
+                                    <label for="backupTypeFilter" class="filter-label">备份类型:</label>
+                                    <select id="backupTypeFilter" class="form-control form-control-sm" style="width: 100px;">
+                                        <option value="">全部</option>
+                                        <option value="manual">手动</option>
+                                        <option value="auto">自动</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <label for="backupDateFilter" class="filter-label">创建时间:</label>
+                                    <input type="date" id="backupDateFilter" class="form-control form-control-sm" style="width: 140px;">
+                                </div>
+                                <div class="filter-group">
+                                    <label for="backupSizeFilter" class="filter-label">文件大小:</label>
+                                    <select id="backupSizeFilter" class="form-control form-control-sm" style="width: 100px;">
+                                        <option value="">全部</option>
+                                        <option value="small">小于1MB</option>
+                                        <option value="medium">1-5MB</option>
+                                        <option value="large">大于5MB</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group">
+                                    <button class="btn btn-primary btn-sm" id="applyBackupFiltersBtn">应用筛选</button>
+                                    <button class="btn btn-secondary btn-sm" id="clearBackupFiltersBtn">清除</button>
+                                </div>
+                                <div class="filter-group" style="margin-left: auto;">
+                                    <label class="checkbox-label" style="margin: 0;">
+                                        <input type="checkbox" id="selectAllBackupsBtn" />
+                                        <span class="checkmark"></span>
+                                        <span style="font-size: 14px;">全选</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="card-body">
                             <div id="backupsList">
                                 <!-- 动态生成备份列表 -->
