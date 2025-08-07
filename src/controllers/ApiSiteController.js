@@ -427,6 +427,41 @@ class ApiSiteController {
         }
     }
 
+    // 下载备份文件
+    async downloadBackup(req, res) {
+        try {
+            const { fileName } = req.params;
+
+            if (!fileName) {
+                return res.status(400).json({
+                    success: false,
+                    message: '缺少备份文件名'
+                });
+            }
+
+            const result = await this.backupService.downloadBackup(fileName);
+            
+            if (!result.success) {
+                const statusCode = result.message.includes('不存在') ? 404 : 400;
+                return res.status(statusCode).json(result);
+            }
+
+            // 设置下载响应头
+            res.setHeader('Content-Type', 'application/json');
+            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+            res.setHeader('Content-Length', result.data.fileSize);
+
+            // 发送文件内容
+            res.send(result.data.content);
+        } catch (error) {
+            console.error('ApiSiteController.downloadBackup:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
     // 获取导入帮助信息
     getImportHelp(req, res) {
         try {

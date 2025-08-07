@@ -294,6 +294,43 @@ class BackupService {
             };
         }
     }
+
+    // 下载备份文件
+    async downloadBackup(fileName) {
+        try {
+            const filePath = path.join(this.backupDir, fileName);
+            
+            // 检查文件是否存在
+            try {
+                await fs.access(filePath);
+            } catch (error) {
+                return {
+                    success: false,
+                    message: '备份文件不存在'
+                };
+            }
+
+            // 获取文件信息
+            const stats = await fs.stat(filePath);
+            const content = await fs.readFile(filePath, 'utf8');
+
+            return {
+                success: true,
+                data: {
+                    content,
+                    fileSize: stats.size,
+                    fileName
+                },
+                message: '文件读取成功'
+            };
+        } catch (error) {
+            console.error('BackupService.downloadBackup:', error.message);
+            return {
+                success: false,
+                message: error.message || '下载备份文件失败'
+            };
+        }
+    }
 }
 
 module.exports = BackupService;

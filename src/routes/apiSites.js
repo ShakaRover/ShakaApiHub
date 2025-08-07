@@ -161,6 +161,11 @@ router.get('/backups/:fileName/validate', requireAuth, (req, res) => {
     apiSiteController.validateBackup(req, res);
 });
 
+// GET /api/backups/:fileName/download - 下载备份文件
+router.get('/backups/:fileName/download', requireAuth, (req, res) => {
+    apiSiteController.downloadBackup(req, res);
+});
+
 // 定时检测相关路由
 
 // GET /api/scheduled-check/config - 获取定时检测配置
