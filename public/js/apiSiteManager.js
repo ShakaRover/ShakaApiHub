@@ -806,7 +806,13 @@ class ApiSiteManager {
                     <span class="info-value">${lastCheckTime}</span>
                 </div>
                 <div class="info-item-full">
-                    <span class="info-label">模型列表 <span class="copy-hint" style="display:none; color: green; font-size: 0.8em;">已复制</span></span>
+                    <span class="info-label">
+                        模型列表 
+                        <div class="model-actions" style="display: inline-block; margin-left: 10px;">
+                            <button class="btn-small btn-secondary" onclick="apiSiteManager.refreshModels(${site.id})" title="刷新模型列表">🔄 刷新</button>
+                        </div>
+                        <span class="copy-hint" style="display:none; color: green; font-size: 0.8em;">已复制</span>
+                    </span>
                     <div class="info-value models-list">${modelsListHtml}</div>
                 </div>
                 <div class="info-item-full">
@@ -1507,6 +1513,27 @@ class ApiSiteManager {
         }
     }
 
+    // 刷新模型列表
+    async refreshModels(siteId) {
+        try {
+            this.showAlert('正在刷新模型列表...', 'info');
+            const response = await fetch(`/api/sites/${siteId}/check`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.showAlert('模型列表刷新成功', 'success');
+                // 刷新站点列表以显示最新的模型信息
+                this.loadApiSites();
+            } else {
+                this.showAlert(`刷新模型列表失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('刷新模型列表失败:', error);
+            this.showAlert('刷新模型列表失败，请检查网络连接', 'error');
+        }
+    }
+    
     // 刷新令牌列表
     async refreshTokens(siteId) {
         try {
