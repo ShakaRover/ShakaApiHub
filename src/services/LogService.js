@@ -489,13 +489,22 @@ class LogService {
     // 获取日志统计信息
     async getLogStats() {
         try {
+            const [systemLogs, userLogs, apiLogs, siteCheckLogs, recentErrors, todayRequests] = await Promise.all([
+                this.getSystemLogsCount(),
+                this.getUserLogsCount(),
+                this.getApiLogsCount(),
+                this.getSiteCheckLogsCount(),
+                this.getRecentErrorsCount(),
+                this.getTodayRequestsCount()
+            ]);
+
             const stats = {
-                systemLogs: this.getSystemLogsCount(),
-                userLogs: this.getUserLogsCount(),
-                apiLogs: this.getApiLogsCount(),
-                siteCheckLogs: this.getSiteCheckLogsCount(),
-                recentErrors: this.getRecentErrorsCount(),
-                todayRequests: this.getTodayRequestsCount()
+                systemLogs,
+                userLogs,
+                apiLogs,
+                siteCheckLogs,
+                recentErrors,
+                todayRequests
             };
 
             return { success: true, data: stats };
@@ -538,147 +547,242 @@ class LogService {
     }
 
     // 辅助方法：获取各类日志数量
-    getSystemLogsCount(filters = {}) {
-        let query = 'SELECT COUNT(*) as count FROM system_logs WHERE 1=1';
-        const params = [];
+    async getSystemLogsCount(filters = {}) {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
 
-        if (filters.type) {
-            query += ' AND type = ?';
-            params.push(filters.type);
-        }
+            let query = 'SELECT COUNT(*) as count FROM system_logs WHERE 1=1';
+            const params = [];
 
-        if (filters.startDate) {
-            query += ' AND created_at >= ?';
-            params.push(filters.startDate);
-        }
+            if (filters.type) {
+                query += ' AND type = ?';
+                params.push(filters.type);
+            }
 
-        if (filters.endDate) {
-            query += ' AND created_at <= ?';
-            params.push(filters.endDate);
-        }
+            if (filters.startDate) {
+                query += ' AND created_at >= ?';
+                params.push(filters.startDate);
+            }
 
-        const stmt = this.db.prepare(query);
-        return stmt.get(...params).count;
+            if (filters.endDate) {
+                query += ' AND created_at <= ?';
+                params.push(filters.endDate);
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    console.error('获取系统日志数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
     }
 
-    getUserLogsCount(filters = {}) {
-        let query = 'SELECT COUNT(*) as count FROM user_logs WHERE 1=1';
-        const params = [];
+    async getUserLogsCount(filters = {}) {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
 
-        if (filters.userId) {
-            query += ' AND user_id = ?';
-            params.push(filters.userId);
-        }
+            let query = 'SELECT COUNT(*) as count FROM user_logs WHERE 1=1';
+            const params = [];
 
-        if (filters.action) {
-            query += ' AND action LIKE ?';
-            params.push(`%${filters.action}%`);
-        }
+            if (filters.userId) {
+                query += ' AND user_id = ?';
+                params.push(filters.userId);
+            }
 
-        if (filters.resourceType) {
-            query += ' AND resource_type = ?';
-            params.push(filters.resourceType);
-        }
+            if (filters.action) {
+                query += ' AND action LIKE ?';
+                params.push(`%${filters.action}%`);
+            }
 
-        if (filters.startDate) {
-            query += ' AND created_at >= ?';
-            params.push(filters.startDate);
-        }
+            if (filters.resourceType) {
+                query += ' AND resource_type = ?';
+                params.push(filters.resourceType);
+            }
 
-        if (filters.endDate) {
-            query += ' AND created_at <= ?';
-            params.push(filters.endDate);
-        }
+            if (filters.startDate) {
+                query += ' AND created_at >= ?';
+                params.push(filters.startDate);
+            }
 
-        const stmt = this.db.prepare(query);
-        return stmt.get(...params).count;
+            if (filters.endDate) {
+                query += ' AND created_at <= ?';
+                params.push(filters.endDate);
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    console.error('获取用户日志数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
     }
 
-    getApiLogsCount(filters = {}) {
-        let query = 'SELECT COUNT(*) as count FROM api_logs WHERE 1=1';
-        const params = [];
+    async getApiLogsCount(filters = {}) {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
 
-        if (filters.method) {
-            query += ' AND method = ?';
-            params.push(filters.method);
-        }
+            let query = 'SELECT COUNT(*) as count FROM api_logs WHERE 1=1';
+            const params = [];
 
-        if (filters.endpoint) {
-            query += ' AND endpoint LIKE ?';
-            params.push(`%${filters.endpoint}%`);
-        }
+            if (filters.method) {
+                query += ' AND method = ?';
+                params.push(filters.method);
+            }
 
-        if (filters.statusCode) {
-            query += ' AND status_code = ?';
-            params.push(filters.statusCode);
-        }
+            if (filters.endpoint) {
+                query += ' AND endpoint LIKE ?';
+                params.push(`%${filters.endpoint}%`);
+            }
 
-        if (filters.userId) {
-            query += ' AND user_id = ?';
-            params.push(filters.userId);
-        }
+            if (filters.statusCode) {
+                query += ' AND status_code = ?';
+                params.push(filters.statusCode);
+            }
 
-        if (filters.startDate) {
-            query += ' AND created_at >= ?';
-            params.push(filters.startDate);
-        }
+            if (filters.userId) {
+                query += ' AND user_id = ?';
+                params.push(filters.userId);
+            }
 
-        if (filters.endDate) {
-            query += ' AND created_at <= ?';
-            params.push(filters.endDate);
-        }
+            if (filters.startDate) {
+                query += ' AND created_at >= ?';
+                params.push(filters.startDate);
+            }
 
-        const stmt = this.db.prepare(query);
-        return stmt.get(...params).count;
+            if (filters.endDate) {
+                query += ' AND created_at <= ?';
+                params.push(filters.endDate);
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    console.error('获取API日志数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
     }
 
-    getSiteCheckLogsCount(filters = {}) {
-        let query = 'SELECT COUNT(*) as count FROM site_check_logs WHERE 1=1';
-        const params = [];
+    async getSiteCheckLogsCount(filters = {}) {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
 
-        if (filters.siteId) {
-            query += ' AND site_id = ?';
-            params.push(filters.siteId);
-        }
+            let query = 'SELECT COUNT(*) as count FROM site_check_logs WHERE 1=1';
+            const params = [];
 
-        if (filters.status) {
-            query += ' AND status = ?';
-            params.push(filters.status);
-        }
+            if (filters.siteId) {
+                query += ' AND site_id = ?';
+                params.push(filters.siteId);
+            }
 
-        if (filters.startDate) {
-            query += ' AND check_time >= ?';
-            params.push(filters.startDate);
-        }
+            if (filters.status) {
+                query += ' AND status = ?';
+                params.push(filters.status);
+            }
 
-        if (filters.endDate) {
-            query += ' AND check_time <= ?';
-            params.push(filters.endDate);
-        }
+            if (filters.startDate) {
+                query += ' AND check_time >= ?';
+                params.push(filters.startDate);
+            }
 
-        const stmt = this.db.prepare(query);
-        return stmt.get(...params).count;
+            if (filters.endDate) {
+                query += ' AND check_time <= ?';
+                params.push(filters.endDate);
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    console.error('获取站点检测日志数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
     }
 
-    getRecentErrorsCount() {
-        const oneDayAgo = new Date();
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-        const oneDayAgoStr = oneDayAgo.toISOString();
+    async getRecentErrorsCount() {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
 
-        const systemErrors = this.db.prepare("SELECT COUNT(*) as count FROM system_logs WHERE type LIKE '%error%' AND created_at >= ?").get(oneDayAgoStr).count;
-        const apiErrors = this.db.prepare('SELECT COUNT(*) as count FROM api_logs WHERE status_code >= 400 AND created_at >= ?').get(oneDayAgoStr).count;
-        const checkErrors = this.db.prepare("SELECT COUNT(*) as count FROM site_check_logs WHERE status = 'error' AND check_time >= ?").get(oneDayAgoStr).count;
+            const oneDayAgo = new Date();
+            oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+            const oneDayAgoStr = oneDayAgo.toISOString();
 
-        return systemErrors + apiErrors + checkErrors;
+            let totalErrors = 0;
+            let completedQueries = 0;
+            const totalQueries = 3;
+
+            const checkComplete = () => {
+                completedQueries++;
+                if (completedQueries === totalQueries) {
+                    resolve(totalErrors);
+                }
+            };
+
+            // System errors
+            this.db.get("SELECT COUNT(*) as count FROM system_logs WHERE type LIKE '%error%' AND created_at >= ?", [oneDayAgoStr], (err, row) => {
+                if (!err && row) totalErrors += row.count;
+                checkComplete();
+            });
+
+            // API errors
+            this.db.get('SELECT COUNT(*) as count FROM api_logs WHERE status_code >= 400 AND created_at >= ?', [oneDayAgoStr], (err, row) => {
+                if (!err && row) totalErrors += row.count;
+                checkComplete();
+            });
+
+            // Check errors
+            this.db.get("SELECT COUNT(*) as count FROM site_check_logs WHERE status = 'error' AND check_time >= ?", [oneDayAgoStr], (err, row) => {
+                if (!err && row) totalErrors += row.count;
+                checkComplete();
+            });
+        });
     }
 
-    getTodayRequestsCount() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString();
+    async getTodayRequestsCount() {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
 
-        const stmt = this.db.prepare('SELECT COUNT(*) as count FROM api_logs WHERE created_at >= ?');
-        return stmt.get(todayStr).count;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString();
+
+            this.db.get('SELECT COUNT(*) as count FROM api_logs WHERE created_at >= ?', [todayStr], (err, row) => {
+                if (err) {
+                    console.error('获取今日请求数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
     }
 }
 
