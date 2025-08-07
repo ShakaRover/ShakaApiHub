@@ -72,9 +72,11 @@ async function startApp() {
         // 数据库连接完成后再加载路由
         const authRoutes = require('./routes/auth');
         const apiSiteRoutes = require('./routes/apiSites');
+        const systemRoutes = require('./routes/system');
         
         app.use('/api/auth', authRoutes);
         app.use('/api', apiSiteRoutes);
+        app.use('/api/system', systemRoutes);
 
         app.get('/', (req, res) => {
             if (req.session.userId) {

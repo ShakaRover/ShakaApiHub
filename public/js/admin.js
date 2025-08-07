@@ -1186,6 +1186,13 @@ AdminApp.navigateToPage = function(pageName) {
             logManager.initLogPage();
         }, 100);
     }
+    
+    // 如果切换到系统管理页面，初始化系统管理功能
+    if (pageName === 'system' && typeof systemManager !== 'undefined') {
+        setTimeout(() => {
+            systemManager.onPageShow();
+        }, 100);
+    }
 };
 
 // 导出数据管理器供全局使用

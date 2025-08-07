@@ -559,13 +559,108 @@
                     </div>
                 </div>
                 
+                <!-- 系统状态卡片 -->
                 <div class="card">
-                    <div class="card-body text-center">
-                        <div style="padding: 3rem;">
-                            <div style="font-size: 4rem; margin-bottom: 1rem;">🚧</div>
-                            <h3>功能开发中</h3>
-                            <p class="text-muted">该功能正在开发中，敬请期待...</p>
+                    <div class="card-header">
+                        <h3 class="card-title">系统状态</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="system-stats">
+                            <div class="stat-item">
+                                <div class="stat-label">运行时间</div>
+                                <div class="stat-value" id="systemUptime">-</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">内存使用</div>
+                                <div class="stat-value" id="systemMemory">-</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">Node.js版本</div>
+                                <div class="stat-value" id="nodeVersion">-</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">当前时间</div>
+                                <div class="stat-value" id="currentTime">-</div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 时区配置卡片 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">时区配置</h3>
+                        <p class="card-subtitle">设置系统显示时区，影响所有时间显示</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="timezoneForm">
+                            <div class="form-group">
+                                <label for="timezoneSelect" class="form-label">选择时区</label>
+                                <select id="timezoneSelect" class="form-control" required>
+                                    <option value="">请选择时区...</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">保存时区设置</button>
+                                <button type="button" class="btn btn-secondary" onclick="systemManager.resetTimezone()">恢复默认</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 日志管理配置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">日志管理</h3>
+                        <p class="card-subtitle">配置日志保留策略</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="logConfigForm">
+                            <div class="form-group">
+                                <label for="logRetentionDays" class="form-label">日志保留天数</label>
+                                <input type="number" id="logRetentionDays" class="form-control" min="1" max="365" required>
+                                <div class="form-text">超过指定天数的日志将被自动清理</div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">保存日志配置</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 速率限制配置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">速率限制配置</h3>
+                        <p class="card-subtitle">配置API请求和登录尝试限制</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="rateLimitForm">
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="generalTimeWindow" class="form-label">一般请求时间窗口 (分钟)</label>
+                                    <input type="number" id="generalTimeWindow" class="form-control" min="1" max="60" required>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="generalMaxRequests" class="form-label">一般请求最大次数</label>
+                                    <input type="number" id="generalMaxRequests" class="form-control" min="10" max="1000" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group col-md-6">
+                                    <label for="loginTimeWindow" class="form-label">登录尝试时间窗口 (分钟)</label>
+                                    <input type="number" id="loginTimeWindow" class="form-control" min="1" max="60" required>
+                                </div>
+                                <div class="form-group col-md-6">
+                                    <label for="loginMaxAttempts" class="form-label">登录最大尝试次数</label>
+                                    <input type="number" id="loginMaxAttempts" class="form-control" min="3" max="50" required>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">保存速率限制</button>
+                                <button type="button" class="btn btn-secondary" onclick="systemManager.resetRateLimits()">恢复默认</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -812,6 +907,7 @@
     <script src="/js/apiSiteManager.js"></script>
     <script src="/js/scheduledCheckManager.js"></script>
     <script src="/js/logManager.js"></script>
+    <script src="/js/systemManager.js"></script>
     <script>
         // 确保所有脚本加载完成后再执行认证检查
         window.addEventListener('load', async function() {
