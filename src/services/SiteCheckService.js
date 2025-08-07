@@ -38,13 +38,27 @@ class SiteCheckService {
             const userInfo = await this.getUserInfo(site.url, cookies, site.sessions, site);
             console.log('用户信息获取成功:', JSON.stringify(userInfo, null, 2));
 
-            // 第四步：保存检测结果
-            console.log('第四步：保存检测结果...');
-            await this.saveSiteInfo(siteId, userInfo);
+            // 第四步：获取模型列表
+            console.log('第四步：获取模型列表...');
+            const modelsList = await this.getModelsList(site.url, cookies, site.sessions, site);
+            console.log('模型列表获取结果:', modelsList.success ? `获取到${modelsList.data?.length || 0}个模型` : modelsList.message);
 
-            // 第五步：记录检测日志
-            console.log('第五步：记录检测日志...');
-            await this.logCheckResult(siteId, 'success', '检测成功', JSON.stringify(userInfo));
+            // 第五步：获取令牌信息
+            console.log('第五步：获取令牌信息...');
+            const tokensList = await this.getTokensList(site.url, cookies, site.sessions, site);
+            console.log('令牌列表获取结果:', tokensList.success ? `获取到${tokensList.data?.length || 0}个令牌` : tokensList.message);
+
+            // 第六步：保存检测结果
+            console.log('第六步：保存检测结果...');
+            await this.saveSiteInfo(siteId, userInfo, modelsList.data, tokensList.data);
+
+            // 第七步：记录检测日志
+            console.log('第七步：记录检测日志...');
+            await this.logCheckResult(siteId, 'success', '检测成功', JSON.stringify({
+                userInfo,
+                modelsCount: modelsList.data?.length || 0,
+                tokensCount: tokensList.data?.length || 0
+            }));
 
             console.log(`站点检测完成: ${site.name}`);
             return {
@@ -522,7 +536,7 @@ class SiteCheckService {
     }
 
     // 保存站点信息
-    async saveSiteInfo(siteId, userInfo) {
+    async saveSiteInfo(siteId, userInfo, modelsList = null, tokensList = null) {
         try {
             const quota = userInfo.quota ? userInfo.quota / 500000 : 0;
             const usedQuota = userInfo.used_quota ? userInfo.used_quota / 500000 : 0;
@@ -541,6 +555,14 @@ class SiteCheckService {
                 console.log(`用户信息不包含签到时间，保持原有值: ${lastCheckinTime || '无'}`);
             }
 
+            // 处理模型列表
+            const modelsListJson = modelsList ? JSON.stringify(modelsList) : null;
+            console.log(`模型列表数据: ${modelsListJson ? `${modelsList.length}个模型` : '无'}`);
+
+            // 处理令牌列表
+            const tokensListJson = tokensList ? JSON.stringify(tokensList) : null;
+            console.log(`令牌列表数据: ${tokensListJson ? `${tokensList.length}个令牌` : '无'}`);
+
             await this.statements.updateSiteCheckInfo.run(
                 quota,
                 usedQuota,
@@ -552,6 +574,8 @@ class SiteCheckService {
                 affHistoryQuota,
                 userInfo.username || '',
                 lastCheckinTime,
+                modelsListJson,
+                tokensListJson,
                 'success',
                 '检测成功',
                 siteId
@@ -683,6 +707,222 @@ class SiteCheckService {
             console.log(`📝 已记录站点 ${siteId} 的签到日志: ${status} - ${message}`);
         } catch (error) {
             console.error('记录签到日志失败:', error.message);
+        }
+    }
+
+    // 获取模型列表
+    async getModelsList(siteUrl, cookies, sessions, site) {
+        try {
+            const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/user/models`;
+            console.log(`正在请求模型列表API: ${apiUrl}`);
+
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息和cookies（与getUserInfo相同逻辑）
+            let configCookies = '';
+
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+                console.log('模型列表Token模式：添加Authorization Bearer头');
+            } else if (site.auth_method === 'sessions' && sessions) {
+                console.log(`模型列表处理sessions数据: ${sessions.substring(0, 100)}...`);
+                try {
+                    const sessionData = JSON.parse(sessions);
+                    console.log('模型列表Sessions数据解析为JSON成功');
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                        console.log('模型列表Sessions模式：从JSON中添加Authorization头');
+                    }
+                    if (sessionData.cookie) {
+                        configCookies = sessionData.cookie;
+                        console.log('模型列表Sessions模式：获取配置中的cookie');
+                    }
+                } catch (e) {
+                    console.log('模型列表Sessions数据不是JSON，直接作为cookie使用');
+                    configCookies = sessions;
+                }
+            }
+
+            const finalCookies = this.mergeCookies(cookies, configCookies);
+            if (finalCookies) {
+                headers['Cookie'] = finalCookies;
+                console.log(`模型列表最终cookies: ${finalCookies.substring(0, 200)}...`);
+            }
+
+            // 根据API类型添加用户头信息
+            if (site && site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                    console.log(`模型列表添加new-api-user头: ${site.user_id}`);
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                    console.log(`模型列表添加veloera-user头: ${site.user_id}`);
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                    console.log(`模型列表添加voapi-user头: ${site.user_id}`);
+                }
+            }
+
+            const response = await axios.get(apiUrl, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500
+            });
+
+            console.log(`模型列表API响应状态: ${response.status}`);
+            console.log(`模型列表响应数据: ${JSON.stringify(response.data, null, 2)}`);
+
+            const data = response.data;
+
+            if (!data || typeof data !== 'object') {
+                return {
+                    success: false,
+                    message: '模型列表API返回数据格式错误',
+                    data: null
+                };
+            }
+
+            if (!data.success) {
+                return {
+                    success: false,
+                    message: data.message || '获取模型列表失败',
+                    data: null
+                };
+            }
+
+            if (!data.data || !Array.isArray(data.data)) {
+                return {
+                    success: false,
+                    message: '模型列表数据格式异常',
+                    data: null
+                };
+            }
+
+            return {
+                success: true,
+                message: `获取到${data.data.length}个模型`,
+                data: data.data
+            };
+
+        } catch (error) {
+            console.error('获取模型列表失败:', error.message);
+            return {
+                success: false,
+                message: `获取模型列表失败: ${error.message}`,
+                data: null
+            };
+        }
+    }
+
+    // 获取令牌列表
+    async getTokensList(siteUrl, cookies, sessions, site) {
+        try {
+            const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/token/?p=1&size=10`;
+            console.log(`正在请求令牌列表API: ${apiUrl}`);
+
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息和cookies（与getUserInfo相同逻辑）
+            let configCookies = '';
+
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+                console.log('令牌列表Token模式：添加Authorization Bearer头');
+            } else if (site.auth_method === 'sessions' && sessions) {
+                console.log(`令牌列表处理sessions数据: ${sessions.substring(0, 100)}...`);
+                try {
+                    const sessionData = JSON.parse(sessions);
+                    console.log('令牌列表Sessions数据解析为JSON成功');
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                        console.log('令牌列表Sessions模式：从JSON中添加Authorization头');
+                    }
+                    if (sessionData.cookie) {
+                        configCookies = sessionData.cookie;
+                        console.log('令牌列表Sessions模式：获取配置中的cookie');
+                    }
+                } catch (e) {
+                    console.log('令牌列表Sessions数据不是JSON，直接作为cookie使用');
+                    configCookies = sessions;
+                }
+            }
+
+            const finalCookies = this.mergeCookies(cookies, configCookies);
+            if (finalCookies) {
+                headers['Cookie'] = finalCookies;
+                console.log(`令牌列表最终cookies: ${finalCookies.substring(0, 200)}...`);
+            }
+
+            // 根据API类型添加用户头信息
+            if (site && site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                    console.log(`令牌列表添加new-api-user头: ${site.user_id}`);
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                    console.log(`令牌列表添加veloera-user头: ${site.user_id}`);
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                    console.log(`令牌列表添加voapi-user头: ${site.user_id}`);
+                }
+            }
+
+            const response = await axios.get(apiUrl, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500
+            });
+
+            console.log(`令牌列表API响应状态: ${response.status}`);
+            console.log(`令牌列表响应数据: ${JSON.stringify(response.data, null, 2)}`);
+
+            const data = response.data;
+
+            if (!data || typeof data !== 'object') {
+                return {
+                    success: false,
+                    message: '令牌列表API返回数据格式错误',
+                    data: null
+                };
+            }
+
+            if (!data.success) {
+                return {
+                    success: false,
+                    message: data.message || '获取令牌列表失败',
+                    data: null
+                };
+            }
+
+            if (!data.data || !data.data.records || !Array.isArray(data.data.records)) {
+                return {
+                    success: false,
+                    message: '令牌列表数据格式异常',
+                    data: null
+                };
+            }
+
+            return {
+                success: true,
+                message: `获取到${data.data.records.length}个令牌`,
+                data: data.data.records
+            };
+
+        } catch (error) {
+            console.error('获取令牌列表失败:', error.message);
+            return {
+                success: false,
+                message: `获取令牌列表失败: ${error.message}`,
+                data: null
+            };
         }
     }
 }

@@ -131,7 +131,7 @@ class DatabaseConfig {
                     this.db.run(`
                         CREATE TABLE api_sites (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter')),
+                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi')),
                             name TEXT NOT NULL,
                             url TEXT NOT NULL,
                             auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
@@ -155,6 +155,8 @@ class DatabaseConfig {
                             last_check_time DATETIME,
                             last_check_status TEXT DEFAULT 'pending',
                             last_check_message TEXT,
+                            models_list TEXT,
+                            tokens_list TEXT,
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                             created_by INTEGER NOT NULL,
@@ -286,7 +288,7 @@ class DatabaseConfig {
             const createApiSitesTable = `
                 CREATE TABLE IF NOT EXISTS api_sites (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter')),
+                    api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi')),
                     name TEXT NOT NULL,
                     url TEXT NOT NULL,
                     auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
@@ -296,6 +298,8 @@ class DatabaseConfig {
                     enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
                     auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
                     last_checkin DATETIME,
+                    models_list TEXT,
+                    tokens_list TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     created_by INTEGER NOT NULL,
@@ -524,16 +528,17 @@ class DatabaseConfig {
             
             // 站点检测相关语句
             updateSiteCheckInfo: {
-                run: (siteQuota, siteUsedQuota, siteRequestCount, siteUserGroup, siteAffCode, siteAffCount, siteAffQuota, siteAffHistoryQuota, siteUsername, siteLastCheckInTime, lastCheckStatus, lastCheckMessage, id) => new Promise((resolve, reject) => {
+                run: (siteQuota, siteUsedQuota, siteRequestCount, siteUserGroup, siteAffCode, siteAffCount, siteAffQuota, siteAffHistoryQuota, siteUsername, siteLastCheckInTime, modelsList, tokensList, lastCheckStatus, lastCheckMessage, id) => new Promise((resolve, reject) => {
                     this.db.run(`
                         UPDATE api_sites SET 
                             site_quota = ?, site_used_quota = ?, site_request_count = ?, 
                             site_user_group = ?, site_aff_code = ?, site_aff_count = ?, 
                             site_aff_quota = ?, site_aff_history_quota = ?, site_username = ?,
-                            site_last_check_in_time = ?, last_check_time = CURRENT_TIMESTAMP,
+                            site_last_check_in_time = ?, models_list = ?, tokens_list = ?,
+                            last_check_time = CURRENT_TIMESTAMP,
                             last_check_status = ?, last_check_message = ?, updated_at = CURRENT_TIMESTAMP
                         WHERE id = ?
-                    `, [siteQuota, siteUsedQuota, siteRequestCount, siteUserGroup, siteAffCode, siteAffCount, siteAffQuota, siteAffHistoryQuota, siteUsername, siteLastCheckInTime, lastCheckStatus, lastCheckMessage, id], function(err) {
+                    `, [siteQuota, siteUsedQuota, siteRequestCount, siteUserGroup, siteAffCode, siteAffCount, siteAffQuota, siteAffHistoryQuota, siteUsername, siteLastCheckInTime, modelsList, tokensList, lastCheckStatus, lastCheckMessage, id], function(err) {
                         if (err) reject(err);
                         else resolve({ changes: this.changes });
                     });
