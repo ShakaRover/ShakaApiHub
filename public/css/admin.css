@@ -769,6 +769,12 @@ body {
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
+.api-type-voapi {
+    background: rgba(245, 101, 101, 0.1);
+    color: #f56565;
+    border: 1px solid rgba(245, 101, 101, 0.3);
+}
+
 .api-type-session {
     background: rgba(34, 197, 94, 0.1);
     color: rgb(34, 197, 94);

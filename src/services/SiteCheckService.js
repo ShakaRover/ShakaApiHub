@@ -26,7 +26,7 @@ class SiteCheckService {
             console.log(`获取到cookies: ${cookies ? cookies.substring(0, 100) + '...' : '无'}`);
 
             // 第二步：检查是否需要签到并执行签到
-            if (site.auto_checkin && (site.api_type === 'Veloera' || site.api_type === 'AnyRouter')) {
+            if (site.auto_checkin && (site.api_type === 'Veloera' || site.api_type === 'AnyRouter' || site.api_type === 'VoApi')) {
                 console.log('第二步：执行自动签到...');
                 await this.performCheckin(site.url, cookies, site.sessions, site);
             } else {
@@ -237,6 +237,8 @@ class SiteCheckService {
                 checkinPath = '/api/user/check_in';
             } else if (site.api_type === 'AnyRouter') {
                 checkinPath = '/api/user/sign_in';
+            } else if (site.api_type === 'VoApi') {
+                checkinPath = '/api/user/clock_in';
             } else {
                 console.log(`API类型 ${site.api_type} 不支持签到`);
                 return;
@@ -298,6 +300,9 @@ class SiteCheckService {
                 } else if (site.api_type === 'Veloera') {
                     headers['veloera-user'] = site.user_id;
                     console.log(`签到添加veloera-user头: ${site.user_id}`);
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                    console.log(`签到添加voapi-user头: ${site.user_id}`);
                 }
             }
 
@@ -419,6 +424,9 @@ class SiteCheckService {
                 } else if (site.api_type === 'Veloera') {
                     headers['veloera-user'] = site.user_id;
                     console.log(`添加veloera-user头: ${site.user_id}`);
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                    console.log(`添加voapi-user头: ${site.user_id}`);
                 }
             } else {
                 console.log('未提供User ID，跳过用户头信息设置');
