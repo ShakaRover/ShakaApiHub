@@ -45,8 +45,9 @@ class ApiSite {
         }
 
         // 验证API类型
-        if (!['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
-            throw new Error('无效的API类型');
+        if (!['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
+            console.error(`ApiSiteService.create: 无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
+            throw new Error(`无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
         }
 
         // 验证授权方式
@@ -57,6 +58,11 @@ class ApiSite {
         // AnyRouter只支持sessions模式
         if (apiType === 'AnyRouter' && authMethod === 'token') {
             throw new Error('AnyRouter只支持Sessions授权方式');
+        }
+
+        // VoApi只支持token模式
+        if (apiType === 'VoApi' && authMethod === 'sessions') {
+            throw new Error('VoApi只支持Token授权方式');
         }
 
         // 验证token类型必须有userId
@@ -101,8 +107,9 @@ class ApiSite {
         }
 
         // 验证API类型
-        if (!['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
-            throw new Error('无效的API类型');
+        if (!['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
+            console.error(`ApiSiteService.update: 无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
+            throw new Error(`无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
         }
 
         // 验证授权方式
@@ -113,6 +120,11 @@ class ApiSite {
         // AnyRouter只支持sessions模式
         if (apiType === 'AnyRouter' && authMethod === 'token') {
             throw new Error('AnyRouter只支持Sessions授权方式');
+        }
+
+        // VoApi只支持token模式
+        if (apiType === 'VoApi' && authMethod === 'sessions') {
+            throw new Error('VoApi只支持Token授权方式');
         }
 
         // 验证token类型必须有userId
