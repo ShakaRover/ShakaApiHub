@@ -813,6 +813,7 @@ class ApiSiteManager {
                     <span class="info-label">
                         令牌列表 
                         <div class="token-actions">
+                            <button class="btn-small btn-secondary" onclick="apiSiteManager.refreshTokens(${site.id})" title="刷新令牌列表">🔄 刷新</button>
                             <button class="btn-small btn-danger" onclick="apiSiteManager.deleteAllTokens(${site.id})">全部删除</button>
                             <button class="btn-small btn-primary" onclick="apiSiteManager.autoCreateTokens(${site.id})">自动创建令牌</button>
                         </div>
@@ -1506,6 +1507,27 @@ class ApiSiteManager {
         }
     }
 
+    // 刷新令牌列表
+    async refreshTokens(siteId) {
+        try {
+            this.showAlert('正在刷新令牌列表...', 'info');
+            const response = await fetch(`/api/sites/${siteId}/check`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.showAlert('令牌列表刷新成功', 'success');
+                // 刷新站点列表以显示最新的令牌信息
+                this.loadApiSites();
+            } else {
+                this.showAlert(`刷新令牌列表失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('刷新令牌列表失败:', error);
+            this.showAlert('刷新令牌列表失败，请检查网络连接', 'error');
+        }
+    }
+    
     // 自动创建令牌
     async autoCreateTokens(siteId) {
         try {
