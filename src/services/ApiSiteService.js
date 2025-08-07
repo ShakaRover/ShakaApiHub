@@ -66,7 +66,7 @@ class ApiSiteService {
                 };
             }
 
-            const sites = this.apiSiteModel.findByCreatedBy(parseInt(userId));
+            const sites = await this.apiSiteModel.findByCreatedBy(parseInt(userId));
             return {
                 success: true,
                 data: sites,
