@@ -1558,6 +1558,18 @@ class ApiSiteManager {
     // 自动创建令牌
     async autoCreateTokens(siteId) {
         try {
+            // 先刷新令牌列表获取最新状态
+            this.showAlert('正在获取最新令牌列表...', 'info');
+            const checkResponse = await fetch(`/api/sites/${siteId}/check`, {
+                method: 'POST'
+            });
+            const checkResult = await checkResponse.json();
+            if (!checkResult.success) {
+                this.showAlert(`获取令牌列表失败: ${checkResult.message}`, 'error');
+                return;
+            }
+
+            // 然后创建令牌
             this.showAlert('正在自动创建令牌...', 'info');
 
             const response = await fetch(`/api/sites/${siteId}/tokens/autoCreate`, {
