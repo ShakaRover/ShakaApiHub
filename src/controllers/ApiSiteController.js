@@ -197,6 +197,42 @@ class ApiSiteController {
         }
     }
 
+    // 兑换码充值
+    async topupSite(req, res) {
+        try {
+            const { id } = req.params;
+            const { key } = req.body;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            if (!key || typeof key !== 'string' || key.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: '兑换码不能为空'
+                });
+            }
+
+            const result = await this.apiSiteService.topupSite(parseInt(id), key.trim());
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.topupSite:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
     // 获取检测历史
     async getCheckHistory(req, res) {
         try {

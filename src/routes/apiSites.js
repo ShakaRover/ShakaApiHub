@@ -21,7 +21,7 @@ const requireAuth = (req, res, next) => {
 const validateApiSiteInput = (req, res, next) => {
     const { apiType, name, url, authMethod } = req.body;
     
-    if (!apiType || !['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
+    if (!apiType || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
         return res.status(400).json({
             success: false,
             message: '请选择有效的API类型'
@@ -127,6 +127,11 @@ router.delete('/sites/:id', requireAuth, (req, res) => {
 // POST /api/sites/:id/check - 检测站点
 router.post('/sites/:id/check', requireAuth, (req, res) => {
     apiSiteController.checkSite(req, res);
+});
+
+// POST /api/sites/:id/topup - 兑换码
+router.post('/sites/:id/topup', requireAuth, (req, res) => {
+    apiSiteController.topupSite(req, res);
 });
 
 // GET /api/sites/:id/check-history - 获取检测历史

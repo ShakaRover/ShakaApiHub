@@ -498,6 +498,149 @@ class ApiSiteService {
             };
         }
     }
+
+    // 兑换码充值
+    async topupSite(siteId, topupKey) {
+        const axios = require('axios');
+        
+        try {
+            // 获取站点信息
+            const site = await this.apiSiteModel.findById(siteId);
+            if (!site) {
+                return {
+                    success: false,
+                    message: 'API站点不存在'
+                };
+            }
+
+            // 构建兑换码API URL
+            const topupUrl = `${site.url.replace(/\/$/, '')}/api/user/topup`;
+            
+            // 准备请求头
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+            } else if (site.auth_method === 'sessions' && site.sessions) {
+                try {
+                    const sessionData = JSON.parse(site.sessions);
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                    }
+                    if (sessionData.cookie) {
+                        headers['Cookie'] = sessionData.cookie;
+                    }
+                } catch (e) {
+                    // 如果不是JSON，直接作为cookie使用
+                    headers['Cookie'] = site.sessions;
+                }
+            }
+
+            // 根据API类型添加用户头信息
+            if (site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                }
+            }
+
+            console.log(`发起兑换码请求: ${topupUrl}`);
+            console.log('请求头:', headers);
+            console.log('兑换码:', topupKey);
+
+            // 发送兑换码请求
+            const response = await axios.post(topupUrl, {
+                key: topupKey
+            }, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500
+            });
+
+            console.log(`兑换码响应状态: ${response.status}`);
+            console.log('响应数据:', response.data);
+
+            const data = response.data;
+
+            // 检查响应格式
+            if (!data || typeof data !== 'object') {
+                return {
+                    success: false,
+                    message: 'API返回数据格式错误'
+                };
+            }
+
+            // 记录兑换操作日志
+            try {
+                const LogService = require('./LogService');
+                const logService = new LogService();
+                await logService.logUserAction(
+                    null, // 暂时没有用户ID，可以从session获取
+                    'api_site_topup',
+                    `站点 ${site.name} 兑换码操作`,
+                    {
+                        site_id: siteId,
+                        site_name: site.name,
+                        topup_key: topupKey.substring(0, 4) + '****', // 只记录前4位
+                        success: data.success,
+                        message: data.message
+                    }
+                );
+            } catch (logError) {
+                console.error('记录兑换日志失败:', logError);
+            }
+
+            return {
+                success: data.success || false,
+                message: data.message || (data.success ? '兑换成功' : '兑换失败')
+            };
+
+        } catch (error) {
+            console.error('兑换码处理失败:', error);
+            
+            // 记录错误日志
+            try {
+                const LogService = require('./LogService');
+                const logService = new LogService();
+                await logService.logUserAction(
+                    null,
+                    'api_site_topup_error',
+                    `站点兑换码操作失败: ${error.message}`,
+                    {
+                        site_id: siteId,
+                        error: error.message
+                    }
+                );
+            } catch (logError) {
+                console.error('记录错误日志失败:', logError);
+            }
+
+            if (error.code === 'ECONNABORTED') {
+                return {
+                    success: false,
+                    message: '请求超时'
+                };
+            } else if (error.response) {
+                return {
+                    success: false,
+                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
+                };
+            } else {
+                return {
+                    success: false,
+                    message: error.message || '兑换码处理失败'
+                };
+            }
+        }
+    }
 }
 
 module.exports = ApiSiteService;

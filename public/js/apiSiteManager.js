@@ -103,6 +103,8 @@ class ApiSiteManager {
             this.showEditModal(siteId);
         } else if (button.classList.contains('btn-check')) {
             this.checkSite(siteId, siteName);
+        } else if (button.classList.contains('btn-topup')) {
+            this.showTopupModal(siteId, siteName);
         } else if (button.classList.contains('btn-toggle')) {
             this.toggleEnabled(siteId, !isEnabled);
         } else if (button.classList.contains('btn-delete')) {
@@ -904,6 +906,12 @@ class ApiSiteManager {
                                 title="检测站点">
                             🔍
                         </button>
+                        <button class="btn-icon btn-topup" 
+                                data-site-id="${site.id}" 
+                                data-site-name="${this.escapeHtml(site.name)}" 
+                                title="兑换码">
+                            💰
+                        </button>
                         <button class="btn-icon btn-toggle ${site.enabled ? 'enabled' : ''}" 
                                 data-site-id="${site.id}" 
                                 data-site-name="${this.escapeHtml(site.name)}" 
@@ -1224,6 +1232,46 @@ class ApiSiteManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // 显示兑换码模态框
+    showTopupModal(siteId, siteName) {
+        // 使用通用的prompt输入框
+        const topupKey = prompt(`请输入兑换码 (站点: ${siteName}):`, '');
+        if (topupKey && topupKey.trim()) {
+            this.processTopup(siteId, siteName, topupKey.trim());
+        }
+    }
+
+    // 处理兑换码兑换
+    async processTopup(siteId, siteName, topupKey) {
+        try {
+            this.showAlert('正在处理兑换码...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/topup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    key: topupKey
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`兑换成功: ${result.message}`, 'success');
+                // 刷新站点列表以显示最新余额
+                this.loadApiSites();
+            } else {
+                this.showAlert(`兑换失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('兑换码处理失败:', error);
+            this.showAlert('兑换码处理失败，请检查网络连接', 'error');
+        }
     }
 }
 
