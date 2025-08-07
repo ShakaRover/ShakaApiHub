@@ -425,14 +425,25 @@ document.addEventListener('DOMContentLoaded', addPageContentStyles);
 
 // 数据管理功能模块
 const DataManager = {
+    initialized: false, // 添加初始化标志
+    
     // 初始化数据管理功能
     init() {
+        if (this.initialized) {
+            // 如果已经初始化过，只刷新数据
+            this.loadBackupList();
+            this.updateNextBackupTime();
+            return;
+        }
+        
         this.bindTabEvents();
         this.bindExportEvents();
         this.bindImportEvents();
         this.bindBackupEvents();
         this.loadBackupList();
         this.updateNextBackupTime();
+        
+        this.initialized = true; // 标记为已初始化
     },
 
     // 绑定选项卡切换事件
