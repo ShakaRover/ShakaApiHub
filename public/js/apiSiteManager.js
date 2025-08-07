@@ -719,6 +719,34 @@ class ApiSiteManager {
         const affQuota = site.site_aff_quota ? site.site_aff_quota.toFixed(2) : '0.00';
         const affHistoryQuota = site.site_aff_history_quota ? site.site_aff_history_quota.toFixed(2) : '0.00';
 
+        // 解析模型列表
+        let modelsListHtml = '无';
+        if (site.models_list) {
+            try {
+                const modelsList = JSON.parse(site.models_list);
+                if (Array.isArray(modelsList) && modelsList.length > 0) {
+                    modelsListHtml = modelsList.map(model => 
+                        `<span class="model-tag" data-model="${this.escapeHtml(model)}" onclick="navigator.clipboard.writeText('${this.escapeHtml(model)}'); this.closest('.info-value').querySelector('.copy-hint').style.display='inline'; setTimeout(() => this.closest('.info-value').querySelector('.copy-hint').style.display='none', 1000)" title="点击复制">${this.escapeHtml(model)}</span>`
+                    ).join('');
+                }
+            } catch (e) {
+                console.error('解析模型列表失败:', e);
+            }
+        }
+
+        // 解析令牌列表
+        let tokensListHtml = '无';
+        if (site.tokens_list) {
+            try {
+                const tokensList = JSON.parse(site.tokens_list);
+                if (Array.isArray(tokensList) && tokensList.length > 0) {
+                    tokensListHtml = this.createTokensListHtml(tokensList, site.id);
+                }
+            } catch (e) {
+                console.error('解析令牌列表失败:', e);
+            }
+        }
+
         return `
             <div class="info-grid">
                 <div class="info-item">
@@ -776,6 +804,20 @@ class ApiSiteManager {
                 <div class="info-item">
                     <span class="info-label">检测时间</span>
                     <span class="info-value">${lastCheckTime}</span>
+                </div>
+                <div class="info-item-full">
+                    <span class="info-label">模型列表 <span class="copy-hint" style="display:none; color: green; font-size: 0.8em;">已复制</span></span>
+                    <div class="info-value models-list">${modelsListHtml}</div>
+                </div>
+                <div class="info-item-full">
+                    <span class="info-label">
+                        令牌列表 
+                        <div class="token-actions">
+                            <button class="btn-small btn-danger" onclick="apiSiteManager.deleteAllTokens(${site.id})">全部删除</button>
+                            <button class="btn-small btn-primary" onclick="apiSiteManager.autoCreateTokens(${site.id})">自动创建令牌</button>
+                        </div>
+                    </span>
+                    <div class="info-value tokens-list">${tokensListHtml}</div>
                 </div>
             </div>
         `;
@@ -1271,6 +1313,180 @@ class ApiSiteManager {
         } catch (error) {
             console.error('兑换码处理失败:', error);
             this.showAlert('兑换码处理失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 创建令牌列表HTML
+    createTokensListHtml(tokensList, siteId) {
+        if (!tokensList || tokensList.length === 0) {
+            return '无';
+        }
+
+        return tokensList.map(token => {
+            const quotaDisplay = token.model_limits_enabled === false ? '无限制' : 
+                `${(token.remain_quota / 500000).toFixed(2)}`;
+            
+            const statusDisplay = token.status === 1 ? '启用' : '禁用';
+            const statusClass = token.status === 1 ? 'status-enabled' : 'status-disabled';
+            
+            const createdTime = new Date(token.created_time * 1000).toLocaleString('zh-CN');
+            const expiredTime = token.expired_time === -1 ? '永不过期' : 
+                new Date(token.expired_time * 1000).toLocaleString('zh-CN');
+
+            return `
+                <div class="token-item">
+                    <div class="token-header">
+                        <span class="token-name">${this.escapeHtml(token.name)}</span>
+                        <div class="token-actions-inline">
+                            <button class="btn-tiny btn-toggle" onclick="apiSiteManager.toggleToken(${siteId}, ${token.id}, ${token.status === 1 ? 2 : 1})" title="${token.status === 1 ? '禁用' : '启用'}">
+                                ${token.status === 1 ? '🔴' : '🟢'}
+                            </button>
+                            <button class="btn-tiny btn-danger" onclick="apiSiteManager.deleteToken(${siteId}, ${token.id})" title="删除">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <div class="token-details">
+                        <div class="token-detail">
+                            <span class="token-detail-label">密钥:</span>
+                            <span class="token-key" onclick="navigator.clipboard.writeText('${this.escapeHtml(token.key)}'); this.style.color='green'; this.textContent='已复制'; setTimeout(() => {this.style.color=''; this.textContent='${this.escapeHtml(token.key.substring(0, 20))}...'}, 1000)" title="点击复制">
+                                ${this.escapeHtml(token.key.substring(0, 20))}...
+                            </span>
+                        </div>
+                        <div class="token-detail">
+                            <span class="token-detail-label">状态:</span>
+                            <span class="token-status ${statusClass}">${statusDisplay}</span>
+                        </div>
+                        <div class="token-detail">
+                            <span class="token-detail-label">剩余限额:</span>
+                            <span class="token-quota">${quotaDisplay}</span>
+                        </div>
+                        <div class="token-detail">
+                            <span class="token-detail-label">创建时间:</span>
+                            <span class="token-time">${createdTime}</span>
+                        </div>
+                        <div class="token-detail">
+                            <span class="token-detail-label">过期时间:</span>
+                            <span class="token-time">${expiredTime}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 切换令牌状态
+    async toggleToken(siteId, tokenId, newStatus) {
+        try {
+            this.showAlert('正在更新令牌状态...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}/toggle`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: tokenId,
+                    status: newStatus
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`令牌状态更新成功`, 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`令牌状态更新失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('切换令牌状态失败:', error);
+            this.showAlert('切换令牌状态失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 删除令牌
+    async deleteToken(siteId, tokenId) {
+        if (!confirm('确定要删除此令牌吗？此操作不可撤销。')) {
+            return;
+        }
+
+        try {
+            this.showAlert('正在删除令牌...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert('令牌删除成功', 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`令牌删除失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('删除令牌失败:', error);
+            this.showAlert('删除令牌失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 全部删除令牌
+    async deleteAllTokens(siteId) {
+        if (!confirm('确定要删除所有令牌吗？此操作不可撤销。')) {
+            return;
+        }
+
+        try {
+            this.showAlert('正在删除所有令牌...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/tokens/deleteAll`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`成功删除 ${result.deletedCount || 0} 个令牌`, 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`删除令牌失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('删除所有令牌失败:', error);
+            this.showAlert('删除所有令牌失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 自动创建令牌
+    async autoCreateTokens(siteId) {
+        try {
+            this.showAlert('正在自动创建令牌...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/tokens/autoCreate`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`成功创建 ${result.createdCount || 0} 个令牌`, 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`创建令牌失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('自动创建令牌失败:', error);
+            this.showAlert('自动创建令牌失败，请检查网络连接', 'error');
         }
     }
 }
