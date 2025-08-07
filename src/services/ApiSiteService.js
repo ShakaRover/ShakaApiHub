@@ -200,7 +200,7 @@ class ApiSiteService {
     // 获取API站点统计
     async getApiSiteStats() {
         try {
-            const stats = this.apiSiteModel.getStats();
+            const stats = await this.apiSiteModel.getStats();
             return {
                 success: true,
                 data: stats,
