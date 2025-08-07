@@ -935,7 +935,7 @@ class ApiSiteManager {
                     </div>
                 </td>
                 <td>${this.escapeHtml(site.name)}</td>
-                <td><span class="api-url" title="${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</span></td>
+                <td><a href="${this.escapeHtml(site.url)}" target="_blank" rel="noopener noreferrer" class="api-url" title="点击在新窗口打开: ${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</a></td>
                 <td>${statusBadge}</td>
                 <td>${checkinBadge}</td>
                 <td class="check-time-cell">${checkTimeDisplay}</td>
