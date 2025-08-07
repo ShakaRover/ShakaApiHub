@@ -386,7 +386,7 @@ class ApiSiteService {
         const { apiType, name, url, authMethod, sessions, token, userId } = data;
 
         // 必填字段验证
-        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter'].includes(apiType)) {
+        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
             return { isValid: false, message: '请选择有效的API类型' };
         }
 
@@ -637,6 +637,449 @@ class ApiSiteService {
                 return {
                     success: false,
                     message: error.message || '兑换码处理失败'
+                };
+            }
+        }
+    }
+
+    // 切换令牌状态
+    async toggleToken(siteId, tokenId, newStatus) {
+        const axios = require('axios');
+        
+        try {
+            // 获取站点信息
+            const site = await this.apiSiteModel.findById(siteId);
+            if (!site) {
+                return {
+                    success: false,
+                    message: 'API站点不存在'
+                };
+            }
+
+            // 构建令牌状态切换API URL
+            const toggleUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}/status`;
+            
+            // 准备请求头
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+            } else if (site.auth_method === 'sessions' && site.sessions) {
+                try {
+                    const sessionData = JSON.parse(site.sessions);
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                    }
+                    if (sessionData.cookie) {
+                        headers['Cookie'] = sessionData.cookie;
+                    }
+                } catch (e) {
+                    headers['Cookie'] = site.sessions;
+                }
+            }
+
+            // 根据API类型添加用户头信息
+            if (site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                }
+            }
+
+            console.log(`发起令牌状态切换请求: ${toggleUrl}`);
+            console.log('新状态:', newStatus);
+
+            // 发送状态切换请求
+            const response = await axios.put(toggleUrl, {
+                status: newStatus
+            }, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500
+            });
+
+            console.log(`令牌状态切换响应状态: ${response.status}`);
+            console.log('响应数据:', response.data);
+
+            const data = response.data;
+
+            return {
+                success: data.success || false,
+                message: data.message || (data.success ? '令牌状态更新成功' : '令牌状态更新失败')
+            };
+
+        } catch (error) {
+            console.error('令牌状态切换失败:', error);
+            
+            if (error.code === 'ECONNABORTED') {
+                return {
+                    success: false,
+                    message: '请求超时'
+                };
+            } else if (error.response) {
+                return {
+                    success: false,
+                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
+                };
+            } else {
+                return {
+                    success: false,
+                    message: error.message || '令牌状态切换失败'
+                };
+            }
+        }
+    }
+
+    // 删除令牌
+    async deleteToken(siteId, tokenId) {
+        const axios = require('axios');
+        
+        try {
+            // 获取站点信息
+            const site = await this.apiSiteModel.findById(siteId);
+            if (!site) {
+                return {
+                    success: false,
+                    message: 'API站点不存在'
+                };
+            }
+
+            // 构建令牌删除API URL
+            const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}`;
+            
+            // 准备请求头
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+            } else if (site.auth_method === 'sessions' && site.sessions) {
+                try {
+                    const sessionData = JSON.parse(site.sessions);
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                    }
+                    if (sessionData.cookie) {
+                        headers['Cookie'] = sessionData.cookie;
+                    }
+                } catch (e) {
+                    headers['Cookie'] = site.sessions;
+                }
+            }
+
+            // 根据API类型添加用户头信息
+            if (site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                }
+            }
+
+            console.log(`发起令牌删除请求: ${deleteUrl}`);
+
+            // 发送删除请求
+            const response = await axios.delete(deleteUrl, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500
+            });
+
+            console.log(`令牌删除响应状态: ${response.status}`);
+            console.log('响应数据:', response.data);
+
+            const data = response.data;
+
+            return {
+                success: data.success || false,
+                message: data.message || (data.success ? '令牌删除成功' : '令牌删除失败')
+            };
+
+        } catch (error) {
+            console.error('令牌删除失败:', error);
+            
+            if (error.code === 'ECONNABORTED') {
+                return {
+                    success: false,
+                    message: '请求超时'
+                };
+            } else if (error.response) {
+                return {
+                    success: false,
+                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
+                };
+            } else {
+                return {
+                    success: false,
+                    message: error.message || '令牌删除失败'
+                };
+            }
+        }
+    }
+
+    // 全部删除令牌
+    async deleteAllTokens(siteId) {
+        const axios = require('axios');
+        
+        try {
+            // 获取站点信息
+            const site = await this.apiSiteModel.findById(siteId);
+            if (!site) {
+                return {
+                    success: false,
+                    message: 'API站点不存在'
+                };
+            }
+
+            // 首先获取令牌列表
+            const tokenListUrl = `${site.url.replace(/\/$/, '')}/api/token/?p=1&size=100`;
+            
+            // 准备请求头
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+            } else if (site.auth_method === 'sessions' && site.sessions) {
+                try {
+                    const sessionData = JSON.parse(site.sessions);
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                    }
+                    if (sessionData.cookie) {
+                        headers['Cookie'] = sessionData.cookie;
+                    }
+                } catch (e) {
+                    headers['Cookie'] = site.sessions;
+                }
+            }
+
+            // 根据API类型添加用户头信息
+            if (site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                }
+            }
+
+            console.log(`获取令牌列表: ${tokenListUrl}`);
+
+            // 获取令牌列表
+            const listResponse = await axios.get(tokenListUrl, {
+                headers,
+                timeout: 15000,
+                validateStatus: (status) => status < 500
+            });
+
+            console.log(`令牌列表响应状态: ${listResponse.status}`);
+
+            if (!listResponse.data || !listResponse.data.success) {
+                return {
+                    success: false,
+                    message: '获取令牌列表失败'
+                };
+            }
+
+            const tokens = listResponse.data.data?.records || [];
+            if (tokens.length === 0) {
+                return {
+                    success: true,
+                    message: '没有需要删除的令牌',
+                    deletedCount: 0
+                };
+            }
+
+            console.log(`找到${tokens.length}个令牌，开始逐个删除`);
+
+            let deletedCount = 0;
+            const errors = [];
+
+            // 逐个删除令牌
+            for (const token of tokens) {
+                try {
+                    const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${token.id}`;
+                    const deleteResponse = await axios.delete(deleteUrl, {
+                        headers,
+                        timeout: 10000,
+                        validateStatus: (status) => status < 500
+                    });
+
+                    if (deleteResponse.data && deleteResponse.data.success) {
+                        deletedCount++;
+                        console.log(`成功删除令牌: ${token.name}`);
+                    } else {
+                        errors.push(`删除令牌 ${token.name} 失败: ${deleteResponse.data?.message || '未知错误'}`);
+                    }
+                } catch (deleteError) {
+                    errors.push(`删除令牌 ${token.name} 失败: ${deleteError.message}`);
+                }
+            }
+
+            return {
+                success: true,
+                message: `删除操作完成，成功删除${deletedCount}个令牌${errors.length > 0 ? `，${errors.length}个失败` : ''}`,
+                deletedCount: deletedCount,
+                errors: errors
+            };
+
+        } catch (error) {
+            console.error('批量删除令牌失败:', error);
+            
+            if (error.code === 'ECONNABORTED') {
+                return {
+                    success: false,
+                    message: '请求超时'
+                };
+            } else if (error.response) {
+                return {
+                    success: false,
+                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
+                };
+            } else {
+                return {
+                    success: false,
+                    message: error.message || '批量删除令牌失败'
+                };
+            }
+        }
+    }
+
+    // 自动创建令牌
+    async autoCreateTokens(siteId) {
+        const axios = require('axios');
+        
+        try {
+            // 获取站点信息
+            const site = await this.apiSiteModel.findById(siteId);
+            if (!site) {
+                return {
+                    success: false,
+                    message: 'API站点不存在'
+                };
+            }
+
+            // 构建令牌创建API URL
+            const createUrl = `${site.url.replace(/\/$/, '')}/api/token`;
+            
+            // 准备请求头
+            const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            };
+
+            // 处理认证信息
+            if (site.auth_method === 'token' && site.token) {
+                headers['Authorization'] = `Bearer ${site.token}`;
+            } else if (site.auth_method === 'sessions' && site.sessions) {
+                try {
+                    const sessionData = JSON.parse(site.sessions);
+                    if (sessionData.token) {
+                        headers['Authorization'] = `Bearer ${sessionData.token}`;
+                    }
+                    if (sessionData.cookie) {
+                        headers['Cookie'] = sessionData.cookie;
+                    }
+                } catch (e) {
+                    headers['Cookie'] = site.sessions;
+                }
+            }
+
+            // 根据API类型添加用户头信息
+            if (site.user_id) {
+                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
+                    headers['new-api-user'] = site.user_id;
+                } else if (site.api_type === 'Veloera') {
+                    headers['veloera-user'] = site.user_id;
+                } else if (site.api_type === 'VoApi') {
+                    headers['voapi-user'] = site.user_id;
+                }
+            }
+
+            // 自动创建多个令牌的配置
+            const tokenConfigs = [
+                { name: `AutoToken_${Date.now()}_1`, expired_time: -1, remain_quota: 500000 },
+                { name: `AutoToken_${Date.now()}_2`, expired_time: -1, remain_quota: 500000 },
+                { name: `AutoToken_${Date.now()}_3`, expired_time: -1, remain_quota: 500000 }
+            ];
+
+            console.log(`开始自动创建${tokenConfigs.length}个令牌`);
+
+            let createdCount = 0;
+            const errors = [];
+
+            // 逐个创建令牌
+            for (const tokenConfig of tokenConfigs) {
+                try {
+                    console.log(`创建令牌: ${tokenConfig.name}`);
+                    
+                    const response = await axios.post(createUrl, tokenConfig, {
+                        headers,
+                        timeout: 15000,
+                        validateStatus: (status) => status < 500
+                    });
+
+                    console.log(`令牌创建响应: ${response.status}`, response.data);
+
+                    if (response.data && response.data.success) {
+                        createdCount++;
+                        console.log(`成功创建令牌: ${tokenConfig.name}`);
+                    } else {
+                        errors.push(`创建令牌 ${tokenConfig.name} 失败: ${response.data?.message || '未知错误'}`);
+                    }
+                } catch (createError) {
+                    errors.push(`创建令牌 ${tokenConfig.name} 失败: ${createError.message}`);
+                }
+
+                // 添加延迟避免频率限制
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            return {
+                success: true,
+                message: `创建操作完成，成功创建${createdCount}个令牌${errors.length > 0 ? `，${errors.length}个失败` : ''}`,
+                createdCount: createdCount,
+                errors: errors
+            };
+
+        } catch (error) {
+            console.error('自动创建令牌失败:', error);
+            
+            if (error.code === 'ECONNABORTED') {
+                return {
+                    success: false,
+                    message: '请求超时'
+                };
+            } else if (error.response) {
+                return {
+                    success: false,
+                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
+                };
+            } else {
+                return {
+                    success: false,
+                    message: error.message || '自动创建令牌失败'
                 };
             }
         }

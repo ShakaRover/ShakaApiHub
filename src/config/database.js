@@ -72,8 +72,10 @@ class DatabaseConfig {
                     
                     const hasAutoCheckin = tableInfo.some(column => column.name === 'auto_checkin');
                     const hasLastCheckin = tableInfo.some(column => column.name === 'last_checkin');
+                    const hasModelsList = tableInfo.some(column => column.name === 'models_list');
+                    const hasTokensList = tableInfo.some(column => column.name === 'tokens_list');
                     
-                    // 检查是否需要重建表以支持AnyRouter和检测功能
+                    // 检查是否需要重建表以支持新功能
                     this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='api_sites'", (err, currentSchema) => {
                         if (err) {
                             console.error('数据库迁移失败:', err.message);
@@ -81,7 +83,7 @@ class DatabaseConfig {
                             return;
                         }
                         
-                        const needsRebuild = !currentSchema || !currentSchema.sql.includes('AnyRouter') || !currentSchema.sql.includes('site_quota');
+                        const needsRebuild = !currentSchema || !currentSchema.sql.includes('VoApi') || !currentSchema.sql.includes('site_quota') || !hasModelsList || !hasTokensList;
                         
                         if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
                             console.log('需要重建api_sites表以支持新功能...');
@@ -298,6 +300,20 @@ class DatabaseConfig {
                     enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
                     auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
                     last_checkin DATETIME,
+                    -- 站点检测相关字段
+                    site_quota REAL DEFAULT 0,
+                    site_used_quota REAL DEFAULT 0,
+                    site_request_count INTEGER DEFAULT 0,
+                    site_user_group TEXT,
+                    site_aff_code TEXT,
+                    site_aff_count INTEGER DEFAULT 0,
+                    site_aff_quota REAL DEFAULT 0,
+                    site_aff_history_quota REAL DEFAULT 0,
+                    site_username TEXT,
+                    site_last_check_in_time DATETIME,
+                    last_check_time DATETIME,
+                    last_check_status TEXT DEFAULT 'pending',
+                    last_check_message TEXT,
                     models_list TEXT,
                     tokens_list TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -578,6 +594,36 @@ class DatabaseConfig {
             findLatestCheckLog: {
                 get: (siteId) => new Promise((resolve, reject) => {
                     this.db.get('SELECT * FROM site_check_logs WHERE site_id = ? ORDER BY check_time DESC LIMIT 1', [siteId], (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    });
+                })
+            },
+            findLatestCheckinStatus: {
+                get: (siteId) => new Promise((resolve, reject) => {
+                    this.db.get(`SELECT status, message, created_at 
+                                FROM site_check_logs 
+                                WHERE site_id = ? AND message LIKE '[签到]%'
+                                ORDER BY created_at DESC LIMIT 1`, [siteId], (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    });
+                })
+            },
+            updateSiteCheckinTime: {
+                run: (siteId) => new Promise((resolve, reject) => {
+                    this.db.run(`UPDATE api_sites SET 
+                                site_last_check_in_time = CURRENT_TIMESTAMP,
+                                updated_at = CURRENT_TIMESTAMP
+                                WHERE id = ?`, [siteId], function(err) {
+                        if (err) reject(err);
+                        else resolve({ changes: this.changes });
+                    });
+                })
+            },
+            getSiteCheckinTime: {
+                get: (siteId) => new Promise((resolve, reject) => {
+                    this.db.get('SELECT site_last_check_in_time FROM api_sites WHERE id = ?', [siteId], (err, row) => {
                         if (err) reject(err);
                         else resolve(row);
                     });

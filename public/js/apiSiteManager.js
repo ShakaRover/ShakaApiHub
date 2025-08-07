@@ -898,15 +898,13 @@ class ApiSiteManager {
             ? '<span class="status-badge status-enabled" title="已启用">✅</span>'
             : '<span class="status-badge status-disabled" title="已禁用">❌</span>';
         
-        // 签到状态显示
+        // 签到状态显示 - 使用异步加载的方式
         let checkinBadge = '<span class="checkin-badge checkin-disabled" title="自动签到未启用">❌</span>';
         if (site.auto_checkin) {
-            if (site.last_checkin) {
-                const lastCheckin = new Date(site.last_checkin).toLocaleString('zh-CN');
-                checkinBadge = `<span class="checkin-badge checkin-enabled" title="自动签到已启用 - 最后签到: ${lastCheckin}">✅</span>`;
-            } else {
-                checkinBadge = '<span class="checkin-badge checkin-enabled" title="自动签到已启用">✅</span>';
-            }
+            // 对于启用签到的站点，显示加载状态，稍后异步更新
+            checkinBadge = `<span id="checkin-badge-${site.id}" class="checkin-badge checkin-loading" title="加载签到状态中...">⏳</span>`;
+            // 异步加载签到状态
+            this.loadCheckinStatus(site.id);
         }
 
         // 站点信息显示
@@ -987,6 +985,49 @@ class ApiSiteManager {
         }
 
         return mainRow + infoRow;
+    }
+
+    // 异步加载签到状态
+    async loadCheckinStatus(siteId) {
+        try {
+            const response = await fetch(`/api/sites/${siteId}/checkin-status`, {
+                credentials: 'include'
+            });
+            const result = await response.json();
+            
+            const badgeElement = document.getElementById(`checkin-badge-${siteId}`);
+            if (badgeElement) {
+                if (result.success && result.data) {
+                    // 根据签到状态更新显示
+                    if (result.data.status === 'success') {
+                        const time = new Date(result.data.time).toLocaleString('zh-CN');
+                        const message = result.data.message || '签到成功';
+                        badgeElement.className = 'checkin-badge checkin-success';
+                        badgeElement.innerHTML = '✅';
+                        badgeElement.title = `最近签到成功 - ${time}: ${message}`;
+                    } else if (result.data.status === 'error') {
+                        const time = new Date(result.data.time).toLocaleString('zh-CN');
+                        const message = result.data.message || '签到失败';
+                        badgeElement.className = 'checkin-badge checkin-failed';
+                        badgeElement.innerHTML = '❌';
+                        badgeElement.title = `最近签到失败 - ${time}: ${message}`;
+                    }
+                } else {
+                    // 没有签到记录，但启用了签到
+                    badgeElement.className = 'checkin-badge checkin-enabled';
+                    badgeElement.innerHTML = '⏹️';
+                    badgeElement.title = '自动签到已启用 - 暂无签到记录';
+                }
+            }
+        } catch (error) {
+            console.error('加载签到状态失败:', error);
+            const badgeElement = document.getElementById(`checkin-badge-${siteId}`);
+            if (badgeElement) {
+                badgeElement.className = 'checkin-badge checkin-enabled';
+                badgeElement.innerHTML = '✅';
+                badgeElement.title = '自动签到已启用';
+            }
+        }
     }
 
     // 创建API站点

@@ -233,6 +233,126 @@ class ApiSiteController {
         }
     }
 
+    // 切换令牌状态
+    async toggleToken(req, res) {
+        try {
+            const { id, tokenId } = req.params;
+            const { status } = req.body;
+            
+            if (!id || isNaN(id) || !tokenId || isNaN(tokenId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID或令牌ID'
+                });
+            }
+
+            if (!status || ![1, 2].includes(status)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '状态参数无效'
+                });
+            }
+
+            const result = await this.apiSiteService.toggleToken(parseInt(id), parseInt(tokenId), status);
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.toggleToken:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 删除令牌
+    async deleteToken(req, res) {
+        try {
+            const { id, tokenId } = req.params;
+            
+            if (!id || isNaN(id) || !tokenId || isNaN(tokenId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID或令牌ID'
+                });
+            }
+
+            const result = await this.apiSiteService.deleteToken(parseInt(id), parseInt(tokenId));
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.deleteToken:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 全部删除令牌
+    async deleteAllTokens(req, res) {
+        try {
+            const { id } = req.params;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.apiSiteService.deleteAllTokens(parseInt(id));
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.deleteAllTokens:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 自动创建令牌
+    async autoCreateTokens(req, res) {
+        try {
+            const { id } = req.params;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.apiSiteService.autoCreateTokens(parseInt(id));
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.autoCreateTokens:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
     // 获取检测历史
     async getCheckHistory(req, res) {
         try {
@@ -249,6 +369,29 @@ class ApiSiteController {
             res.json(result);
         } catch (error) {
             console.error('ApiSiteController.getCheckHistory:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 获取站点签到状态
+    async getCheckinStatus(req, res) {
+        try {
+            const { id } = req.params;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.siteCheckService.getLatestCheckinStatus(parseInt(id));
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.getCheckinStatus:', error.message);
             res.status(500).json({
                 success: false,
                 message: '服务器内部错误'

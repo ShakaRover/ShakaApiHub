@@ -134,9 +134,34 @@ router.post('/sites/:id/topup', requireAuth, (req, res) => {
     apiSiteController.topupSite(req, res);
 });
 
+// PUT /api/sites/:id/token/:tokenId/toggle - 切换令牌状态
+router.put('/sites/:id/token/:tokenId/toggle', requireAuth, (req, res) => {
+    apiSiteController.toggleToken(req, res);
+});
+
+// DELETE /api/sites/:id/token/:tokenId - 删除令牌
+router.delete('/sites/:id/token/:tokenId', requireAuth, (req, res) => {
+    apiSiteController.deleteToken(req, res);
+});
+
+// DELETE /api/sites/:id/tokens/deleteAll - 全部删除令牌
+router.delete('/sites/:id/tokens/deleteAll', requireAuth, (req, res) => {
+    apiSiteController.deleteAllTokens(req, res);
+});
+
+// POST /api/sites/:id/tokens/autoCreate - 自动创建令牌
+router.post('/sites/:id/tokens/autoCreate', requireAuth, (req, res) => {
+    apiSiteController.autoCreateTokens(req, res);
+});
+
 // GET /api/sites/:id/check-history - 获取检测历史
 router.get('/sites/:id/check-history', requireAuth, (req, res) => {
     apiSiteController.getCheckHistory(req, res);
+});
+
+// GET /api/sites/:id/checkin-status - 获取签到状态
+router.get('/sites/:id/checkin-status', requireAuth, (req, res) => {
+    apiSiteController.getCheckinStatus(req, res);
 });
 
 

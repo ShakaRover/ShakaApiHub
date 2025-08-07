@@ -634,16 +634,7 @@ class SiteCheckService {
     // 更新最后签到时间
     async updateLastCheckinTime(siteId) {
         try {
-            const updateSql = `
-                UPDATE api_sites SET 
-                    site_last_check_in_time = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            `;
-
-            const stmt = this.db.prepare(updateSql);
-            stmt.run(siteId);
-
+            await this.statements.updateSiteCheckinTime.run(siteId);
             console.log(`✅ 已更新站点 ${siteId} 的最后签到时间`);
         } catch (error) {
             console.error('更新最后签到时间失败:', error.message);
@@ -654,9 +645,7 @@ class SiteCheckService {
     async checkAndUpdateCheckinTime(siteId) {
         try {
             // 获取站点的最后签到时间
-            const getSql = `SELECT site_last_check_in_time FROM api_sites WHERE id = ?`;
-            const stmt = this.db.prepare(getSql);
-            const result = stmt.get(siteId);
+            const result = await this.statements.getSiteCheckinTime.get(siteId);
 
             if (!result || !result.site_last_check_in_time) {
                 // 如果没有签到记录，更新为当前时间
@@ -689,11 +678,6 @@ class SiteCheckService {
     // 记录签到结果日志
     async logCheckinResult(siteId, status, message) {
         try {
-            const insertSql = `
-                INSERT INTO site_check_logs (site_id, status, message, response_data) 
-                VALUES (?, ?, ?, ?)
-            `;
-
             const logData = {
                 type: 'checkin',
                 timestamp: new Date().toISOString(),
@@ -701,12 +685,35 @@ class SiteCheckService {
                 message: message
             };
 
-            const stmt = this.db.prepare(insertSql);
-            stmt.run(siteId, status, `[签到] ${message}`, JSON.stringify(logData));
-
+            await this.statements.insertCheckLog.run(siteId, status, `[签到] ${message}`, JSON.stringify(logData));
             console.log(`📝 已记录站点 ${siteId} 的签到日志: ${status} - ${message}`);
         } catch (error) {
             console.error('记录签到日志失败:', error.message);
+        }
+    }
+
+    // 获取最近的签到状态
+    async getLatestCheckinStatus(siteId) {
+        try {
+            const result = await this.statements.findLatestCheckinStatus.get(siteId);
+            
+            return result ? {
+                success: true,
+                data: {
+                    status: result.status,
+                    message: result.message,
+                    time: result.created_at
+                }
+            } : {
+                success: false,
+                message: '未找到签到记录'
+            };
+        } catch (error) {
+            console.error('获取签到状态失败:', error.message);
+            return {
+                success: false,
+                message: error.message
+            };
         }
     }
 

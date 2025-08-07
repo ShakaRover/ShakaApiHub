@@ -1085,6 +1085,24 @@ body {
     color: #991b1b;
 }
 
+.checkin-success {
+    background-color: #dcfce7;
+    color: #16a34a;
+    border: 2px solid #22c55e;
+}
+
+.checkin-failed {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border: 2px solid #ef4444;
+}
+
+.checkin-loading {
+    background-color: #fef3c7;
+    color: #d97706;
+    border: 2px solid #f59e0b;
+}
+
 /* 自动签到表单组样式 */
 #autoCheckinGroup {
     margin-top: 0.5rem;
