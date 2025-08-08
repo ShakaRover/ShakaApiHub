@@ -60,6 +60,44 @@ class LogService {
                 )
             `;
 
+            // 新增：令牌操作日志表
+            const createTokenLogsTable = `
+                CREATE TABLE IF NOT EXISTS token_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    site_id INTEGER NOT NULL,
+                    token_id TEXT,
+                    action TEXT NOT NULL,
+                    details TEXT,
+                    status TEXT,
+                    error_message TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE
+                )
+            `;
+
+            // 新增：站点操作日志表  
+            const createSiteOperationLogsTable = `
+                CREATE TABLE IF NOT EXISTS site_operation_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    site_id INTEGER NOT NULL,
+                    operation TEXT NOT NULL,
+                    step TEXT NOT NULL,
+                    step_order INTEGER DEFAULT 1,
+                    status TEXT NOT NULL,
+                    details TEXT,
+                    error_message TEXT,
+                    execution_time INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE
+                )
+            `;
+
             this.db.serialize(() => {
                 this.db.run(createSystemLogsTable, (err) => {
                     if (err) {
@@ -79,21 +117,43 @@ class LogService {
                                 return;
                             }
                             
-                            // 创建索引
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_action ON user_logs(action)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_created_at ON user_logs(created_at)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_endpoint ON api_logs(endpoint)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_status_code ON api_logs(status_code)');
-                            this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at)', (err) => {
+                            this.db.run(createTokenLogsTable, (err) => {
                                 if (err) {
                                     reject(err);
-                                } else {
-                                    console.log('日志表创建完成');
-                                    resolve();
+                                    return;
                                 }
+                                
+                                this.db.run(createSiteOperationLogsTable, (err) => {
+                                    if (err) {
+                                        reject(err);
+                                        return;
+                                    }
+                                    
+                                    // 创建索引
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_action ON user_logs(action)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_created_at ON user_logs(created_at)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_endpoint ON api_logs(endpoint)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_status_code ON api_logs(status_code)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_user_id ON token_logs(user_id)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_site_id ON token_logs(site_id)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_action ON token_logs(action)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_created_at ON token_logs(created_at)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_user_id ON site_operation_logs(user_id)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_site_id ON site_operation_logs(site_id)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_operation ON site_operation_logs(operation)');
+                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_created_at ON site_operation_logs(created_at)', (err) => {
+                                        if (err) {
+                                            reject(err);
+                                        } else {
+                                            console.log('日志表创建完成');
+                                            resolve();
+                                        }
+                                    });
+                                });
                             });
                         });
                     });
@@ -182,6 +242,69 @@ class LogService {
             });
         } catch (error) {
             console.error('记录API请求日志失败:', error.message);
+        }
+    }
+
+    // 记录令牌操作日志
+    async logTokenAction(userId, siteId, tokenId, action, details = null, status = 'success', errorMessage = null, req = null) {
+        try {
+            if (!this.db) {
+                this.db = await databaseConfig.getDatabase();
+            }
+            
+            const ipAddress = req ? (req.ip || req.connection.remoteAddress) : null;
+            const userAgent = req ? req.get('User-Agent') : null;
+            
+            this.db.run(`
+                INSERT INTO token_logs (user_id, site_id, token_id, action, details, status, error_message, ip_address, user_agent) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                userId,
+                siteId,
+                tokenId,
+                action,
+                details ? JSON.stringify(details) : null,
+                status,
+                errorMessage,
+                ipAddress,
+                userAgent
+            ], (err) => {
+                if (err) {
+                    console.error('记录令牌操作日志失败:', err.message);
+                }
+            });
+        } catch (error) {
+            console.error('记录令牌操作日志失败:', error.message);
+        }
+    }
+
+    // 记录站点操作日志（详细步骤）
+    async logSiteOperation(userId, siteId, operation, step, stepOrder = 1, status = 'success', details = null, errorMessage = null, executionTime = null) {
+        try {
+            if (!this.db) {
+                this.db = await databaseConfig.getDatabase();
+            }
+            
+            this.db.run(`
+                INSERT INTO site_operation_logs (user_id, site_id, operation, step, step_order, status, details, error_message, execution_time) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                userId,
+                siteId,
+                operation,
+                step,
+                stepOrder,
+                status,
+                details ? JSON.stringify(details) : null,
+                errorMessage,
+                executionTime
+            ], (err) => {
+                if (err) {
+                    console.error('记录站点操作日志失败:', err.message);
+                }
+            });
+        } catch (error) {
+            console.error('记录站点操作日志失败:', error.message);
         }
     }
 
@@ -486,14 +609,192 @@ class LogService {
         });
     }
 
+    // 获取令牌操作日志
+    async getTokenLogs(options = {}) {
+        return new Promise((resolve) => {
+            try {
+                const {
+                    userId = null,
+                    siteId = null,
+                    action = null,
+                    status = null,
+                    limit = 50,
+                    offset = 0,
+                    startDate = null,
+                    endDate = null
+                } = options;
+
+                let query = `
+                    SELECT tl.*, u.username, aps.name as site_name 
+                    FROM token_logs tl 
+                    LEFT JOIN users u ON tl.user_id = u.id 
+                    LEFT JOIN api_sites aps ON tl.site_id = aps.id 
+                    WHERE 1=1
+                `;
+                const params = [];
+
+                if (userId) {
+                    query += ' AND tl.user_id = ?';
+                    params.push(userId);
+                }
+
+                if (siteId) {
+                    query += ' AND tl.site_id = ?';
+                    params.push(siteId);
+                }
+
+                if (action) {
+                    query += ' AND tl.action LIKE ?';
+                    params.push(`%${action}%`);
+                }
+
+                if (status) {
+                    query += ' AND tl.status = ?';
+                    params.push(status);
+                }
+
+                if (startDate) {
+                    query += ' AND tl.created_at >= ?';
+                    params.push(startDate);
+                }
+
+                if (endDate) {
+                    query += ' AND tl.created_at <= ?';
+                    params.push(endDate);
+                }
+
+                query += ' ORDER BY tl.created_at DESC LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+
+                if (!this.db) {
+                    resolve({ success: false, message: '数据库未初始化', data: [] });
+                    return;
+                }
+
+                this.db.all(query, params, (err, logs) => {
+                    if (err) {
+                        console.error('获取令牌操作日志失败:', err.message);
+                        resolve({ success: false, message: err.message, data: [] });
+                        return;
+                    }
+
+                    // 解析details字段
+                    const parsedLogs = (logs || []).map(log => ({
+                        ...log,
+                        details: log && log.details ? JSON.parse(log.details) : null
+                    }));
+
+                    resolve({
+                        success: true,
+                        data: parsedLogs,
+                        total: parsedLogs.length
+                    });
+                });
+            } catch (error) {
+                console.error('获取令牌操作日志失败:', error.message);
+                resolve({ success: false, message: error.message, data: [] });
+            }
+        });
+    }
+
+    // 获取站点操作日志  
+    async getSiteOperationLogs(options = {}) {
+        return new Promise((resolve) => {
+            try {
+                const {
+                    userId = null,
+                    siteId = null,
+                    operation = null,
+                    status = null,
+                    limit = 50,
+                    offset = 0,
+                    startDate = null,
+                    endDate = null
+                } = options;
+
+                let query = `
+                    SELECT sol.*, u.username, aps.name as site_name 
+                    FROM site_operation_logs sol 
+                    LEFT JOIN users u ON sol.user_id = u.id 
+                    LEFT JOIN api_sites aps ON sol.site_id = aps.id 
+                    WHERE 1=1
+                `;
+                const params = [];
+
+                if (userId) {
+                    query += ' AND sol.user_id = ?';
+                    params.push(userId);
+                }
+
+                if (siteId) {
+                    query += ' AND sol.site_id = ?';
+                    params.push(siteId);
+                }
+
+                if (operation) {
+                    query += ' AND sol.operation LIKE ?';
+                    params.push(`%${operation}%`);
+                }
+
+                if (status) {
+                    query += ' AND sol.status = ?';
+                    params.push(status);
+                }
+
+                if (startDate) {
+                    query += ' AND sol.created_at >= ?';
+                    params.push(startDate);
+                }
+
+                if (endDate) {
+                    query += ' AND sol.created_at <= ?';
+                    params.push(endDate);
+                }
+
+                query += ' ORDER BY sol.created_at DESC, sol.step_order ASC LIMIT ? OFFSET ?';
+                params.push(limit, offset);
+
+                if (!this.db) {
+                    resolve({ success: false, message: '数据库未初始化', data: [] });
+                    return;
+                }
+
+                this.db.all(query, params, (err, logs) => {
+                    if (err) {
+                        console.error('获取站点操作日志失败:', err.message);
+                        resolve({ success: false, message: err.message, data: [] });
+                        return;
+                    }
+
+                    // 解析details字段
+                    const parsedLogs = (logs || []).map(log => ({
+                        ...log,
+                        details: log && log.details ? JSON.parse(log.details) : null
+                    }));
+
+                    resolve({
+                        success: true,
+                        data: parsedLogs,
+                        total: parsedLogs.length
+                    });
+                });
+            } catch (error) {
+                console.error('获取站点操作日志失败:', error.message);
+                resolve({ success: false, message: error.message, data: [] });
+            }
+        });
+    }
+
     // 获取日志统计信息
     async getLogStats() {
         try {
-            const [systemLogs, userLogs, apiLogs, siteCheckLogs, recentErrors, todayRequests] = await Promise.all([
+            const [systemLogs, userLogs, apiLogs, siteCheckLogs, tokenLogs, siteOperationLogs, recentErrors, todayRequests] = await Promise.all([
                 this.getSystemLogsCount(),
                 this.getUserLogsCount(),
                 this.getApiLogsCount(),
                 this.getSiteCheckLogsCount(),
+                this.getTokenLogsCount(),
+                this.getSiteOperationLogsCount(),
                 this.getRecentErrorsCount(),
                 this.getTodayRequestsCount()
             ]);
@@ -503,6 +804,8 @@ class LogService {
                 userLogs,
                 apiLogs,
                 siteCheckLogs,
+                tokenLogs,
+                siteOperationLogs,
                 recentErrors,
                 todayRequests
             };
@@ -524,8 +827,10 @@ class LogService {
             const systemDeleted = this.db.prepare('DELETE FROM system_logs WHERE created_at < ?').run(cutoffDateStr).changes;
             const userDeleted = this.db.prepare('DELETE FROM user_logs WHERE created_at < ?').run(cutoffDateStr).changes;
             const apiDeleted = this.db.prepare('DELETE FROM api_logs WHERE created_at < ?').run(cutoffDateStr).changes;
+            const tokenDeleted = this.db.prepare('DELETE FROM token_logs WHERE created_at < ?').run(cutoffDateStr).changes;
+            const siteOpDeleted = this.db.prepare('DELETE FROM site_operation_logs WHERE created_at < ?').run(cutoffDateStr).changes;
 
-            const totalDeleted = systemDeleted + userDeleted + apiDeleted;
+            const totalDeleted = systemDeleted + userDeleted + apiDeleted + tokenDeleted + siteOpDeleted;
             
             const message = `日志清理完成，删除了 ${totalDeleted} 条记录（${daysToKeep}天前的记录）`;
             console.log(message);
@@ -535,6 +840,8 @@ class LogService {
                 systemDeleted,
                 userDeleted,
                 apiDeleted,
+                tokenDeleted,
+                siteOpDeleted,
                 totalDeleted,
                 daysToKeep
             });
@@ -713,6 +1020,108 @@ class LogService {
             this.db.get(query, params, (err, row) => {
                 if (err) {
                     console.error('获取站点检测日志数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
+    }
+
+    async getTokenLogsCount(filters = {}) {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
+
+            let query = 'SELECT COUNT(*) as count FROM token_logs WHERE 1=1';
+            const params = [];
+
+            if (filters.userId) {
+                query += ' AND user_id = ?';
+                params.push(filters.userId);
+            }
+
+            if (filters.siteId) {
+                query += ' AND site_id = ?';
+                params.push(filters.siteId);
+            }
+
+            if (filters.action) {
+                query += ' AND action LIKE ?';
+                params.push(`%${filters.action}%`);
+            }
+
+            if (filters.status) {
+                query += ' AND status = ?';
+                params.push(filters.status);
+            }
+
+            if (filters.startDate) {
+                query += ' AND created_at >= ?';
+                params.push(filters.startDate);
+            }
+
+            if (filters.endDate) {
+                query += ' AND created_at <= ?';
+                params.push(filters.endDate);
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    console.error('获取令牌日志数量失败:', err.message);
+                    resolve(0);
+                } else {
+                    resolve(row ? row.count : 0);
+                }
+            });
+        });
+    }
+
+    async getSiteOperationLogsCount(filters = {}) {
+        return new Promise((resolve) => {
+            if (!this.db) {
+                resolve(0);
+                return;
+            }
+
+            let query = 'SELECT COUNT(*) as count FROM site_operation_logs WHERE 1=1';
+            const params = [];
+
+            if (filters.userId) {
+                query += ' AND user_id = ?';
+                params.push(filters.userId);
+            }
+
+            if (filters.siteId) {
+                query += ' AND site_id = ?';
+                params.push(filters.siteId);
+            }
+
+            if (filters.operation) {
+                query += ' AND operation LIKE ?';
+                params.push(`%${filters.operation}%`);
+            }
+
+            if (filters.status) {
+                query += ' AND status = ?';
+                params.push(filters.status);
+            }
+
+            if (filters.startDate) {
+                query += ' AND created_at >= ?';
+                params.push(filters.startDate);
+            }
+
+            if (filters.endDate) {
+                query += ' AND created_at <= ?';
+                params.push(filters.endDate);
+            }
+
+            this.db.get(query, params, (err, row) => {
+                if (err) {
+                    console.error('获取站点操作日志数量失败:', err.message);
                     resolve(0);
                 } else {
                     resolve(row ? row.count : 0);
