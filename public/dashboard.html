@@ -50,7 +50,7 @@
             <div class="nav-item">
                 <a href="#" class="nav-link" data-page="data-management">
                     <div class="nav-icon">💾</div>
-                    <span class="nav-text">数据管理</span>
+                    <span class="nav-text">备份管理</span>
                 </a>
             </div>
             <div class="nav-item">
@@ -299,11 +299,11 @@
                 </div>
             </div>
             
-            <!-- 数据管理页面 -->
+            <!-- 备份管理页面 -->
             <div id="data-management-page" class="page-content">
                 <div class="page-header">
                     <div>
-                        <h1 class="page-title">数据管理</h1>
+                        <h1 class="page-title">备份管理</h1>
                         <p class="page-subtitle">导出、导入和备份您的API站点配置</p>
                     </div>
                 </div>
@@ -333,6 +333,43 @@
                                 </div>
                                 <div class="form-group" id="siteSelectionGroup" style="display: none;">
                                     <label>选择要导出的站点</label>
+                                    
+                                    <!-- 站点搜索和过滤控件 -->
+                                    <div class="site-selection-controls">
+                                        <div class="selection-filters">
+                                            <div class="filter-row">
+                                                <div class="filter-group">
+                                                    <input type="text" id="siteSelectionSearch" class="form-control form-control-sm" placeholder="搜索站点名称或URL..." style="width: 200px;">
+                                                </div>
+                                                <div class="filter-group">
+                                                    <select id="siteSelectionTypeFilter" class="form-control form-control-sm" style="width: 100px;">
+                                                        <option value="">全部类型</option>
+                                                        <option value="NewApi">NewApi</option>
+                                                        <option value="Veloera">Veloera</option>
+                                                        <option value="AnyRouter">AnyRouter</option>
+                                                        <option value="VoApi">VoApi</option>
+                                                    </select>
+                                                </div>
+                                                <div class="filter-group">
+                                                    <select id="siteSelectionStatusFilter" class="form-control form-control-sm" style="width: 80px;">
+                                                        <option value="">全部状态</option>
+                                                        <option value="enabled">启用</option>
+                                                        <option value="disabled">禁用</option>
+                                                    </select>
+                                                </div>
+                                                <div class="filter-group">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" id="applySelectionFilters">筛选</button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="clearSelectionFilters">清除</button>
+                                                </div>
+                                            </div>
+                                            <div class="selection-actions">
+                                                <button type="button" class="btn btn-outline-info btn-sm" id="selectAllVisible">全选可见</button>
+                                                <button type="button" class="btn btn-outline-warning btn-sm" id="selectNoneVisible">清除选择</button>
+                                                <span class="selection-count">已选择: <span id="selectedCount">0</span> 个站点</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <div id="siteCheckboxList" class="checkbox-list">
                                         <!-- 动态生成站点复选框 -->
                                     </div>

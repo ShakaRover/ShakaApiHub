@@ -492,6 +492,7 @@ const DataManager = {
             if (e.target.value === 'selected') {
                 siteSelectionGroup.style.display = 'block';
                 this.loadSiteCheckboxList();
+                this.bindSiteSelectionEvents();
             } else {
                 siteSelectionGroup.style.display = 'none';
             }
@@ -503,6 +504,72 @@ const DataManager = {
         });
     },
 
+    // 绑定站点选择相关事件
+    bindSiteSelectionEvents() {
+        // 搜索输入事件
+        const searchInput = document.getElementById('siteSelectionSearch');
+        if (searchInput && !searchInput.hasAttribute('data-bound')) {
+            searchInput.addEventListener('input', () => {
+                this.filterSiteList();
+            });
+            searchInput.setAttribute('data-bound', 'true');
+        }
+
+        // 过滤器事件
+        const typeFilter = document.getElementById('siteSelectionTypeFilter');
+        const statusFilter = document.getElementById('siteSelectionStatusFilter');
+        
+        if (typeFilter && !typeFilter.hasAttribute('data-bound')) {
+            typeFilter.addEventListener('change', () => {
+                this.filterSiteList();
+            });
+            typeFilter.setAttribute('data-bound', 'true');
+        }
+        
+        if (statusFilter && !statusFilter.hasAttribute('data-bound')) {
+            statusFilter.addEventListener('change', () => {
+                this.filterSiteList();
+            });
+            statusFilter.setAttribute('data-bound', 'true');
+        }
+
+        // 过滤按钮事件
+        const applyFiltersBtn = document.getElementById('applySelectionFilters');
+        const clearFiltersBtn = document.getElementById('clearSelectionFilters');
+        
+        if (applyFiltersBtn && !applyFiltersBtn.hasAttribute('data-bound')) {
+            applyFiltersBtn.addEventListener('click', () => {
+                this.filterSiteList();
+            });
+            applyFiltersBtn.setAttribute('data-bound', 'true');
+        }
+        
+        if (clearFiltersBtn && !clearFiltersBtn.hasAttribute('data-bound')) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearSiteSelectionFilters();
+            });
+            clearFiltersBtn.setAttribute('data-bound', 'true');
+        }
+
+        // 全选/清除选择按钮事件
+        const selectAllBtn = document.getElementById('selectAllVisible');
+        const selectNoneBtn = document.getElementById('selectNoneVisible');
+        
+        if (selectAllBtn && !selectAllBtn.hasAttribute('data-bound')) {
+            selectAllBtn.addEventListener('click', () => {
+                this.selectAllVisibleSites();
+            });
+            selectAllBtn.setAttribute('data-bound', 'true');
+        }
+        
+        if (selectNoneBtn && !selectNoneBtn.hasAttribute('data-bound')) {
+            selectNoneBtn.addEventListener('click', () => {
+                this.selectNoneSites();
+            });
+            selectNoneBtn.setAttribute('data-bound', 'true');
+        }
+    },
+
     // 加载站点复选框列表
     async loadSiteCheckboxList() {
         try {
@@ -510,25 +577,112 @@ const DataManager = {
             const result = await response.json();
             
             if (result.success) {
-                const container = document.getElementById('siteCheckboxList');
-                container.innerHTML = '';
-                
-                result.data.forEach(site => {
-                    const checkboxItem = document.createElement('div');
-                    checkboxItem.className = 'checkbox-item';
-                    checkboxItem.innerHTML = `
-                        <label class="checkbox-label">
-                            <input type="checkbox" value="${site.id}" name="siteIds" />
-                            <span class="checkmark"></span>
-                            ${site.name} (${site.api_type})
-                        </label>
-                    `;
-                    container.appendChild(checkboxItem);
-                });
+                // 存储原始站点数据
+                this.allSites = result.data;
+                this.renderSiteCheckboxList(result.data);
+                this.updateSelectedCount();
             }
         } catch (error) {
             console.error('加载站点列表失败:', error);
             showAlert('加载站点列表失败', 'error');
+        }
+    },
+
+    // 渲染站点复选框列表
+    renderSiteCheckboxList(sites) {
+        const container = document.getElementById('siteCheckboxList');
+        container.innerHTML = '';
+        
+        if (sites.length === 0) {
+            container.innerHTML = '<div class="no-data">没有找到匹配的站点</div>';
+            return;
+        }
+        
+        sites.forEach(site => {
+            const checkboxItem = document.createElement('div');
+            checkboxItem.className = 'checkbox-item';
+            checkboxItem.setAttribute('data-site-id', site.id);
+            checkboxItem.setAttribute('data-site-type', site.api_type);
+            checkboxItem.setAttribute('data-site-status', site.enabled ? 'enabled' : 'disabled');
+            
+            checkboxItem.innerHTML = `
+                <input type="checkbox" value="${site.id}" name="siteIds" onchange="AdminApp.updateSelectedCount()" />
+                <div class="site-info">
+                    <div class="site-name">${site.name}</div>
+                    <div class="site-details">
+                        <span class="site-type">${site.api_type}</span>
+                        <span class="site-url">${site.url}</span>
+                        <span class="site-status ${site.enabled ? 'enabled' : 'disabled'}">
+                            ${site.enabled ? '启用' : '禁用'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(checkboxItem);
+        });
+    },
+
+    // 过滤站点列表
+    filterSiteList() {
+        if (!this.allSites) return;
+
+        const searchTerm = document.getElementById('siteSelectionSearch').value.toLowerCase();
+        const typeFilter = document.getElementById('siteSelectionTypeFilter').value;
+        const statusFilter = document.getElementById('siteSelectionStatusFilter').value;
+
+        const filteredSites = this.allSites.filter(site => {
+            // 搜索过滤
+            const matchSearch = searchTerm === '' || 
+                site.name.toLowerCase().includes(searchTerm) ||
+                site.url.toLowerCase().includes(searchTerm);
+
+            // 类型过滤
+            const matchType = typeFilter === '' || site.api_type === typeFilter;
+
+            // 状态过滤
+            const matchStatus = statusFilter === '' || 
+                (statusFilter === 'enabled' && site.enabled) ||
+                (statusFilter === 'disabled' && !site.enabled);
+
+            return matchSearch && matchType && matchStatus;
+        });
+
+        this.renderSiteCheckboxList(filteredSites);
+        this.updateSelectedCount();
+    },
+
+    // 清除站点选择过滤器
+    clearSiteSelectionFilters() {
+        document.getElementById('siteSelectionSearch').value = '';
+        document.getElementById('siteSelectionTypeFilter').value = '';
+        document.getElementById('siteSelectionStatusFilter').value = '';
+        this.filterSiteList();
+    },
+
+    // 全选可见站点
+    selectAllVisibleSites() {
+        const checkboxes = document.querySelectorAll('#siteCheckboxList input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        this.updateSelectedCount();
+    },
+
+    // 清除所有选择
+    selectNoneSites() {
+        const checkboxes = document.querySelectorAll('#siteCheckboxList input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        this.updateSelectedCount();
+    },
+
+    // 更新已选择计数
+    updateSelectedCount() {
+        const selectedCount = document.querySelectorAll('#siteCheckboxList input[type="checkbox"]:checked').length;
+        const countElement = document.getElementById('selectedCount');
+        if (countElement) {
+            countElement.textContent = selectedCount;
         }
     },
 
