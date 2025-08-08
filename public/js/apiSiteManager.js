@@ -1441,6 +1441,9 @@ class ApiSiteManager {
     // 切换令牌状态
     async toggleToken(siteId, tokenId, newStatus) {
         try {
+            const statusText = newStatus === 1 ? '启用' : '禁用';
+            console.log(`开始${statusText}令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 新状态: ${newStatus}`);
+            
             this.showAlert('正在更新令牌状态...', 'info');
 
             const response = await fetch(`/api/sites/${siteId}/token/${tokenId}/toggle`, {
@@ -1457,10 +1460,12 @@ class ApiSiteManager {
             const result = await response.json();
 
             if (result.success) {
+                console.log(`令牌${statusText}成功 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
                 this.showAlert(`令牌状态更新成功`, 'success');
                 // 刷新站点列表
                 this.loadApiSites();
             } else {
+                console.error(`令牌${statusText}失败 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 错误: ${result.message}`);
                 this.showAlert(`令牌状态更新失败: ${result.message}`, 'error');
             }
 
