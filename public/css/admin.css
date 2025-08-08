@@ -3030,4 +3030,141 @@ body {
         gap: 0.25rem;
     }
 }
+/* 令牌表格样式 */
+.tokens-table-container {
+    margin-top: 0.75rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: var(--card-background);
+}
+
+.tokens-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.tokens-table th {
+    background: rgba(59, 130, 246, 0.05);
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-color);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.tokens-table td {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    vertical-align: top;
+}
+
+.tokens-table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.token-name-cell {
+    font-weight: 500;
+    color: var(--text-color);
+    min-width: 120px;
+}
+
+.token-key-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    min-width: 140px;
+}
+
+.token-key {
+    cursor: pointer;
+    color: var(--primary-color);
+    transition: color 0.2s;
+    padding: 0.25rem 0.5rem;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.token-key:hover {
+    color: var(--primary-hover);
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.token-status-cell {
+    text-align: center;
+}
+
+.token-status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: inline-block;
+    min-width: 40px;
+}
+
+.token-quota-cell,
+.token-time-cell {
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.token-actions-cell {
+    text-align: center;
+    width: 80px;
+}
+
+.token-actions-inline {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+/* 响应式调整 */
+@media (max-width: 1024px) {
+    .tokens-table-container {
+        overflow-x: auto;
+    }
+    
+    .tokens-table {
+        min-width: 700px;
+    }
+    
+    .tokens-table th,
+    .tokens-table td {
+        padding: 0.5rem 0.375rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .tokens-table {
+        font-size: 0.8rem;
+        min-width: 600px;
+    }
+    
+    .token-key-cell {
+        font-size: 0.75rem;
+        min-width: 120px;
+    }
+    
+    .token-name-cell {
+        min-width: 100px;
+    }
+    
+    .btn-tiny {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.7rem;
+    }
+}
+
+/* 空消息样式 */
+.empty-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 EOF < /dev/null

@@ -1367,13 +1367,30 @@ class ApiSiteManager {
         }
     }
 
-    // 创建令牌列表HTML
+    // 创建令牌列表HTML（表格形式）
     createTokensListHtml(tokensList, siteId) {
         if (!tokensList || tokensList.length === 0) {
-            return '无';
+            return '<div class="empty-message">暂无令牌</div>';
         }
-
-        return tokensList.map(token => {
+        
+        let tableHtml = `
+            <div class="tokens-table-container">
+                <table class="tokens-table">
+                    <thead>
+                        <tr>
+                            <th>令牌名称</th>
+                            <th>密钥</th>
+                            <th>状态</th>
+                            <th>剩余限额</th>
+                            <th>创建时间</th>
+                            <th>过期时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        tokensList.forEach(token => {
             const quotaDisplay = token.model_limits_enabled === false ? '无限制' : 
                 `${(token.remain_quota / 500000).toFixed(2)}`;
             
@@ -1383,11 +1400,22 @@ class ApiSiteManager {
             const createdTime = new Date(token.created_time * 1000).toLocaleString('zh-CN');
             const expiredTime = token.expired_time === -1 ? '永不过期' : 
                 new Date(token.expired_time * 1000).toLocaleString('zh-CN');
-
-            return `
-                <div class="token-item">
-                    <div class="token-header">
-                        <span class="token-name">${this.escapeHtml(token.name)}</span>
+            
+            tableHtml += `
+                <tr>
+                    <td class="token-name-cell">${this.escapeHtml(token.name)}</td>
+                    <td class="token-key-cell">
+                        <span class="token-key" onclick="navigator.clipboard.writeText('${this.escapeHtml(token.key)}'); this.style.color='green'; this.textContent='已复制'; setTimeout(() => {this.style.color=''; this.textContent='${this.escapeHtml(token.key.substring(0, 20))}...'}, 1000)" title="点击复制完整密钥">
+                            ${this.escapeHtml(token.key.substring(0, 20))}...
+                        </span>
+                    </td>
+                    <td class="token-status-cell">
+                        <span class="token-status ${statusClass}">${statusDisplay}</span>
+                    </td>
+                    <td class="token-quota-cell">${quotaDisplay}</td>
+                    <td class="token-time-cell">${createdTime}</td>
+                    <td class="token-time-cell">${expiredTime}</td>
+                    <td class="token-actions-cell">
                         <div class="token-actions-inline">
                             <button class="btn-tiny btn-toggle" onclick="apiSiteManager.toggleToken(${siteId}, ${token.id}, ${token.status === 1 ? 2 : 1})" title="${token.status === 1 ? '禁用' : '启用'}">
                                 ${token.status === 1 ? '🔴' : '🟢'}
@@ -1396,34 +1424,18 @@ class ApiSiteManager {
                                 🗑️
                             </button>
                         </div>
-                    </div>
-                    <div class="token-details">
-                        <div class="token-detail">
-                            <span class="token-detail-label">密钥:</span>
-                            <span class="token-key" onclick="navigator.clipboard.writeText('${this.escapeHtml(token.key)}'); this.style.color='green'; this.textContent='已复制'; setTimeout(() => {this.style.color=''; this.textContent='${this.escapeHtml(token.key.substring(0, 20))}...'}, 1000)" title="点击复制">
-                                ${this.escapeHtml(token.key.substring(0, 20))}...
-                            </span>
-                        </div>
-                        <div class="token-detail">
-                            <span class="token-detail-label">状态:</span>
-                            <span class="token-status ${statusClass}">${statusDisplay}</span>
-                        </div>
-                        <div class="token-detail">
-                            <span class="token-detail-label">剩余限额:</span>
-                            <span class="token-quota">${quotaDisplay}</span>
-                        </div>
-                        <div class="token-detail">
-                            <span class="token-detail-label">创建时间:</span>
-                            <span class="token-time">${createdTime}</span>
-                        </div>
-                        <div class="token-detail">
-                            <span class="token-detail-label">过期时间:</span>
-                            <span class="token-time">${expiredTime}</span>
-                        </div>
-                    </div>
-                </div>
+                    </td>
+                </tr>
             `;
-        }).join('');
+        });
+        
+        tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        return tableHtml;
     }
 
     // 切换令牌状态
