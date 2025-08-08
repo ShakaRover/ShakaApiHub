@@ -24,4 +24,9 @@ router.get('/log-cleanup/status', systemController.getLogCleanupStatus);
 router.post('/log-cleanup/trigger', systemController.triggerLogCleanup);
 router.get('/log-cleanup/stats', systemController.getLogCleanupStats);
 
+// 速率限制相关路由
+router.get('/rate-limit/config', systemController.getRateLimitConfig);
+router.put('/rate-limit/config', systemController.updateRateLimitConfig);
+router.get('/rate-limit/stats', systemController.getRateLimitStats);
+
 module.exports = router;

@@ -268,6 +268,26 @@ class SystemManager {
             return;
         }
 
+        if (generalTimeWindow < 1 || generalTimeWindow > 60) {
+            this.showAlert('一般请求时间窗口必须在1-60分钟之间', 'error');
+            return;
+        }
+
+        if (generalMaxRequests < 10 || generalMaxRequests > 1000) {
+            this.showAlert('一般请求最大次数必须在10-1000之间', 'error');
+            return;
+        }
+
+        if (loginTimeWindow < 1 || loginTimeWindow > 60) {
+            this.showAlert('登录尝试时间窗口必须在1-60分钟之间', 'error');
+            return;
+        }
+
+        if (loginMaxAttempts < 3 || loginMaxAttempts > 50) {
+            this.showAlert('登录最大尝试次数必须在3-50之间', 'error');
+            return;
+        }
+
         const rateLimiting = {
             general: {
                 windowMs: generalTimeWindow * 60 * 1000,
@@ -280,7 +300,7 @@ class SystemManager {
         };
 
         try {
-            const response = await fetch('/api/system/config', {
+            const response = await fetch('/api/system/rate-limit/config', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -290,8 +310,12 @@ class SystemManager {
 
             const result = await response.json();
             if (result.success) {
-                this.config = result.data;
                 this.showAlert('速率限制配置保存成功', 'success');
+                if (result.data.requiresRestart) {
+                    this.showAlert('配置已保存，重启服务后生效', 'warning');
+                }
+                // 重新加载配置
+                await this.loadConfig();
             } else {
                 this.showAlert(`保存失败: ${result.message}`, 'error');
             }

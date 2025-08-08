@@ -2,11 +2,12 @@ const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
 const cors = require('cors');
-const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
+const configService = require('./services/ConfigService');
+const RateLimitService = require('./services/RateLimitService');
 const BackupService = require('./services/BackupService');
 const ScheduledCheckService = require('./services/ScheduledCheckService');
 const LogCleanupService = require('./services/LogCleanupService');
@@ -37,19 +38,10 @@ async function startApp() {
             credentials: true
         }));
 
-        const limiter = rateLimit({
-            windowMs: 15 * 60 * 1000, // 15分钟
-            max: 100, // 限制每个IP每15分钟最多100个请求
-            message: { success: false, message: '请求过于频繁，请稍后再试' }
-        });
-        app.use('/api', limiter);
-
-        const authLimiter = rateLimit({
-            windowMs: 15 * 60 * 1000, // 15分钟
-            max: 5, // 限制每个IP每15分钟最多5次登录尝试
-            message: { success: false, message: '登录尝试过于频繁，请15分钟后再试' }
-        });
-        app.use('/api/auth/login', authLimiter);
+        // 初始化并应用速率限制器
+        const rateLimiters = await RateLimitService.initRateLimiters(app);
+        app.use('/api', rateLimiters.generalLimiter);
+        app.use('/api/auth/login', rateLimiters.authLimiter);
 
         app.use(express.json({ limit: '10mb' }));
         app.use(express.urlencoded({ extended: true, limit: '10mb' }));
