@@ -1,6 +1,7 @@
 const ApiSiteService = require('../services/ApiSiteService');
 const SiteCheckService = require('../services/SiteCheckService');
 const BackupService = require('../services/BackupService');
+const TimeUtils = require('../utils/TimeUtils');
 
 class ApiSiteController {
     constructor() {
@@ -13,6 +14,13 @@ class ApiSiteController {
     async getAllApiSites(req, res) {
         try {
             const result = await this.apiSiteService.getAllApiSites();
+            
+            if (result.success && Array.isArray(result.data)) {
+                // 为站点数据添加格式化的时间字段
+                const timeFields = ['last_checkin', 'last_check_time', 'site_last_check_in_time', 'created_at', 'updated_at'];
+                result.data = await TimeUtils.convertTimeFieldsInArray(result.data, timeFields);
+            }
+            
             res.json(result);
         } catch (error) {
             console.error('ApiSiteController.getAllApiSites:', error.message);

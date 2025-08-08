@@ -799,7 +799,7 @@ class ApiSiteManager {
                 </div>
                 <div class="info-item">
                     <span class="info-label">最后签到时间</span>
-                    <span class="info-value">${site.site_last_check_in_time ? new Date(site.site_last_check_in_time).toLocaleString('zh-CN') : '未签到'}</span>
+                    <span class="info-value">${site.site_last_check_in_time_formatted || (site.site_last_check_in_time ? new Date(site.site_last_check_in_time).toLocaleString('zh-CN') : '未签到')}</span>
                 </div>
                 <div class="info-item">
                     <span class="info-label">检测时间</span>
@@ -836,7 +836,7 @@ class ApiSiteManager {
             return '<div class="site-info-box unchecked">未检测</div>';
         }
 
-        const lastCheckTime = new Date(site.last_check_time).toLocaleString('zh-CN');
+        const lastCheckTime = site.last_check_time_formatted || new Date(site.last_check_time).toLocaleString('zh-CN');
         
         if (site.last_check_status === 'error') {
             const hasUserData = site.site_username || site.site_quota || site.site_used_quota;
@@ -879,7 +879,8 @@ class ApiSiteManager {
         let checkStatusTitle = '';
         
         if (site.last_check_time) {
-            const checkTime = new Date(site.last_check_time).toLocaleString('zh-CN');
+            // 使用后端提供的格式化时间，如果没有则回退到本地转换
+            const checkTime = site.last_check_time_formatted || new Date(site.last_check_time).toLocaleString('zh-CN');
             
             if (site.last_check_status === 'error') {
                 const errorMsg = site.last_check_message || '未知错误';
@@ -896,7 +897,9 @@ class ApiSiteManager {
                 checkStatusTitle = '正在检测';
             }
         } else if (site.created_at) {
-            checkTimeDisplay = new Date(site.created_at).toLocaleString('zh-CN') + '<br><small class="text-muted">(创建时间)</small>';
+            // 使用格式化的创建时间
+            const createdTime = site.created_at_formatted || new Date(site.created_at).toLocaleString('zh-CN');
+            checkTimeDisplay = createdTime + '<br><small class="text-muted">(创建时间)</small>';
             checkStatusTitle = '尚未检测';
         }
         
