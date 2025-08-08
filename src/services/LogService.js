@@ -1,4 +1,4 @@
-const databaseConfig = require('../config/database');
+const logDatabaseConfig = require('../config/logDatabase');
 
 class LogService {
     constructor() {
@@ -8,165 +8,19 @@ class LogService {
     // 初始化日志表
     async init() {
         try {
-            this.db = await databaseConfig.getDatabase();
-            await this.createLogTables();
+            this.db = await logDatabaseConfig.getDatabase();
             console.log('日志服务已初始化');
         } catch (error) {
             console.error('日志服务初始化失败:', error.message);
         }
     }
 
-    // 创建日志相关表
-    async createLogTables() {
-        return new Promise((resolve, reject) => {
-            const createSystemLogsTable = `
-                CREATE TABLE IF NOT EXISTS system_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    type TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    data TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            `;
-
-            const createUserLogsTable = `
-                CREATE TABLE IF NOT EXISTS user_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    action TEXT NOT NULL,
-                    resource_type TEXT,
-                    resource_id TEXT,
-                    details TEXT,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            `;
-
-            const createApiLogsTable = `
-                CREATE TABLE IF NOT EXISTS api_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    method TEXT NOT NULL,
-                    endpoint TEXT NOT NULL,
-                    status_code INTEGER NOT NULL,
-                    response_time INTEGER,
-                    user_id INTEGER,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    error_message TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-                )
-            `;
-
-            // 新增：令牌操作日志表
-            const createTokenLogsTable = `
-                CREATE TABLE IF NOT EXISTS token_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    site_id INTEGER NOT NULL,
-                    token_id TEXT,
-                    action TEXT NOT NULL,
-                    details TEXT,
-                    status TEXT,
-                    error_message TEXT,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE
-                )
-            `;
-
-            // 新增：站点操作日志表  
-            const createSiteOperationLogsTable = `
-                CREATE TABLE IF NOT EXISTS site_operation_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    site_id INTEGER NOT NULL,
-                    operation TEXT NOT NULL,
-                    step TEXT NOT NULL,
-                    step_order INTEGER DEFAULT 1,
-                    status TEXT NOT NULL,
-                    details TEXT,
-                    error_message TEXT,
-                    execution_time INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE
-                )
-            `;
-
-            this.db.serialize(() => {
-                this.db.run(createSystemLogsTable, (err) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    
-                    this.db.run(createUserLogsTable, (err) => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-                        
-                        this.db.run(createApiLogsTable, (err) => {
-                            if (err) {
-                                reject(err);
-                                return;
-                            }
-                            
-                            this.db.run(createTokenLogsTable, (err) => {
-                                if (err) {
-                                    reject(err);
-                                    return;
-                                }
-                                
-                                this.db.run(createSiteOperationLogsTable, (err) => {
-                                    if (err) {
-                                        reject(err);
-                                        return;
-                                    }
-                                    
-                                    // 创建索引
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_system_logs_created_at ON system_logs(created_at)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_user_id ON user_logs(user_id)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_action ON user_logs(action)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_user_logs_created_at ON user_logs(created_at)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_endpoint ON api_logs(endpoint)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_status_code ON api_logs(status_code)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_api_logs_created_at ON api_logs(created_at)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_user_id ON token_logs(user_id)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_site_id ON token_logs(site_id)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_action ON token_logs(action)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_token_logs_created_at ON token_logs(created_at)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_user_id ON site_operation_logs(user_id)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_site_id ON site_operation_logs(site_id)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_operation ON site_operation_logs(operation)');
-                                    this.db.run('CREATE INDEX IF NOT EXISTS idx_site_operation_logs_created_at ON site_operation_logs(created_at)', (err) => {
-                                        if (err) {
-                                            reject(err);
-                                        } else {
-                                            console.log('日志表创建完成');
-                                            resolve();
-                                        }
-                                    });
-                                });
-                            });
-                        });
-                    });
-                });
-            });
-        });
-    }
 
     // 记录系统日志
     async logSystem(type, message, data = null) {
         try {
             if (!this.db) {
-                this.db = await databaseConfig.getDatabase();
+                this.db = await logDatabaseConfig.getDatabase();
             }
             
             this.db.run(`
@@ -186,7 +40,7 @@ class LogService {
     async logUserAction(userId, action, resourceType = null, resourceId = null, details = null, req = null) {
         try {
             if (!this.db) {
-                this.db = await databaseConfig.getDatabase();
+                this.db = await logDatabaseConfig.getDatabase();
             }
             
             const ipAddress = req ? (req.ip || req.connection.remoteAddress) : null;
@@ -217,7 +71,7 @@ class LogService {
     async logApiRequest(method, endpoint, statusCode, responseTime = null, userId = null, req = null, errorMessage = null) {
         try {
             if (!this.db) {
-                this.db = await databaseConfig.getDatabase();
+                this.db = await logDatabaseConfig.getDatabase();
             }
             
             const ipAddress = req ? (req.ip || req.connection.remoteAddress) : null;
@@ -249,7 +103,7 @@ class LogService {
     async logTokenAction(userId, siteId, tokenId, action, details = null, status = 'success', errorMessage = null, req = null) {
         try {
             if (!this.db) {
-                this.db = await databaseConfig.getDatabase();
+                this.db = await logDatabaseConfig.getDatabase();
             }
             
             const ipAddress = req ? (req.ip || req.connection.remoteAddress) : null;
@@ -282,7 +136,7 @@ class LogService {
     async logSiteOperation(userId, siteId, operation, step, stepOrder = 1, status = 'success', details = null, errorMessage = null, executionTime = null) {
         try {
             if (!this.db) {
-                this.db = await databaseConfig.getDatabase();
+                this.db = await logDatabaseConfig.getDatabase();
             }
             
             this.db.run(`

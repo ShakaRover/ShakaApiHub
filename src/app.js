@@ -6,6 +6,7 @@ const path = require('path');
 
 const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
+const logDatabaseConfig = require('./config/logDatabase');
 const configService = require('./services/ConfigService');
 const RateLimitService = require('./services/RateLimitService');
 const BackupService = require('./services/BackupService');
@@ -91,6 +92,7 @@ async function startApp() {
         process.on('SIGINT', () => {
             console.log('正在关闭服务器...');
             databaseConfig.close();
+            logDatabaseConfig.close();
             process.exit(0);
         });
 
