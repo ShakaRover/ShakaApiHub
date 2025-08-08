@@ -197,7 +197,11 @@ class LogManager {
 
     // 创建日志项
     createLogItem(log) {
-        const timestamp = new Date(log.timestamp).toLocaleString('zh-CN');
+        // 优先使用后端格式化的时间，如果没有则回退到本地格式化
+        const timestamp = log.timestamp_formatted || 
+                         log.created_at_formatted || 
+                         log.check_time_formatted || 
+                         new Date(log.timestamp || log.created_at || log.check_time).toLocaleString('zh-CN');
         const logTypeInfo = this.getLogTypeInfo(log.logType);
         
         let content = '';

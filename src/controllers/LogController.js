@@ -1,4 +1,5 @@
 const LogService = require('../services/LogService');
+const TimeUtils = require('../utils/TimeUtils');
 
 class LogController {
     constructor() {
@@ -25,6 +26,13 @@ class LogController {
             };
 
             const result = await this.logService.getSystemLogs(options);
+            
+            // 为日志数据添加时区转换后的时间字段
+            if (result.success && Array.isArray(result.data)) {
+                const timeFields = ['timestamp', 'created_at', 'updated_at'];
+                result.data = await TimeUtils.convertTimeFieldsInArray(result.data, timeFields);
+            }
+            
             res.json(result);
         } catch (error) {
             console.error('获取系统日志失败:', error);
@@ -59,6 +67,13 @@ class LogController {
             };
 
             const result = await this.logService.getUserLogs(options);
+            
+            // 为日志数据添加时区转换后的时间字段
+            if (result.success && Array.isArray(result.data)) {
+                const timeFields = ['timestamp', 'created_at', 'updated_at'];
+                result.data = await TimeUtils.convertTimeFieldsInArray(result.data, timeFields);
+            }
+            
             res.json(result);
         } catch (error) {
             console.error('获取用户操作日志失败:', error);
@@ -95,6 +110,13 @@ class LogController {
             };
 
             const result = await this.logService.getApiLogs(options);
+            
+            // 为日志数据添加时区转换后的时间字段
+            if (result.success && Array.isArray(result.data)) {
+                const timeFields = ['timestamp', 'created_at', 'updated_at'];
+                result.data = await TimeUtils.convertTimeFieldsInArray(result.data, timeFields);
+            }
+            
             res.json(result);
         } catch (error) {
             console.error('获取API请求日志失败:', error);
@@ -127,6 +149,13 @@ class LogController {
             };
 
             const result = await this.logService.getSiteCheckLogs(options);
+            
+            // 为日志数据添加时区转换后的时间字段
+            if (result.success && Array.isArray(result.data)) {
+                const timeFields = ['check_time', 'created_at', 'updated_at'];
+                result.data = await TimeUtils.convertTimeFieldsInArray(result.data, timeFields);
+            }
+            
             res.json(result);
         } catch (error) {
             console.error('获取站点检测日志失败:', error);
