@@ -1,4 +1,6 @@
 const databaseConfig = require('../config/database');
+const ApiTypeValidator = require('../utils/ApiTypeValidator');
+const { getDefaultAutoCheckin } = require('../config/apiTypes');
 
 class ApiSite {
     constructor() {
@@ -37,41 +39,36 @@ class ApiSite {
 
     // 创建新API站点
     async create(apiSiteData) {
-        const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, autoCheckin = 0, createdBy } = apiSiteData;
+        const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, autoCheckin, createdBy } = apiSiteData;
         
         // 验证必填字段
-        if (!apiType || !name || !url || !authMethod || !createdBy) {
-            throw new Error('缺少必填字段');
+        if (!name || !url || !createdBy) {
+            throw new Error('缺少必填字段: name, url, createdBy');
         }
 
-        // 验证API类型
-        if (!['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
-            console.error(`ApiSiteService.create: 无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
-            throw new Error(`无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
+        // 使用集中验证器验证API站点数据
+        const validation = ApiTypeValidator.validateApiSiteData({
+            apiType,
+            authMethod,
+            userId,
+            sessions,
+            token
+        });
+
+        if (!validation.isValid) {
+            const errorMessage = ApiTypeValidator.formatValidationErrors(validation);
+            console.error(`ApiSite.create 验证失败: ${errorMessage}`);
+            throw new Error(errorMessage);
         }
 
-        // 验证授权方式
-        if (!['sessions', 'token'].includes(authMethod)) {
-            throw new Error('无效的授权方式');
+        // 输出警告信息（如果有）
+        if (validation.warnings && validation.warnings.length > 0) {
+            console.warn('ApiSite.create 警告:', validation.warnings.join('; '));
         }
 
-        // AnyRouter只支持sessions模式
-        if (apiType === 'AnyRouter' && authMethod === 'token') {
-            throw new Error('AnyRouter只支持Sessions授权方式');
-        }
-
-        // VoApi只支持token模式
-        if (apiType === 'VoApi' && authMethod === 'sessions') {
-            throw new Error('VoApi只支持Token授权方式');
-        }
-
-        // 验证token类型必须有userId
-        if (authMethod === 'token' && !userId) {
-            throw new Error('Token授权方式必须提供userId');
-        }
-
-        // AnyRouter默认启用签到功能
-        const finalAutoCheckin = apiType === 'AnyRouter' ? 1 : (autoCheckin ? 1 : 0);
+        // 获取默认自动签到设置
+        const defaultAutoCheckin = getDefaultAutoCheckin(apiType);
+        const finalAutoCheckin = autoCheckin !== undefined ? (autoCheckin ? 1 : 0) : (defaultAutoCheckin ? 1 : 0);
 
         try {
             const result = await this.statements.insertApiSite.run(
@@ -102,38 +99,33 @@ class ApiSite {
         const { apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin } = apiSiteData;
         
         // 验证必填字段
-        if (!apiType || !name || !url || !authMethod) {
-            throw new Error('缺少必填字段');
+        if (!name || !url) {
+            throw new Error('缺少必填字段: name, url');
         }
 
-        // 验证API类型
-        if (!['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
-            console.error(`ApiSiteService.update: 无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
-            throw new Error(`无效的API类型 "${apiType}"，支持的类型: NewApi, Veloera, AnyRouter, VoApi`);
+        // 使用集中验证器验证API站点数据
+        const validation = ApiTypeValidator.validateApiSiteData({
+            apiType,
+            authMethod,
+            userId,
+            sessions,
+            token
+        });
+
+        if (!validation.isValid) {
+            const errorMessage = ApiTypeValidator.formatValidationErrors(validation);
+            console.error(`ApiSite.update 验证失败: ${errorMessage}`);
+            throw new Error(errorMessage);
         }
 
-        // 验证授权方式
-        if (!['sessions', 'token'].includes(authMethod)) {
-            throw new Error('无效的授权方式');
+        // 输出警告信息（如果有）
+        if (validation.warnings && validation.warnings.length > 0) {
+            console.warn('ApiSite.update 警告:', validation.warnings.join('; '));
         }
 
-        // AnyRouter只支持sessions模式
-        if (apiType === 'AnyRouter' && authMethod === 'token') {
-            throw new Error('AnyRouter只支持Sessions授权方式');
-        }
-
-        // VoApi只支持token模式
-        if (apiType === 'VoApi' && authMethod === 'sessions') {
-            throw new Error('VoApi只支持Token授权方式');
-        }
-
-        // 验证token类型必须有userId
-        if (authMethod === 'token' && !userId) {
-            throw new Error('Token授权方式必须提供userId');
-        }
-
-        // AnyRouter默认启用签到功能
-        const finalAutoCheckin = apiType === 'AnyRouter' ? 1 : (autoCheckin ? 1 : 0);
+        // 获取默认自动签到设置
+        const defaultAutoCheckin = getDefaultAutoCheckin(apiType);
+        const finalAutoCheckin = autoCheckin !== undefined ? (autoCheckin ? 1 : 0) : (defaultAutoCheckin ? 1 : 0);
 
         try {
             const result = await this.statements.updateApiSite.run(

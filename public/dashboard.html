@@ -635,6 +635,22 @@
                         <p class="card-subtitle">设置系统显示时区，影响所有时间显示</p>
                     </div>
                     <div class="card-body">
+                        <!-- 当前时区信息 -->
+                        <div class="current-timezone-info mb-3">
+                            <div class="info-row">
+                                <span class="info-label">当前时区:</span>
+                                <span class="info-value" id="currentTimezoneDisplay">加载中...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">本地时间:</span>
+                                <span class="info-value" id="currentLocalTime">加载中...</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">UTC偏移:</span>
+                                <span class="info-value" id="currentTimezoneOffset">加载中...</span>
+                            </div>
+                        </div>
+                        
                         <form id="timezoneForm">
                             <div class="form-group">
                                 <label for="timezoneSelect" class="form-label">选择时区</label>

@@ -11,8 +11,9 @@ const configService = require('./services/ConfigService');
 const RateLimitService = require('./services/RateLimitService');
 const BackupService = require('./services/BackupService');
 const ScheduledCheckService = require('./services/ScheduledCheckService');
-const LogCleanupService = require('./services/LogCleanupService');
+const { logCleanupService } = require('./services/LogCleanupService');
 const logMiddleware = require('./middleware/logging');
+const { systemSettingsService } = require('./services/SystemSettingsService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,12 +24,21 @@ async function startApp() {
         // 连接数据库（现在是异步的）
         await databaseConfig.connect();
 
+        // 初始化系统设置服务
+        try {
+            await systemSettingsService.initialize();
+            console.log('系统设置服务已初始化');
+        } catch (error) {
+            console.warn('系统设置服务初始化失败，将使用默认设置:', error.message);
+        }
+
         app.use(helmet({
             contentSecurityPolicy: {
                 directives: {
                     defaultSrc: ["'self'"],
                     styleSrc: ["'self'", "'unsafe-inline'"],
                     scriptSrc: ["'self'", "'unsafe-inline'"],
+                    scriptSrcAttr: ["'unsafe-inline'"],
                     imgSrc: ["'self'", "data:"]
                 }
             }
@@ -67,10 +77,12 @@ async function startApp() {
         const authRoutes = require('./routes/auth');
         const apiSiteRoutes = require('./routes/apiSites');
         const systemRoutes = require('./routes/system');
+        const tokenRoutes = require('./routes/tokens');
         
         app.use('/api/auth', authRoutes);
         app.use('/api', apiSiteRoutes);
         app.use('/api/system', systemRoutes);
+        app.use('/api', tokenRoutes);
 
         app.get('/', (req, res) => {
             if (req.session.userId) {
@@ -110,7 +122,12 @@ async function startApp() {
         
         // 启动日志清理服务
         console.log('正在初始化日志清理服务...');
-        // LogCleanupService会自动初始化，因为它已经是单例
+        try {
+            await logCleanupService.initialize();
+        } catch (error) {
+            console.warn('日志清理服务初始化失败:', error.message);
+        }
+        
         try {
             await scheduledCheckService.start();
         } catch (error) {
@@ -119,6 +136,7 @@ async function startApp() {
         
         // 将服务实例添加到app，供路由访问
         app.locals.scheduledCheckService = scheduledCheckService;
+        app.locals.logCleanupService = logCleanupService;
     } catch (error) {
         console.error('应用启动失败:', error.message);
         process.exit(1);

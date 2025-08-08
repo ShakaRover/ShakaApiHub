@@ -240,10 +240,10 @@ class LogService {
                     endDate = null
                 } = options;
 
+                // 使用简单查询，不JOIN users表（因为在不同数据库中）
                 let query = `
-                    SELECT ul.*, u.username 
+                    SELECT ul.* 
                     FROM user_logs ul 
-                    LEFT JOIN users u ON ul.user_id = u.id 
                     WHERE 1=1
                 `;
                 const params = [];
@@ -322,10 +322,10 @@ class LogService {
                     endDate = null
                 } = options;
 
+                // 使用简单查询，不JOIN users表（因为在不同数据库中）
                 let query = `
-                    SELECT al.*, u.username 
+                    SELECT al.* 
                     FROM api_logs al 
-                    LEFT JOIN users u ON al.user_id = u.id 
                     WHERE 1=1
                 `;
                 const params = [];
@@ -401,10 +401,10 @@ class LogService {
                     endDate = null
                 } = options;
 
+                // 使用简单查询，不JOIN api_sites表（因为在不同数据库中）
                 let query = `
-                    SELECT scl.*, aps.name as site_name 
+                    SELECT scl.* 
                     FROM site_check_logs scl 
-                    LEFT JOIN api_sites aps ON scl.site_id = aps.id 
                     WHERE 1=1
                 `;
                 const params = [];
@@ -478,11 +478,10 @@ class LogService {
                     endDate = null
                 } = options;
 
+                // 使用简单查询，不JOIN其他表（因为在不同数据库中）
                 let query = `
-                    SELECT tl.*, u.username, aps.name as site_name 
+                    SELECT tl.* 
                     FROM token_logs tl 
-                    LEFT JOIN users u ON tl.user_id = u.id 
-                    LEFT JOIN api_sites aps ON tl.site_id = aps.id 
                     WHERE 1=1
                 `;
                 const params = [];
@@ -566,11 +565,10 @@ class LogService {
                     endDate = null
                 } = options;
 
+                // 使用简单查询，不JOIN其他表（因为在不同数据库中）
                 let query = `
-                    SELECT sol.*, u.username, aps.name as site_name 
+                    SELECT sol.* 
                     FROM site_operation_logs sol 
-                    LEFT JOIN users u ON sol.user_id = u.id 
-                    LEFT JOIN api_sites aps ON sol.site_id = aps.id 
                     WHERE 1=1
                 `;
                 const params = [];
@@ -1046,6 +1044,15 @@ class LogService {
                 }
             });
         });
+    }
+
+    // 通用操作日志记录方法
+    async logAction(userId, action, message, details = null, req = null) {
+        try {
+            await this.logUserAction(userId, action, null, null, { message, ...details }, req);
+        } catch (error) {
+            console.error('记录操作日志失败:', error.message);
+        }
     }
 }
 

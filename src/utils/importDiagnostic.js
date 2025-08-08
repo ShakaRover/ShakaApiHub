@@ -2,6 +2,8 @@
  * 数据导入诊断工具
  * 帮助用户识别和修复导入数据的问题
  */
+const ApiTypeValidator = require('./ApiTypeValidator');
+const { getSupportedApiTypes, getSupportedAuthMethods } = require('../config/apiTypes');
 class ImportDiagnostic {
     /**
      * 诊断导入数据的问题
@@ -104,22 +106,34 @@ class ImportDiagnostic {
             return { issues, warnings, suggestions };
         }
 
-        // API类型检查
-        if (!site.apiType) {
+        // 使用集中验证器进行API类型和授权模式验证
+        const validation = ApiTypeValidator.validateApiSiteData({
+            apiType: site.apiType,
+            authMethod: site.authMethod,
+            userId: site.userId,
+            sessions: site.sessions,
+            token: site.token
+        });
+
+        // 将验证错误转换为诊断问题
+        validation.errors.forEach(error => {
             issues.push({
                 type: 'critical',
-                field: `sites[${index-1}].apiType`,
-                message: `${prefix}: 缺少apiType字段`,
-                solution: '请添加apiType字段，值为: NewApi, Veloera, 或 AnyRouter'
+                field: `sites[${index-1}]`,
+                message: `${prefix}: ${error}`,
+                solution: '请根据错误信息修正配置'
             });
-        } else if (!['NewApi', 'Veloera', 'AnyRouter'].includes(site.apiType)) {
-            issues.push({
-                type: 'critical',
-                field: `sites[${index-1}].apiType`,
-                message: `${prefix}: apiType值无效 (${site.apiType})`,
-                solution: 'apiType必须是: NewApi, Veloera, 或 AnyRouter'
+        });
+
+        // 将验证警告转换为诊断警告
+        validation.warnings.forEach(warning => {
+            warnings.push({
+                type: 'warning',
+                field: `sites[${index-1}]`,
+                message: `${prefix}: ${warning}`,
+                solution: '建议检查配置'
             });
-        }
+        });
 
         // 名称检查
         if (!site.name) {
@@ -173,73 +187,7 @@ class ImportDiagnostic {
             }
         }
 
-        // 授权方式检查
-        if (!site.authMethod) {
-            issues.push({
-                type: 'critical',
-                field: `sites[${index-1}].authMethod`,
-                message: `${prefix}: 缺少authMethod字段`,
-                solution: '请添加authMethod字段，值为: sessions 或 token'
-            });
-        } else if (!['sessions', 'token'].includes(site.authMethod)) {
-            issues.push({
-                type: 'critical',
-                field: `sites[${index-1}].authMethod`,
-                message: `${prefix}: authMethod值无效 (${site.authMethod})`,
-                solution: 'authMethod必须是: sessions 或 token'
-            });
-        }
-
-        // AnyRouter特殊检查
-        if (site.apiType === 'AnyRouter') {
-            if (site.authMethod === 'token') {
-                issues.push({
-                    type: 'critical',
-                    field: `sites[${index-1}].authMethod`,
-                    message: `${prefix}: AnyRouter只支持sessions授权方式`,
-                    solution: '请将authMethod改为sessions'
-                });
-            }
-            if (!site.userId || typeof site.userId !== 'string' || site.userId.trim().length === 0) {
-                issues.push({
-                    type: 'critical',
-                    field: `sites[${index-1}].userId`,
-                    message: `${prefix}: AnyRouter类型必须提供userId`,
-                    solution: '请添加userId字段'
-                });
-            }
-        }
-
-        // 授权信息检查
-        if (site.authMethod === 'sessions') {
-            if (!site.sessions || typeof site.sessions !== 'string' || site.sessions.trim().length === 0) {
-                issues.push({
-                    type: 'critical',
-                    field: `sites[${index-1}].sessions`,
-                    message: `${prefix}: sessions授权方式必须提供sessions信息`,
-                    solution: '请添加sessions字段'
-                });
-            }
-        }
-
-        if (site.authMethod === 'token') {
-            if (!site.token || typeof site.token !== 'string' || site.token.trim().length === 0) {
-                issues.push({
-                    type: 'critical',
-                    field: `sites[${index-1}].token`,
-                    message: `${prefix}: token授权方式必须提供token信息`,
-                    solution: '请添加token字段'
-                });
-            }
-            if (!site.userId || typeof site.userId !== 'string' || site.userId.trim().length === 0) {
-                issues.push({
-                    type: 'critical',
-                    field: `sites[${index-1}].userId`,
-                    message: `${prefix}: token授权方式必须提供userId信息`,
-                    solution: '请添加userId字段'
-                });
-            }
-        }
+        // 授权信息检查已在集中验证器中处理
 
         // 可选字段建议
         if (site.enabled === undefined) {
@@ -251,7 +199,7 @@ class ImportDiagnostic {
             });
         }
 
-        if (site.autoCheckin === undefined && ['Veloera', 'AnyRouter'].includes(site.apiType)) {
+        if (site.autoCheckin === undefined && ['Veloera', 'AnyRouter', 'VoApi'].includes(site.apiType)) {
             suggestions.push({
                 type: 'suggestion',
                 field: `sites[${index-1}].autoCheckin`,
@@ -319,7 +267,7 @@ class ImportDiagnostic {
             metadata: {
                 exportTime: new Date().toISOString(),
                 version: '1.0',
-                totalSites: 3
+                totalSites: 4
             },
             sites: [
                 {
@@ -350,6 +298,16 @@ class ImportDiagnostic {
                     userId: 'your-anyrouter-user-id',
                     enabled: true,
                     autoCheckin: true
+                },
+                {
+                    apiType: 'VoApi',
+                    name: '示例VoApi站点',
+                    url: 'https://voapi.example.com',
+                    authMethod: 'token',
+                    token: 'your-voapi-token-here',
+                    userId: 'your-user-id',
+                    enabled: true,
+                    autoCheckin: false
                 }
             ]
         };

@@ -122,6 +122,22 @@ class LogDatabaseConfig {
                 )
             `;
 
+            const createSiteOperationLogsTable = `
+                CREATE TABLE IF NOT EXISTS site_operation_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    site_id INTEGER NOT NULL,
+                    operation TEXT NOT NULL,
+                    step TEXT NOT NULL,
+                    step_order INTEGER DEFAULT 1,
+                    status TEXT DEFAULT 'success',
+                    details TEXT,
+                    error_message TEXT,
+                    execution_time INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `;
+
             // 创建索引
             const createIndexes = [
                 'CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type)',
@@ -137,7 +153,10 @@ class LogDatabaseConfig {
                 'CREATE INDEX IF NOT EXISTS idx_token_logs_created ON token_logs(created_at)',
                 'CREATE INDEX IF NOT EXISTS idx_site_logs_user_id ON site_logs(user_id)',
                 'CREATE INDEX IF NOT EXISTS idx_site_logs_site_id ON site_logs(site_id)',
-                'CREATE INDEX IF NOT EXISTS idx_site_logs_created ON site_logs(created_at)'
+                'CREATE INDEX IF NOT EXISTS idx_site_logs_created ON site_logs(created_at)',
+                'CREATE INDEX IF NOT EXISTS idx_site_operation_logs_user_id ON site_operation_logs(user_id)',
+                'CREATE INDEX IF NOT EXISTS idx_site_operation_logs_site_id ON site_operation_logs(site_id)',
+                'CREATE INDEX IF NOT EXISTS idx_site_operation_logs_created ON site_operation_logs(created_at)'
             ];
 
             // 创建表
@@ -178,18 +197,25 @@ class LogDatabaseConfig {
                                             return;
                                         }
                                         
-                                        // 创建所有索引
-                                        let indexCount = 0;
-                                        createIndexes.forEach(indexSQL => {
-                                            this.db.run(indexSQL, (err) => {
-                                                if (err) {
-                                                    console.error('创建日志数据库索引失败:', err.message);
-                                                }
-                                                indexCount++;
-                                                if (indexCount === createIndexes.length) {
-                                                    console.log('日志数据库表结构初始化完成');
-                                                    resolve();
-                                                }
+                                        this.db.run(createSiteOperationLogsTable, (err) => {
+                                            if (err) {
+                                                reject(err);
+                                                return;
+                                            }
+                                            
+                                            // 创建所有索引
+                                            let indexCount = 0;
+                                            createIndexes.forEach(indexSQL => {
+                                                this.db.run(indexSQL, (err) => {
+                                                    if (err) {
+                                                        console.error('创建日志数据库索引失败:', err.message);
+                                                    }
+                                                    indexCount++;
+                                                    if (indexCount === createIndexes.length) {
+                                                        console.log('日志数据库表结构初始化完成');
+                                                        resolve();
+                                                    }
+                                                });
                                             });
                                         });
                                     });

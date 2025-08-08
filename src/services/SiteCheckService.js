@@ -1,18 +1,25 @@
 const axios = require('axios');
 const databaseConfig = require('../config/database');
+const LogService = require('./LogService');
 
 class SiteCheckService {
     constructor() {
         this.statements = databaseConfig.getStatements();
+        this.logService = new LogService();
     }
 
     // 检测单个站点
     async checkSite(siteId) {
         let site = null;
+        const startTime = Date.now();
         try {
-            // 获取站点信息
+            // 步骤1：获取站点信息
+            console.log(`开始检测站点 ID: ${siteId}`);
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '获取站点信息', 1, 'success');
+            
             site = await this.statements.findApiSiteById.get(siteId);
             if (!site) {
+                await this.logService.logSiteOperation(1, siteId, 'site_check', '获取站点信息', 1, 'error', null, '站点不存在');
                 throw new Error('站点不存在');
             }
 
@@ -20,47 +27,61 @@ class SiteCheckService {
             console.log(`站点认证方式: ${site.auth_method}`);
             console.log(`Sessions数据: ${site.sessions ? '已提供' : '未提供'}`);
 
-            // 第一步：访问站点获取 set-cookie
-            console.log('第一步：获取站点cookies...');
+            // 步骤2：访问站点获取 cookies
+            console.log('第二步：获取站点cookies...');
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '获取站点cookies', 2, 'success');
             const cookies = await this.getSiteCookies(site.url);
             console.log(`获取到cookies: ${cookies ? cookies.substring(0, 100) + '...' : '无'}`);
 
-            // 第二步：检查是否需要签到并执行签到
+            // 步骤3：检查是否需要签到并执行签到
             if (site.auto_checkin && (site.api_type === 'Veloera' || site.api_type === 'AnyRouter' || site.api_type === 'VoApi')) {
-                console.log('第二步：执行自动签到...');
+                console.log('第三步：执行自动签到...');
+                await this.logService.logSiteOperation(1, siteId, 'site_check', '执行自动签到', 3, 'success');
                 await this.performCheckin(site.url, cookies, site.sessions, site);
             } else {
-                console.log('第二步：跳过签到（未启用或不支持的API类型）');
+                console.log('第三步：跳过签到（未启用或不支持的API类型）');
+                await this.logService.logSiteOperation(1, siteId, 'site_check', '跳过签到', 3, 'success', { reason: '未启用或不支持的API类型' });
             }
 
-            // 第三步：获取用户信息
-            console.log('第三步：获取用户信息...');
+            // 步骤4：获取用户信息
+            console.log('第四步：获取用户信息...');
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '获取用户信息', 4, 'success');
             const userInfo = await this.getUserInfo(site.url, cookies, site.sessions, site);
             console.log('用户信息获取成功:', JSON.stringify(userInfo, null, 2));
 
-            // 第四步：获取模型列表
-            console.log('第四步：获取模型列表...');
+            // 步骤5：获取模型列表
+            console.log('第五步：获取模型列表...');
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '获取模型列表', 5, 'success');
             const modelsList = await this.getModelsList(site.url, cookies, site.sessions, site);
             console.log('模型列表获取结果:', modelsList.success ? `获取到${modelsList.data?.length || 0}个模型` : modelsList.message);
 
-            // 第五步：获取令牌信息
-            console.log('第五步：获取令牌信息...');
+            // 步骤6：获取令牌信息
+            console.log('第六步：获取令牌信息...');
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '获取令牌信息', 6, 'success');
             const tokensList = await this.getTokensList(site.url, cookies, site.sessions, site);
             console.log('令牌列表获取结果:', tokensList.success ? `获取到${tokensList.data?.length || 0}个令牌` : tokensList.message);
 
-            // 第六步：保存检测结果
-            console.log('第六步：保存检测结果...');
+            // 步骤7：保存检测结果
+            console.log('第七步：保存检测结果...');
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '保存检测结果', 7, 'success');
             await this.saveSiteInfo(siteId, userInfo, modelsList.data, tokensList.data);
 
-            // 第七步：记录检测日志
-            console.log('第七步：记录检测日志...');
+            // 步骤8：记录检测日志
+            console.log('第八步：记录检测日志...');
+            const executionTime = Date.now() - startTime;
             await this.logCheckResult(siteId, 'success', '检测成功', JSON.stringify({
                 userInfo,
                 modelsCount: modelsList.data?.length || 0,
-                tokensCount: tokensList.data?.length || 0
+                tokensCount: tokensList.data?.length || 0,
+                executionTime: `${executionTime}ms`
             }));
 
-            console.log(`站点检测完成: ${site.name}`);
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '完成检测', 8, 'success', {
+                modelsCount: modelsList.data?.length || 0,
+                tokensCount: tokensList.data?.length || 0
+            }, null, executionTime);
+
+            console.log(`站点检测完成: ${site.name} (用时: ${executionTime}ms)`);
             return {
                 success: true,
                 message: '站点检测成功',
@@ -69,6 +90,8 @@ class SiteCheckService {
 
         } catch (error) {
             const siteName = site ? site.name : `ID:${siteId}`;
+            const executionTime = Date.now() - startTime;
+            
             console.error(`\n=== 站点检测失败详情 ===`);
             console.error(`站点: ${siteName}`);
             console.error(`错误类型: ${error.constructor.name}`);
@@ -77,6 +100,13 @@ class SiteCheckService {
             console.error(`错误状态: ${error.response?.status || '无'}`);
             console.error(`完整错误:`, error);
             console.error(`=== 错误详情结束 ===\n`);
+
+            // 记录失败步骤
+            await this.logService.logSiteOperation(1, siteId, 'site_check', '检测失败', 9, 'error', {
+                errorType: error.constructor.name,
+                errorCode: error.code,
+                errorStatus: error.response?.status
+            }, error.message, executionTime);
 
             // 更新检测状态为失败
             try {
@@ -90,7 +120,8 @@ class SiteCheckService {
                 errorType: error.constructor.name,
                 errorCode: error.code,
                 errorStatus: error.response?.status,
-                errorStack: error.stack
+                errorStack: error.stack,
+                executionTime: `${executionTime}ms`
             }));
 
             return {
@@ -909,7 +940,25 @@ class SiteCheckService {
                 };
             }
 
-            if (!data.data || !data.data.records || !Array.isArray(data.data.records)) {
+            // 兼容两种不同的响应格式
+            let tokensList = null;
+            let tokensCount = 0;
+
+            // 格式1: data.data.records (分页格式)
+            if (data.data && data.data.records && Array.isArray(data.data.records)) {
+                tokensList = data.data.records;
+                tokensCount = data.data.records.length;
+                console.log('令牌列表使用格式1: data.data.records');
+            }
+            // 格式2: data.data.items (简单格式)
+            else if (data.data && data.data.items && Array.isArray(data.data.items)) {
+                tokensList = data.data.items;
+                tokensCount = data.data.items.length;
+                console.log('令牌列表使用格式2: data.data.items');
+            }
+            // 格式不匹配
+            else {
+                console.error('令牌列表数据格式不匹配，期望 data.data.records 或 data.data.items');
                 return {
                     success: false,
                     message: '令牌列表数据格式异常',
@@ -919,8 +968,8 @@ class SiteCheckService {
 
             return {
                 success: true,
-                message: `获取到${data.data.records.length}个令牌`,
-                data: data.data.records
+                message: `获取到${tokensCount}个令牌`,
+                data: tokensList
             };
 
         } catch (error) {

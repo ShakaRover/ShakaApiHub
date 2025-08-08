@@ -1480,9 +1480,9 @@ class ApiSiteManager {
     async toggleToken(siteId, tokenId, newStatus) {
         try {
             const statusText = newStatus === 1 ? '启用' : '禁用';
-            console.log(`开始${statusText}令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 新状态: ${newStatus}`);
+            console.log(`[令牌操作] 开始${statusText}令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 新状态: ${newStatus}`);
             
-            this.showAlert('正在更新令牌状态...', 'info');
+            this.showAlert(`正在${statusText}令牌...`, 'info');
 
             const response = await fetch(`/api/sites/${siteId}/token/${tokenId}/toggle`, {
                 method: 'PUT',
@@ -1496,31 +1496,34 @@ class ApiSiteManager {
                 credentials: 'include'
             });
 
+            console.log(`[令牌操作] ${statusText}请求响应状态: ${response.status}`);
             const result = await response.json();
+            console.log(`[令牌操作] ${statusText}请求响应结果:`, result);
 
             if (result.success) {
-                console.log(`令牌${statusText}成功 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
-                this.showAlert(`令牌状态更新成功`, 'success');
-                // 刷新站点列表
-                this.loadApiSites();
+                console.log(`[令牌操作] 令牌${statusText}成功 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
+                this.showAlert(`令牌${statusText}成功`, 'success');
+                // 重新检查站点以获取最新令牌状态
+                await this.checkSite(siteId, '站点');
             } else {
-                console.error(`令牌${statusText}失败 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 错误: ${result.message}`);
-                this.showAlert(`令牌状态更新失败: ${result.message}`, 'error');
+                console.error(`[令牌操作] 令牌${statusText}失败 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 错误: ${result.message}`);
+                this.showAlert(`令牌${statusText}失败: ${result.message}`, 'error');
             }
 
         } catch (error) {
-            console.error('切换令牌状态失败:', error);
+            console.error('[令牌操作] 切换令牌状态异常:', error);
             this.showAlert('切换令牌状态失败，请检查网络连接', 'error');
         }
     }
 
     // 删除令牌
-    async deleteToken(siteId, tokenId) {
-        if (!confirm('确定要删除此令牌吗？此操作不可撤销。')) {
+    async deleteToken(siteId, tokenId, tokenName) {
+        if (!confirm(`确定要删除令牌"${tokenName || tokenId}"吗？\n\n此操作不可撤销！`)) {
             return;
         }
 
         try {
+            console.log(`[令牌操作] 开始删除令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
             this.showAlert('正在删除令牌...', 'info');
 
             const response = await fetch(`/api/sites/${siteId}/token/${tokenId}`, {
@@ -1528,18 +1531,22 @@ class ApiSiteManager {
                 credentials: 'include'
             });
 
+            console.log(`[令牌操作] 删除请求响应状态: ${response.status}`);
             const result = await response.json();
+            console.log(`[令牌操作] 删除请求响应结果:`, result);
 
             if (result.success) {
+                console.log(`[令牌操作] 删除成功`);
                 this.showAlert('令牌删除成功', 'success');
-                // 刷新站点列表
-                this.loadApiSites();
+                // 重新检查站点以获取最新令牌状态
+                await this.checkSite(siteId, '站点');
             } else {
-                this.showAlert(`令牌删除失败: ${result.message}`, 'error');
+                console.error(`[令牌操作] 删除失败: ${result.message}`);
+                this.showAlert(`删除令牌失败: ${result.message}`, 'error');
             }
 
         } catch (error) {
-            console.error('删除令牌失败:', error);
+            console.error('[令牌操作] 删除令牌异常:', error);
             this.showAlert('删除令牌失败，请检查网络连接', 'error');
         }
     }

@@ -3,6 +3,7 @@ class SystemManager {
     constructor() {
         this.config = null;
         this.timezones = [];
+        this.timeUpdateInterval = null;
         this.init();
     }
 
@@ -38,6 +39,7 @@ class SystemManager {
             if (result.success) {
                 this.timezones = result.data;
                 this.populateTimezoneSelect();
+                this.updateCurrentTimezoneDisplay();
             }
         } catch (error) {
             console.error('加载时区列表失败:', error);
@@ -94,12 +96,98 @@ class SystemManager {
         const select = document.getElementById('timezoneSelect');
         select.innerHTML = '<option value="">请选择时区...</option>';
         
-        this.timezones.forEach(tz => {
-            const option = document.createElement('option');
-            option.value = tz.value;
-            option.textContent = tz.label;
-            select.appendChild(option);
-        });
+        // 如果有分组时区数据
+        if (this.timezones.available) {
+            Object.keys(this.timezones.available).forEach(groupName => {
+                const group = this.timezones.available[groupName];
+                
+                // 创建分组标题
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = group.name;
+                select.appendChild(optgroup);
+                
+                // 添加时区选项
+                group.timezones.forEach(tz => {
+                    const option = document.createElement('option');
+                    option.value = tz.value;
+                    option.textContent = tz.label;
+                    // 如果是当前时区，设置为默认选中
+                    if (this.timezones.current === tz.value) {
+                        option.selected = true;
+                    }
+                    optgroup.appendChild(option);
+                });
+            });
+        } else if (this.timezones.timezones) {
+            // 向后兼容：使用旧格式
+            this.timezones.timezones.forEach(tz => {
+                const option = document.createElement('option');
+                option.value = tz.value;
+                option.textContent = tz.label;
+                if (this.timezones.current === tz.value) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+    }
+
+    // 更新当前时区显示
+    updateCurrentTimezoneDisplay() {
+        if (!this.timezones.current || !this.timezones.currentInfo) {
+            return;
+        }
+
+        const current = this.timezones.current;
+        const info = this.timezones.currentInfo;
+        
+        // 更新当前时区显示
+        const displayElement = document.getElementById('currentTimezoneDisplay');
+        if (displayElement) {
+            displayElement.textContent = info.displayName || current;
+        }
+
+        // 更新当前本地时间
+        const timeElement = document.getElementById('currentLocalTime');
+        if (timeElement) {
+            const now = new Date();
+            const localTime = now.toLocaleString('zh-CN', { 
+                timeZone: current,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            timeElement.textContent = localTime;
+        }
+
+        // 更新UTC偏移
+        const offsetElement = document.getElementById('currentTimezoneOffset');
+        if (offsetElement) {
+            offsetElement.textContent = info.utcOffset || '无法获取';
+        }
+
+        // 启动时间更新定时器
+        if (!this.timeUpdateInterval) {
+            this.timeUpdateInterval = setInterval(() => {
+                const now = new Date();
+                const localTime = now.toLocaleString('zh-CN', { 
+                    timeZone: current,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                const timeElement = document.getElementById('currentLocalTime');
+                if (timeElement) {
+                    timeElement.textContent = localTime;
+                }
+            }, 1000);
+        }
     }
 
     // 更新配置UI
@@ -217,6 +305,8 @@ class SystemManager {
             if (result.success) {
                 this.config = result.data;
                 this.showAlert('时区配置保存成功', 'success');
+                // 重新加载时区信息以更新当前时区显示
+                await this.loadTimezones();
             } else {
                 this.showAlert(`保存失败: ${result.message}`, 'error');
             }
@@ -388,6 +478,15 @@ class SystemManager {
     onPageShow() {
         this.loadSystemStatus();
         this.loadLogCleanupStatus();
+    }
+
+    // 当页面离开系统管理时调用
+    onPageHide() {
+        // 清理定时器避免内存泄漏
+        if (this.timeUpdateInterval) {
+            clearInterval(this.timeUpdateInterval);
+            this.timeUpdateInterval = null;
+        }
     }
 
     // 加载日志清理状态

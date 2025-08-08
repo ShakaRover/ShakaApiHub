@@ -346,6 +346,35 @@ body {
     padding: 1.5rem;
 }
 
+/* 当前时区信息显示 */
+.current-timezone-info {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.info-value {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
 /* 统计卡片 */
 .stats-grid {
     display: grid;

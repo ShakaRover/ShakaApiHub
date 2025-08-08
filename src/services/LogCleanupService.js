@@ -1,236 +1,300 @@
 const cron = require('node-cron');
 const LogService = require('./LogService');
-const ConfigService = require('./ConfigService');
+const { systemSettingsService } = require('./SystemSettingsService');
 
 class LogCleanupService {
     constructor() {
-        this.logService = null;
-        this.task = null;
-        this.running = false;
-        this.lastRun = null;
-        this.nextRun = null;
-        this.init();
+        this.logService = new LogService();
+        this.cleanupTask = null;
+        this.initialized = false;
     }
 
-    async init() {
-        try {
-            // 初始化LogService
-            this.logService = new LogService();
-            
-            // 启动定时清理
-            this.startScheduledCleanup();
-            
-            console.log('日志清理服务已初始化');
-        } catch (error) {
-            console.error('日志清理服务初始化失败:', error);
-        }
-    }
-
-    // 启动定时清理任务
-    startScheduledCleanup() {
-        // 每天凌晨2点执行日志清理
-        const schedule = '0 2 * * *'; // 秒 分 时 日 月 周
-        
-        this.task = cron.schedule(schedule, async () => {
-            await this.performScheduledCleanup();
-        }, {
-            scheduled: true,
-            timezone: 'Asia/Shanghai'
-        });
-
-        // 计算下次运行时间
-        this.updateNextRunTime();
-        
-        console.log('日志定时清理任务已启动，每天凌晨2点执行');
-    }
-
-    // 执行定时清理
-    async performScheduledCleanup() {
-        if (this.running) {
-            console.log('日志清理任务正在运行中，跳过本次执行');
+    /**
+     * 初始化日志清理服务
+     */
+    async initialize() {
+        if (this.initialized) {
             return;
         }
 
         try {
-            this.running = true;
-            this.lastRun = new Date();
+            console.log('正在初始化日志清理服务...');
             
-            console.log('开始执行定时日志清理...');
+            // 等待系统设置服务初始化完成
+            if (!systemSettingsService.initialized) {
+                await systemSettingsService.initialize();
+            }
+
+            // 启动定时清理任务
+            await this.setupCleanupSchedule();
             
-            // 获取配置的保留天数
-            const config = await ConfigService.getConfig();
-            const retentionDays = config.logRetentionDays || 30;
+            this.initialized = true;
+            console.log('日志清理服务已初始化');
+        } catch (error) {
+            console.error('日志清理服务初始化失败:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 设置清理调度
+     */
+    async setupCleanupSchedule() {
+        try {
+            // 获取配置
+            const enabled = systemSettingsService.getSetting('logCleanupEnabled', 'true') === 'true';
+            const cleanupTime = systemSettingsService.getSetting('logCleanupTime', '02:00');
+            
+            if (!enabled) {
+                console.log('日志自动清理已禁用');
+                return;
+            }
+
+            // 停止现有任务
+            if (this.cleanupTask) {
+                this.cleanupTask.stop();
+                this.cleanupTask = null;
+            }
+
+            // 解析时间配置 (HH:mm 格式)
+            const [hours, minutes] = cleanupTime.split(':').map(Number);
+            
+            // 创建cron表达式: 分钟 小时 日 月 星期
+            const cronExpression = `${minutes} ${hours} * * *`;
+            
+            console.log(`设置日志清理定时任务: ${cleanupTime} (cron: ${cronExpression})`);
+            
+            // 创建定时任务
+            this.cleanupTask = cron.schedule(cronExpression, async () => {
+                await this.performCleanup();
+            }, {
+                scheduled: false,
+                timezone: systemSettingsService.getSetting('timezone', 'Asia/Shanghai')
+            });
+
+            // 启动任务
+            this.cleanupTask.start();
+            
+            console.log(`日志清理定时任务已启动，将在每天 ${cleanupTime} 执行`);
+        } catch (error) {
+            console.error('设置日志清理调度失败:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 执行日志清理
+     */
+    async performCleanup() {
+        try {
+            console.log('开始执行日志定时清理...');
+            
+            const retentionDays = parseInt(systemSettingsService.getSetting('logRetentionDays', '30'));
+            
+            if (isNaN(retentionDays) || retentionDays <= 0) {
+                console.warn('无效的日志保留天数配置，跳过清理');
+                return;
+            }
+
+            console.log(`执行日志清理，保留天数: ${retentionDays}`);
             
             // 执行清理
             const result = await this.logService.cleanOldLogs(retentionDays);
             
             if (result.success) {
-                console.log(`定时日志清理完成: ${result.message}`);
+                console.log(`日志清理完成: ${result.message}`);
                 
-                // 记录清理操作到系统日志
-                await this.logService.logSystem('scheduled_log_cleanup', result.message, {
-                    deleted: result.deleted,
+                // 记录清理日志
+                await this.logService.logSystem('log_cleanup_scheduled', 
+                    `定时日志清理完成，删除了 ${result.deleted} 条记录`, {
                     retentionDays,
-                    scheduledAt: this.lastRun.toISOString()
+                    deletedCount: result.deleted,
+                    scheduledTime: new Date().toISOString()
                 });
             } else {
-                console.error(`定时日志清理失败: ${result.message}`);
+                console.error(`日志清理失败: ${result.message}`);
                 
-                // 记录错误到系统日志
-                await this.logService.logSystem('scheduled_log_cleanup_error', `定时日志清理失败: ${result.message}`, {
-                    error: result.message,
+                // 记录清理失败日志
+                await this.logService.logSystem('log_cleanup_error', 
+                    `定时日志清理失败: ${result.message}`, {
                     retentionDays,
-                    scheduledAt: this.lastRun.toISOString()
+                    error: result.message
                 });
             }
-            
         } catch (error) {
-            console.error('定时日志清理执行失败:', error);
+            console.error('执行日志清理时发生异常:', error.message);
             
-            // 记录错误
-            if (this.logService) {
-                await this.logService.logSystem('scheduled_log_cleanup_error', `定时日志清理执行失败: ${error.message}`, {
+            // 记录异常日志
+            try {
+                await this.logService.logSystem('log_cleanup_exception', 
+                    `日志清理异常: ${error.message}`, {
                     error: error.message,
-                    stack: error.stack,
-                    scheduledAt: this.lastRun.toISOString()
+                    stack: error.stack
                 });
+            } catch (logError) {
+                console.error('记录清理异常日志失败:', logError.message);
             }
-        } finally {
-            this.running = false;
-            this.updateNextRunTime();
         }
     }
 
-    // 手动触发清理
-    async triggerManualCleanup(retentionDays = null) {
-        if (this.running) {
-            return { success: false, message: '清理任务正在运行中，请稍后再试' };
-        }
-
+    /**
+     * 手动执行日志清理
+     */
+    async manualCleanup(retentionDays = null) {
         try {
-            this.running = true;
+            const days = retentionDays || parseInt(systemSettingsService.getSetting('logRetentionDays', '30'));
             
-            // 获取保留天数
-            const daysToKeep = retentionDays || (await ConfigService.getConfig()).logRetentionDays || 30;
+            if (isNaN(days) || days <= 0) {
+                throw new Error('无效的保留天数');
+            }
+
+            console.log(`手动执行日志清理，保留天数: ${days}`);
             
-            console.log(`开始手动日志清理，保留${daysToKeep}天的记录...`);
-            
-            // 执行清理
-            const result = await this.logService.cleanOldLogs(daysToKeep);
+            const result = await this.logService.cleanOldLogs(days);
             
             if (result.success) {
-                // 记录手动清理操作
-                await this.logService.logSystem('manual_log_cleanup', result.message, {
-                    deleted: result.deleted,
-                    retentionDays: daysToKeep,
-                    triggeredAt: new Date().toISOString()
+                // 记录手动清理日志
+                await this.logService.logSystem('log_cleanup_manual', 
+                    `手动日志清理完成，删除了 ${result.deleted} 条记录`, {
+                    retentionDays: days,
+                    deletedCount: result.deleted,
+                    manualTime: new Date().toISOString()
                 });
             }
             
             return result;
-            
         } catch (error) {
-            console.error('手动日志清理失败:', error);
-            return { success: false, message: error.message };
-        } finally {
-            this.running = false;
-        }
-    }
-
-    // 停止定时清理
-    stopScheduledCleanup() {
-        if (this.task) {
-            this.task.stop();
-            console.log('日志定时清理任务已停止');
-        }
-    }
-
-    // 重新启动定时清理
-    restartScheduledCleanup() {
-        this.stopScheduledCleanup();
-        this.startScheduledCleanup();
-    }
-
-    // 更新下次运行时间
-    updateNextRunTime() {
-        try {
-            const now = new Date();
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            tomorrow.setHours(2, 0, 0, 0); // 设置为明天凌晨2点
+            console.error('手动清理日志失败:', error.message);
             
-            // 如果现在已经是今天凌晨2点之后，则下次运行时间是明天凌晨2点
-            if (now.getHours() >= 2) {
-                this.nextRun = tomorrow;
-            } else {
-                // 如果现在还没到今天凌晨2点，则下次运行时间是今天凌晨2点
-                const today = new Date(now);
-                today.setHours(2, 0, 0, 0);
-                this.nextRun = today;
+            // 记录手动清理失败日志
+            try {
+                await this.logService.logSystem('log_cleanup_manual_error', 
+                    `手动日志清理失败: ${error.message}`, {
+                    retentionDays: retentionDays,
+                    error: error.message
+                });
+            } catch (logError) {
+                console.error('记录手动清理错误日志失败:', logError.message);
             }
-        } catch (error) {
-            console.error('更新下次运行时间失败:', error);
+            
+            return {
+                success: false,
+                message: error.message
+            };
         }
     }
 
-    // 获取清理状态
-    getCleanupStatus() {
+    /**
+     * 重新配置清理调度
+     */
+    async reconfigureSchedule() {
+        try {
+            console.log('重新配置日志清理调度...');
+            await this.setupCleanupSchedule();
+            console.log('日志清理调度已重新配置');
+        } catch (error) {
+            console.error('重新配置日志清理调度失败:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 停止清理服务
+     */
+    stop() {
+        if (this.cleanupTask) {
+            this.cleanupTask.stop();
+            this.cleanupTask = null;
+            console.log('日志清理定时任务已停止');
+        }
+    }
+
+    /**
+     * 获取清理状态
+     */
+    getStatus() {
+        const enabled = systemSettingsService.getSetting('logCleanupEnabled', 'true') === 'true';
+        const cleanupTime = systemSettingsService.getSetting('logCleanupTime', '02:00');
+        const retentionDays = parseInt(systemSettingsService.getSetting('logRetentionDays', '30'));
+        
         return {
-            running: this.running,
-            lastRun: this.lastRun,
-            nextRun: this.nextRun,
-            taskActive: this.task ? this.task.running : false
+            initialized: this.initialized,
+            enabled,
+            cleanupTime,
+            retentionDays,
+            isRunning: this.cleanupTask !== null && this.cleanupTask.scheduled,
+            nextExecution: this.cleanupTask ? this.getNextExecutionTime() : null
         };
     }
 
-    // 获取清理统计
+    /**
+     * 获取下次执行时间
+     */
+    getNextExecutionTime() {
+        if (!this.cleanupTask) {
+            return null;
+        }
+
+        try {
+            // 计算下次执行时间
+            const now = new Date();
+            const cleanupTime = systemSettingsService.getSetting('logCleanupTime', '02:00');
+            const [hours, minutes] = cleanupTime.split(':').map(Number);
+            
+            const nextExecution = new Date();
+            nextExecution.setHours(hours, minutes, 0, 0);
+            
+            // 如果今天的时间已过，则设为明天
+            if (nextExecution <= now) {
+                nextExecution.setDate(nextExecution.getDate() + 1);
+            }
+            
+            return nextExecution.toISOString();
+        } catch (error) {
+            console.error('计算下次执行时间失败:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * 获取清理统计信息
+     */
     async getCleanupStats() {
         try {
-            if (!this.logService) {
-                return { success: false, message: 'LogService未初始化' };
-            }
-
-            // 获取清理历史（最近7次）
-            const cleanupLogs = await this.logService.getSystemLogs({
-                type: 'scheduled_log_cleanup',
-                limit: 7,
-                offset: 0
-            });
-
-            const manualCleanupLogs = await this.logService.getSystemLogs({
-                type: 'manual_log_cleanup',
-                limit: 7,
-                offset: 0
-            });
-
-            // 合并并排序
-            const allCleanupLogs = [
-                ...(cleanupLogs.data || []),
-                ...(manualCleanupLogs.data || [])
-            ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-             .slice(0, 7);
-
-            // 计算统计信息
-            let totalDeleted = 0;
-            allCleanupLogs.forEach(log => {
-                if (log.data && log.data.deleted) {
-                    totalDeleted += log.data.deleted;
-                }
-            });
-
+            const status = this.getStatus();
+            
+            // 从日志服务获取统计信息
+            const stats = {
+                status: {
+                    initialized: this.initialized,
+                    enabled: status.enabled,
+                    retentionDays: status.retentionDays,
+                    taskActive: status.isRunning,
+                    lastRun: null,
+                    nextRun: status.nextExecution
+                },
+                totalDeletedRecords: 0, // 这里可以从数据库查询历史清理记录
+                recentCleanups: [] // 这里可以查询最近的清理日志
+            };
+            
             return {
                 success: true,
-                data: {
-                    recentCleanups: allCleanupLogs,
-                    totalDeletedRecords: totalDeleted,
-                    status: this.getCleanupStatus()
-                }
+                data: stats
             };
         } catch (error) {
-            console.error('获取清理统计失败:', error);
-            return { success: false, message: error.message };
+            console.error('获取清理统计失败:', error.message);
+            return {
+                success: false,
+                message: error.message
+            };
         }
     }
 }
 
-module.exports = new LogCleanupService();
+// 导出单例实例
+const logCleanupService = new LogCleanupService();
+
+module.exports = {
+    LogCleanupService,
+    logCleanupService
+};

@@ -16,6 +16,18 @@ router.put('/config', systemController.updateConfig);
 // 获取支持的时区列表
 router.get('/timezones', systemController.getTimezones);
 
+// 获取时区配置详情
+router.get('/timezone/config', systemController.getTimezoneConfig);
+
+// 更新时区配置
+router.put('/timezone/config', systemController.updateTimezone);
+
+// 获取API类型配置信息
+router.get('/api-types', systemController.getApiTypes);
+
+// 验证API站点配置
+router.post('/validate-api-site', systemController.validateApiSite);
+
 // 获取系统状态
 router.get('/status', systemController.getSystemStatus);
 

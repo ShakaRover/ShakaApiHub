@@ -1,6 +1,10 @@
 const configService = require('../services/ConfigService');
 const RateLimitService = require('../services/RateLimitService');
-const LogCleanupService = require('../services/LogCleanupService');
+const { logCleanupService } = require('../services/LogCleanupService');
+const { systemSettingsService } = require('../services/SystemSettingsService');
+const { timezoneManager } = require('../utils/TimezoneManager');
+const ApiTypeValidator = require('../utils/ApiTypeValidator');
+const { getSupportedApiTypes, getSupportedAuthMethods, getApiTypeConfig } = require('../config/apiTypes');
 
 class SystemController {
     // 获取系统配置
@@ -59,11 +63,29 @@ class SystemController {
     // 获取支持的时区列表
     async getTimezones(req, res) {
         try {
-            const timezones = configService.getSupportedTimezones();
-            res.json({
-                success: true,
-                data: timezones
-            });
+            if (systemSettingsService.initialized) {
+                // 使用新的时区管理系统
+                const timezoneSettings = systemSettingsService.getTimezoneSettings();
+                res.json({
+                    success: true,
+                    data: {
+                        current: timezoneSettings.current,
+                        currentInfo: timezoneSettings.info,
+                        available: timezoneSettings.available,
+                        // 保持向后兼容
+                        timezones: Object.values(timezoneSettings.available).reduce((acc, group) => {
+                            return acc.concat(group.timezones);
+                        }, [])
+                    }
+                });
+            } else {
+                // 降级到原始方法
+                const timezones = configService.getSupportedTimezones();
+                res.json({
+                    success: true,
+                    data: { timezones }
+                });
+            }
         } catch (error) {
             console.error('获取时区列表失败:', error);
             res.status(500).json({
@@ -107,7 +129,7 @@ class SystemController {
     // 获取日志清理状态
     async getLogCleanupStatus(req, res) {
         try {
-            const status = LogCleanupService.getCleanupStatus();
+            const status = logCleanupService.getStatus();
             const config = await configService.getConfig();
             
             res.json({
@@ -139,7 +161,7 @@ class SystemController {
                 });
             }
 
-            const result = await LogCleanupService.triggerManualCleanup(retentionDays);
+            const result = await logCleanupService.manualCleanup(retentionDays);
             
             if (result.success) {
                 res.json({
@@ -167,7 +189,7 @@ class SystemController {
     // 获取日志清理统计
     async getLogCleanupStats(req, res) {
         try {
-            const stats = await LogCleanupService.getCleanupStats();
+            const stats = await logCleanupService.getCleanupStats();
             
             if (stats.success) {
                 res.json({
@@ -300,6 +322,120 @@ class SystemController {
             res.status(500).json({
                 success: false,
                 message: '获取速率限制统计失败'
+            });
+        }
+    }
+
+    // 获取API类型配置信息
+    async getApiTypes(req, res) {
+        try {
+            const apiTypes = getSupportedApiTypes();
+            const authMethods = getSupportedAuthMethods();
+            const configs = {};
+            
+            apiTypes.forEach(apiType => {
+                configs[apiType] = getApiTypeConfig(apiType);
+            });
+
+            res.json({
+                success: true,
+                data: {
+                    supportedApiTypes: apiTypes,
+                    supportedAuthMethods: authMethods,
+                    configs
+                }
+            });
+        } catch (error) {
+            console.error('获取API类型配置失败:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '获取API类型配置失败'
+            });
+        }
+    }
+
+    // 验证API站点配置
+    async validateApiSite(req, res) {
+        try {
+            const siteData = req.body;
+
+            const validation = ApiTypeValidator.validateApiSiteData(siteData);
+            
+            res.json({
+                success: true,
+                data: {
+                    isValid: validation.isValid,
+                    errors: validation.errors,
+                    warnings: validation.warnings,
+                    formattedMessage: validation.isValid ? '验证通过' : 
+                        ApiTypeValidator.formatValidationErrors(validation)
+                }
+            });
+        } catch (error) {
+            console.error('验证API站点配置失败:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '验证失败'
+            });
+        }
+    }
+
+    // 获取时区配置详情
+    async getTimezoneConfig(req, res) {
+        try {
+            if (!systemSettingsService.initialized) {
+                return res.status(503).json({
+                    success: false,
+                    message: '系统设置服务未初始化'
+                });
+            }
+
+            const timezoneSettings = systemSettingsService.getTimezoneSettings();
+            res.json({
+                success: true,
+                data: timezoneSettings
+            });
+        } catch (error) {
+            console.error('获取时区配置失败:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '获取时区配置失败'
+            });
+        }
+    }
+
+    // 更新时区配置
+    async updateTimezone(req, res) {
+        try {
+            const { timezone } = req.body;
+
+            if (!timezone) {
+                return res.status(400).json({
+                    success: false,
+                    message: '缺少必填字段: timezone'
+                });
+            }
+
+            if (!systemSettingsService.initialized) {
+                return res.status(503).json({
+                    success: false,
+                    message: '系统设置服务未初始化'
+                });
+            }
+
+            await systemSettingsService.setTimezone(timezone);
+            const timezoneSettings = systemSettingsService.getTimezoneSettings();
+            
+            res.json({
+                success: true,
+                message: '时区设置已更新',
+                data: timezoneSettings
+            });
+        } catch (error) {
+            console.error('设置时区失败:', error.message);
+            res.status(400).json({
+                success: false,
+                message: error.message
             });
         }
     }
