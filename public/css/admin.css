@@ -2896,6 +2896,10 @@ body {
     gap: 0.5rem;
 }
 
+.filter-group.filter-actions {
+    gap: 0.375rem;
+}
+
 .selection-actions {
     display: flex;
     align-items: center;
