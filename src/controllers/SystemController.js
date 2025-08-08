@@ -1,4 +1,5 @@
 const configService = require('../services/ConfigService');
+const LogCleanupService = require('../services/LogCleanupService');
 
 class SystemController {
     // 获取系统配置
@@ -98,6 +99,91 @@ class SystemController {
             res.status(500).json({
                 success: false,
                 message: '获取系统状态失败'
+            });
+        }
+    }
+
+    // 获取日志清理状态
+    async getLogCleanupStatus(req, res) {
+        try {
+            const status = LogCleanupService.getCleanupStatus();
+            const config = await configService.getConfig();
+            
+            res.json({
+                success: true,
+                data: {
+                    ...status,
+                    retentionDays: config.logRetentionDays || 30
+                }
+            });
+        } catch (error) {
+            console.error('获取日志清理状态失败:', error);
+            res.status(500).json({
+                success: false,
+                message: '获取日志清理状态失败'
+            });
+        }
+    }
+
+    // 触发手动日志清理
+    async triggerLogCleanup(req, res) {
+        try {
+            const { retentionDays } = req.body;
+            
+            // 验证输入参数
+            if (retentionDays && (!Number.isInteger(retentionDays) || retentionDays < 1 || retentionDays > 365)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '保留天数必须是1-365之间的整数'
+                });
+            }
+
+            const result = await LogCleanupService.triggerManualCleanup(retentionDays);
+            
+            if (result.success) {
+                res.json({
+                    success: true,
+                    message: result.message,
+                    data: {
+                        deleted: result.deleted
+                    }
+                });
+            } else {
+                res.status(500).json({
+                    success: false,
+                    message: result.message
+                });
+            }
+        } catch (error) {
+            console.error('触发日志清理失败:', error);
+            res.status(500).json({
+                success: false,
+                message: '触发日志清理失败'
+            });
+        }
+    }
+
+    // 获取日志清理统计
+    async getLogCleanupStats(req, res) {
+        try {
+            const stats = await LogCleanupService.getCleanupStats();
+            
+            if (stats.success) {
+                res.json({
+                    success: true,
+                    data: stats.data
+                });
+            } else {
+                res.status(500).json({
+                    success: false,
+                    message: stats.message
+                });
+            }
+        } catch (error) {
+            console.error('获取日志清理统计失败:', error);
+            res.status(500).json({
+                success: false,
+                message: '获取日志清理统计失败'
             });
         }
     }

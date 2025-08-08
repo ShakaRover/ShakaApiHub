@@ -9,6 +9,7 @@ const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
 const BackupService = require('./services/BackupService');
 const ScheduledCheckService = require('./services/ScheduledCheckService');
+const LogCleanupService = require('./services/LogCleanupService');
 const logMiddleware = require('./middleware/logging');
 
 const app = express();
@@ -112,6 +113,10 @@ async function startApp() {
 
         // 启动定时检测服务 (暂时禁用以修复数据库问题)
         const scheduledCheckService = new ScheduledCheckService();
+        
+        // 启动日志清理服务
+        console.log('正在初始化日志清理服务...');
+        // LogCleanupService会自动初始化，因为它已经是单例
         try {
             await scheduledCheckService.start();
         } catch (error) {

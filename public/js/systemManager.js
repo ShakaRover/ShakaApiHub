@@ -153,6 +153,47 @@ class SystemManager {
             e.preventDefault();
             this.saveRateLimitConfig();
         });
+
+        // 日志清理相关事件
+        this.bindLogCleanupEvents();
+    }
+
+    // 绑定日志清理事件
+    bindLogCleanupEvents() {
+        // 立即清理日志按钮
+        document.getElementById('triggerManualCleanupBtn').addEventListener('click', () => {
+            this.showManualCleanupModal();
+        });
+
+        // 查看清理统计按钮
+        document.getElementById('viewCleanupStatsBtn').addEventListener('click', () => {
+            this.showCleanupStatsModal();
+        });
+
+        // 手动清理模态框事件
+        document.getElementById('manualLogCleanupModalClose').addEventListener('click', () => {
+            this.hideManualCleanupModal();
+        });
+        document.getElementById('manualLogCleanupModalCancel').addEventListener('click', () => {
+            this.hideManualCleanupModal();
+        });
+        document.getElementById('previewManualCleanupBtn').addEventListener('click', () => {
+            this.previewManualCleanup();
+        });
+        document.getElementById('confirmManualCleanupBtn').addEventListener('click', () => {
+            this.confirmManualCleanup();
+        });
+
+        // 清理统计模态框事件
+        document.getElementById('logCleanupStatsModalClose').addEventListener('click', () => {
+            this.hideCleanupStatsModal();
+        });
+        document.getElementById('logCleanupStatsModalCloseBtn').addEventListener('click', () => {
+            this.hideCleanupStatsModal();
+        });
+        document.getElementById('refreshCleanupStatsBtn').addEventListener('click', () => {
+            this.loadCleanupStats();
+        });
     }
 
     // 保存时区配置
@@ -322,6 +363,257 @@ class SystemManager {
     // 当页面切换到系统管理时调用
     onPageShow() {
         this.loadSystemStatus();
+        this.loadLogCleanupStatus();
+    }
+
+    // 加载日志清理状态
+    async loadLogCleanupStatus() {
+        try {
+            const response = await fetch('/api/system/log-cleanup/status');
+            const result = await response.json();
+            if (result.success) {
+                this.updateLogCleanupStatusUI(result.data);
+            } else {
+                console.error('加载日志清理状态失败:', result.message);
+            }
+        } catch (error) {
+            console.error('加载日志清理状态失败:', error);
+        }
+    }
+
+    // 更新日志清理状态UI
+    updateLogCleanupStatusUI(status) {
+        // 服务状态
+        const serviceStatusElement = document.getElementById('logCleanupServiceStatus');
+        if (serviceStatusElement) {
+            const isRunning = status.taskActive;
+            serviceStatusElement.innerHTML = isRunning 
+                ? '<span class="status-badge success">运行中</span>' 
+                : '<span class="status-badge error">已停止</span>';
+        }
+
+        // 上次清理时间
+        const lastRunElement = document.getElementById('lastLogCleanupTime');
+        if (lastRunElement) {
+            if (status.lastRun) {
+                const lastRunTime = convertToSystemTimezone(status.lastRun);
+                lastRunElement.textContent = lastRunTime;
+            } else {
+                lastRunElement.textContent = '未执行过';
+            }
+        }
+
+        // 下次清理时间
+        const nextRunElement = document.getElementById('nextLogCleanupTime');
+        if (nextRunElement) {
+            if (status.nextRun) {
+                const nextRunTime = convertToSystemTimezone(status.nextRun);
+                nextRunElement.textContent = nextRunTime;
+            } else {
+                nextRunElement.textContent = '未设定';
+            }
+        }
+
+        // 当前保留天数
+        const retentionElement = document.getElementById('currentRetentionDays');
+        if (retentionElement) {
+            retentionElement.textContent = `${status.retentionDays}天`;
+        }
+    }
+
+    // 显示手动清理模态框
+    showManualCleanupModal() {
+        const modal = document.getElementById('manualLogCleanupModal');
+        modal.style.display = 'flex';
+        
+        // 设置默认值为当前配置的保留天数
+        const input = document.getElementById('manualCleanupRetentionDays');
+        if (this.config && this.config.logRetentionDays) {
+            input.value = this.config.logRetentionDays;
+        } else {
+            input.value = 30; // 默认值
+        }
+        
+        // 重置状态
+        document.getElementById('manualCleanupPreview').style.display = 'none';
+        document.getElementById('confirmManualCleanupBtn').disabled = true;
+    }
+
+    // 隐藏手动清理模态框
+    hideManualCleanupModal() {
+        document.getElementById('manualLogCleanupModal').style.display = 'none';
+    }
+
+    // 预览手动清理
+    async previewManualCleanup() {
+        const retentionDays = parseInt(document.getElementById('manualCleanupRetentionDays').value);
+        if (!retentionDays || retentionDays < 1) {
+            this.showAlert('请输入有效的保留天数', 'error');
+            return;
+        }
+
+        try {
+            // 这里应该调用预览API，目前先模拟数据
+            const response = await fetch('/api/system/log-cleanup/stats');
+            const result = await response.json();
+            
+            if (result.success) {
+                // 显示预览信息（这里应该有专门的预览API）
+                document.getElementById('manualRecordsToDelete').textContent = '预计清理数量';
+                document.getElementById('manualRecordsToKeep').textContent = '预计保留数量';
+                document.getElementById('manualCleanupPreview').style.display = 'block';
+                document.getElementById('confirmManualCleanupBtn').disabled = false;
+            } else {
+                this.showAlert('预览清理失败', 'error');
+            }
+        } catch (error) {
+            console.error('预览清理失败:', error);
+            this.showAlert('预览清理失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 确认手动清理
+    async confirmManualCleanup() {
+        const retentionDays = parseInt(document.getElementById('manualCleanupRetentionDays').value);
+        if (!retentionDays || retentionDays < 1) {
+            this.showAlert('请输入有效的保留天数', 'error');
+            return;
+        }
+
+        // 显示加载状态
+        const btnText = document.getElementById('manualCleanupBtnText');
+        const btnLoading = document.getElementById('manualCleanupBtnLoading');
+        const confirmBtn = document.getElementById('confirmManualCleanupBtn');
+        
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-block';
+        confirmBtn.disabled = true;
+
+        try {
+            const response = await fetch('/api/system/log-cleanup/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ retentionDays })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                this.showAlert(`日志清理成功：${result.message}`, 'success');
+                this.hideManualCleanupModal();
+                // 刷新状态
+                this.loadLogCleanupStatus();
+            } else {
+                this.showAlert(`清理失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('手动清理失败:', error);
+            this.showAlert('手动清理失败，请检查网络连接', 'error');
+        } finally {
+            // 恢复按钮状态
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            confirmBtn.disabled = false;
+        }
+    }
+
+    // 显示清理统计模态框
+    async showCleanupStatsModal() {
+        const modal = document.getElementById('logCleanupStatsModal');
+        modal.style.display = 'flex';
+        await this.loadCleanupStats();
+    }
+
+    // 隐藏清理统计模态框
+    hideCleanupStatsModal() {
+        document.getElementById('logCleanupStatsModal').style.display = 'none';
+    }
+
+    // 加载清理统计
+    async loadCleanupStats() {
+        const loadingElement = document.getElementById('cleanupStatsLoading');
+        const contentElement = document.getElementById('cleanupStatsContent');
+        
+        loadingElement.style.display = 'flex';
+        contentElement.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/system/log-cleanup/stats');
+            const result = await response.json();
+            
+            if (result.success) {
+                this.updateCleanupStatsUI(result.data);
+                loadingElement.style.display = 'none';
+                contentElement.style.display = 'block';
+            } else {
+                this.showAlert('加载清理统计失败', 'error');
+            }
+        } catch (error) {
+            console.error('加载清理统计失败:', error);
+            this.showAlert('加载清理统计失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 更新清理统计UI
+    updateCleanupStatsUI(stats) {
+        // 更新状态信息
+        if (stats.status) {
+            const status = stats.status;
+            
+            // 服务状态
+            document.getElementById('statsServiceStatus').innerHTML = 
+                status.taskActive ? '<span class="status-badge success">运行中</span>' 
+                                  : '<span class="status-badge error">已停止</span>';
+            
+            // 时间信息
+            document.getElementById('statsLastRun').textContent = 
+                status.lastRun ? convertToSystemTimezone(status.lastRun) : '未执行过';
+            document.getElementById('statsNextRun').textContent = 
+                status.nextRun ? convertToSystemTimezone(status.nextRun) : '未设定';
+        }
+
+        // 总清理记录数
+        document.getElementById('statsTotalDeleted').textContent = 
+            stats.totalDeletedRecords || 0;
+
+        // 最近清理历史
+        const historyContainer = document.getElementById('cleanupHistoryList');
+        if (stats.recentCleanups && stats.recentCleanups.length > 0) {
+            historyContainer.innerHTML = '';
+            stats.recentCleanups.forEach(cleanup => {
+                const historyItem = this.createCleanupHistoryItem(cleanup);
+                historyContainer.appendChild(historyItem);
+            });
+        } else {
+            historyContainer.innerHTML = '<div class="no-data">暂无清理历史</div>';
+        }
+    }
+
+    // 创建清理历史项
+    createCleanupHistoryItem(cleanup) {
+        const item = document.createElement('div');
+        item.className = 'cleanup-history-item';
+        
+        const cleanupTime = convertToSystemTimezone(cleanup.created_at);
+        const cleanupData = cleanup.data ? JSON.parse(cleanup.data) : {};
+        const deletedCount = cleanupData.deleted || 0;
+        const isManual = cleanup.action === 'manual_log_cleanup';
+        
+        item.innerHTML = `
+            <div class="cleanup-info">
+                <div class="cleanup-header">
+                    <span class="cleanup-type ${isManual ? 'manual' : 'scheduled'}">${isManual ? '手动清理' : '定时清理'}</span>
+                    <span class="cleanup-time">${cleanupTime}</span>
+                </div>
+                <div class="cleanup-details">
+                    <span class="cleanup-deleted">清理了 ${deletedCount} 条记录</span>
+                    ${cleanupData.retentionDays ? `<span class="cleanup-retention">保留 ${cleanupData.retentionDays} 天</span>` : ''}
+                </div>
+            </div>
+        `;
+        
+        return item;
     }
 }
 

@@ -19,4 +19,9 @@ router.get('/timezones', systemController.getTimezones);
 // 获取系统状态
 router.get('/status', systemController.getSystemStatus);
 
+// 日志清理相关路由
+router.get('/log-cleanup/status', systemController.getLogCleanupStatus);
+router.post('/log-cleanup/trigger', systemController.triggerLogCleanup);
+router.get('/log-cleanup/stats', systemController.getLogCleanupStats);
+
 module.exports = router;
