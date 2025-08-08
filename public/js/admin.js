@@ -731,6 +731,18 @@ const DataManager = {
         const clearFiltersBtn = document.getElementById('clearBackupFiltersBtn');
         const selectAllBtn = document.getElementById('selectAllBackupsBtn');
         const batchDeleteBtn = document.getElementById('batchDeleteBackupsBtn');
+        const backupSizeFilter = document.getElementById('backupSizeFilter');
+        const customSizeGroup = document.getElementById('customSizeGroup');
+
+        if (backupSizeFilter) {
+            backupSizeFilter.addEventListener('change', (e) => {
+                if (e.target.value === 'custom') {
+                    customSizeGroup.style.display = 'block';
+                } else {
+                    customSizeGroup.style.display = 'none';
+                }
+            });
+        }
 
         if (applyFiltersBtn) {
             applyFiltersBtn.addEventListener('click', () => {
@@ -762,6 +774,7 @@ const DataManager = {
         const typeFilter = document.getElementById('backupTypeFilter')?.value;
         const dateFilter = document.getElementById('backupDateFilter')?.value;
         const sizeFilter = document.getElementById('backupSizeFilter')?.value;
+        const customSize = document.getElementById('customSizeInput')?.value;
 
         this.filteredBackups = this.allBackups.filter(backup => {
             // 类型过滤
@@ -779,10 +792,21 @@ const DataManager = {
 
             // 大小过滤
             if (sizeFilter) {
-                const fileSizeInMB = backup.fileSize / (1024 * 1024);
-                if (sizeFilter === 'small' && fileSizeInMB >= 1) return false;
-                if (sizeFilter === 'medium' && (fileSizeInMB < 1 || fileSizeInMB > 5)) return false;
-                if (sizeFilter === 'large' && fileSizeInMB <= 5) return false;
+                const fileSizeInKB = backup.fileSize / 1024; // 转换为KB
+                
+                if (sizeFilter === '0kb' && fileSizeInKB > 10) return false;
+                if (sizeFilter === '10kb' && (fileSizeInKB <= 10 || fileSizeInKB > 100)) return false;
+                if (sizeFilter === '100kb' && fileSizeInKB <= 100) return false;
+                if (sizeFilter === 'custom') {
+                    if (customSize) {
+                        const customSizeNum = parseInt(customSize);
+                        if (fileSizeInKB > customSizeNum) return false;
+                    } else {
+                        // 如果选择了自定义但没有输入值，提示用户
+                        showAlert('请输入自定义文件大小', 'warning');
+                        return true; // 不过滤，保持原状
+                    }
+                }
             }
 
             return true;
@@ -798,10 +822,14 @@ const DataManager = {
         const typeFilter = document.getElementById('backupTypeFilter');
         const dateFilter = document.getElementById('backupDateFilter');
         const sizeFilter = document.getElementById('backupSizeFilter');
+        const customSizeInput = document.getElementById('customSizeInput');
+        const customSizeGroup = document.getElementById('customSizeGroup');
 
         if (typeFilter) typeFilter.value = '';
         if (dateFilter) dateFilter.value = '';
         if (sizeFilter) sizeFilter.value = '';
+        if (customSizeInput) customSizeInput.value = '';
+        if (customSizeGroup) customSizeGroup.style.display = 'none';
 
         // 重置过滤结果
         this.filteredBackups = [...this.allBackups];

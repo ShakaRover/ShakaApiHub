@@ -450,12 +450,17 @@
                                 </div>
                                 <div class="filter-group">
                                     <label for="backupSizeFilter" class="filter-label">文件大小:</label>
-                                    <select id="backupSizeFilter" class="form-control form-control-sm" style="width: 100px;">
+                                    <select id="backupSizeFilter" class="form-control form-control-sm" style="width: 120px;">
                                         <option value="">全部</option>
-                                        <option value="small">小于1MB</option>
-                                        <option value="medium">1-5MB</option>
-                                        <option value="large">大于5MB</option>
+                                        <option value="0kb">0-10KB</option>
+                                        <option value="10kb">10-100KB</option>
+                                        <option value="100kb">大于100KB</option>
+                                        <option value="custom">自定义</option>
                                     </select>
+                                </div>
+                                <div class="filter-group" id="customSizeGroup" style="display: none;">
+                                    <label for="customSizeInput" class="filter-label">自定义(KB):</label>
+                                    <input type="number" id="customSizeInput" class="form-control form-control-sm" style="width: 80px;" placeholder="大小" min="0">
                                 </div>
                                 <div class="filter-group">
                                     <button class="btn btn-primary btn-sm" id="applyBackupFiltersBtn">应用筛选</button>

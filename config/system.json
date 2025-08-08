@@ -1,0 +1,14 @@
+{
+  "timezone": "Asia/Shanghai",
+  "logRetentionDays": 30,
+  "rateLimiting": {
+    "general": {
+      "windowMs": 300000,
+      "maxRequests": 200
+    },
+    "login": {
+      "windowMs": 300000,
+      "maxAttempts": 10
+    }
+  }
+}
