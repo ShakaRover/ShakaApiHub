@@ -7,7 +7,83 @@ class ApiSiteManager {
         this.searchTerm = ''; // 搜索关键字
         this.showDetails = false; // 全局显示详情开关
         this.expandedSites = new Set(); // 记录展开的站点ID
+        
+        // DOM缓存机制
+        this.domCache = new Map();
+        
+        // 按钮处理器映射
+        this.buttonHandlers = new Map([
+            ['btn-edit', (siteId, siteName) => this.showEditModal(siteId)],
+            ['btn-check', (siteId, siteName) => this.checkSite(siteId, siteName)],
+            ['btn-topup', (siteId, siteName) => this.showTopupModal(siteId, siteName)],
+            ['btn-toggle', (siteId, siteName, button) => {
+                const isEnabled = button.dataset.enabled === 'true';
+                this.toggleEnabled(siteId, !isEnabled);
+            }],
+            ['btn-delete', (siteId, siteName) => this.showDeleteModal(siteId, siteName)],
+            ['btn-expand', (siteId) => this.toggleSiteDetails(siteId)],
+            ['btn-copy-aff', (siteId, siteName, button) => {
+                this.copyAffiliateLink(button.dataset.siteUrl, button.dataset.affCode);
+            }],
+            ['btn-refresh-tokens', (siteId) => this.refreshTokens(siteId)],
+            ['btn-delete-all-tokens', (siteId) => this.deleteAllTokens(siteId)],
+            ['btn-auto-create-tokens', (siteId) => this.autoCreateTokens(siteId)],
+            ['btn-refresh-models', (siteId) => this.refreshModels(siteId)],
+            ['btn-toggle-token', (siteId, siteName, button) => {
+                const tokenId = parseInt(button.dataset.tokenId);
+                const newStatus = parseInt(button.dataset.newStatus);
+                this.toggleToken(siteId, tokenId, newStatus);
+            }],
+            ['btn-delete-token', (siteId, siteName, button) => {
+                const tokenId = parseInt(button.dataset.tokenId);
+                this.deleteToken(siteId, tokenId);
+            }]
+        ]);
+        
         this.init();
+    }
+
+    // DOM缓存工具方法
+    getElement(id) {
+        if (!this.domCache.has(id)) {
+            this.domCache.set(id, document.getElementById(id));
+        }
+        return this.domCache.get(id);
+    }
+
+    // 清除DOM缓存（在需要时调用）
+    clearDomCache() {
+        this.domCache.clear();
+    }
+
+    // 统一异步操作处理
+    async handleAsyncOperation(operation, errorMessage, showLoadingAlert = true) {
+        try {
+            if (showLoadingAlert) {
+                // 可以在这里添加通用的加载提示逻辑
+            }
+            return await operation();
+        } catch (error) {
+            console.error(errorMessage, error);
+            this.showAlert(`${errorMessage}: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    // 统一按钮状态管理
+    setButtonLoadingState(buttonId, loading, textElementId = null, loadingElementId = null) {
+        const btn = this.getElement(buttonId);
+        if (btn) btn.disabled = loading;
+        
+        if (textElementId) {
+            const textEl = this.getElement(textElementId);
+            if (textEl) textEl.style.display = loading ? 'none' : 'inline';
+        }
+        
+        if (loadingElementId) {
+            const loadingEl = this.getElement(loadingElementId);
+            if (loadingEl) loadingEl.style.display = loading ? 'inline' : 'none';
+        }
     }
 
     // 初始化
@@ -22,36 +98,33 @@ class ApiSiteManager {
     // 绑定事件
     bindEvents() {
         // 添加API站点按钮
-        const addBtn = document.getElementById('addApiSiteBtn');
+        const addBtn = this.getElement('addApiSiteBtn');
         if (addBtn) {
             addBtn.addEventListener('click', () => this.showAddModal());
         }
 
         // 一键检查按钮
-        const batchCheckBtn = document.getElementById('batchCheckBtn');
+        const batchCheckBtn = this.getElement('batchCheckBtn');
         if (batchCheckBtn) {
             batchCheckBtn.addEventListener('click', () => this.batchCheckAllSites());
         }
 
         // 显示详情开关
-        const showDetailsToggle = document.getElementById('showDetailsToggle');
+        const showDetailsToggle = this.getElement('showDetailsToggle');
         if (showDetailsToggle) {
             showDetailsToggle.addEventListener('change', (e) => this.toggleAllDetails(e.target.checked));
         }
 
         // 搜索功能
-        const searchInput = document.getElementById('apiSiteSearch');
+        const searchInput = this.getElement('apiSiteSearch');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
         }
 
         // 过滤器功能
-        const apiTypeFilter = document.getElementById('apiTypeFilter');
-        const enabledStatusFilter = document.getElementById('enabledStatusFilter');
-        const checkinStatusFilter = document.getElementById('checkinStatusFilter');
-        const checkStatusFilter = document.getElementById('checkStatusFilter');
-
-        [apiTypeFilter, enabledStatusFilter, checkinStatusFilter, checkStatusFilter].forEach(filter => {
+        const filters = ['apiTypeFilter', 'enabledStatusFilter', 'checkinStatusFilter', 'checkStatusFilter'];
+        filters.forEach(filterId => {
+            const filter = this.getElement(filterId);
             if (filter) {
                 filter.addEventListener('change', () => this.applyFilters());
             }
@@ -61,17 +134,17 @@ class ApiSiteManager {
         this.bindModalEvents();
 
         // API类型切换事件
-        const apiTypeSelect = document.getElementById('apiSiteType');
+        const apiTypeSelect = this.getElement('apiSiteType');
         if (apiTypeSelect) {
             apiTypeSelect.addEventListener('change', (e) => this.handleApiTypeChange(e.target.value));
         }
 
         // 授权方式切换事件
-        const authMethodSelect = document.getElementById('apiSiteAuthMethod');
+        const authMethodSelect = this.getElement('apiSiteAuthMethod');
         if (authMethodSelect) {
             authMethodSelect.addEventListener('change', (e) => {
                 // 检查是否是AnyRouter + token的无效组合
-                const apiTypeSelect = document.getElementById('apiSiteType');
+                const apiTypeSelect = this.getElement('apiSiteType');
                 if (apiTypeSelect && apiTypeSelect.value === 'AnyRouter' && e.target.value === 'token') {
                     this.showAlert('AnyRouter只支持Sessions授权方式', 'error');
                     e.target.value = 'sessions';
@@ -83,7 +156,7 @@ class ApiSiteManager {
         }
 
         // 事件委托 - 处理表格中的操作按钮
-        const tableBody = document.getElementById('apiSitesTableBody');
+        const tableBody = this.getElement('apiSitesTableBody');
         if (tableBody) {
             tableBody.addEventListener('click', (e) => this.handleTableActions(e));
         }
@@ -104,47 +177,29 @@ class ApiSiteManager {
             return;
         }
         
-        // 现在可以直接比较，因为Boolean()确保了"true"/"false"字符串
-        const isEnabled = button.dataset.enabled === 'true';
-
-        if (button.classList.contains('btn-edit')) {
-            this.showEditModal(siteId);
-        } else if (button.classList.contains('btn-check')) {
-            this.checkSite(siteId, siteName);
-        } else if (button.classList.contains('btn-topup')) {
-            this.showTopupModal(siteId, siteName);
-        } else if (button.classList.contains('btn-toggle')) {
-            this.toggleEnabled(siteId, !isEnabled);
-        } else if (button.classList.contains('btn-delete')) {
-            this.showDeleteModal(siteId, siteName);
-        } else if (button.classList.contains('btn-expand')) {
-            this.toggleSiteDetails(siteId);
-        } else if (button.classList.contains('btn-copy-aff')) {
-            this.copyAffiliateLink(button.dataset.siteUrl, button.dataset.affCode);
-        } else if (button.classList.contains('btn-refresh-tokens')) {
-            this.refreshTokens(siteId);
-        } else if (button.classList.contains('btn-delete-all-tokens')) {
-            this.deleteAllTokens(siteId);
-        } else if (button.classList.contains('btn-auto-create-tokens')) {
-            this.autoCreateTokens(siteId);
-        } else if (button.classList.contains('btn-refresh-models')) {
-            this.refreshModels(siteId);
-        } else if (button.classList.contains('btn-toggle-token')) {
-            const tokenId = parseInt(button.dataset.tokenId);
-            const newStatus = parseInt(button.dataset.newStatus);
-            this.toggleToken(siteId, tokenId, newStatus);
-        } else if (button.classList.contains('btn-delete-token')) {
-            const tokenId = parseInt(button.dataset.tokenId);
-            this.deleteToken(siteId, tokenId);
+        // 查找匹配的处理器
+        for (const [className, handler] of this.buttonHandlers) {
+            if (button.classList.contains(className)) {
+                try {
+                    handler(siteId, siteName, button);
+                } catch (error) {
+                    console.error(`按钮处理器执行失败 [${className}]:`, error);
+                    this.showAlert('操作执行失败', 'error');
+                }
+                return;
+            }
         }
+        
+        // 如果没有找到处理器，记录警告
+        console.warn('未找到匹配的按钮处理器:', Array.from(button.classList));
     }
 
     // 绑定模态框事件
     bindModalEvents() {
-        const modal = document.getElementById('apiSiteModal');
-        const closeBtn = document.getElementById('apiSiteModalClose');
-        const cancelBtn = document.getElementById('apiSiteModalCancel');
-        const form = document.getElementById('apiSiteForm');
+        const modal = this.getElement('apiSiteModal');
+        const closeBtn = this.getElement('apiSiteModalClose');
+        const cancelBtn = this.getElement('apiSiteModalCancel');
+        const form = this.getElement('apiSiteForm');
 
         // 关闭模态框事件
         [closeBtn, cancelBtn].forEach(btn => {
@@ -154,11 +209,8 @@ class ApiSiteManager {
         });
 
         // 移除点击背景关闭模态框的功能，防止误点击关闭编辑窗口
-        // 用户只能通过关闭按钮或取消按钮来关闭模态框
         if (modal) {
             modal.addEventListener('click', (e) => {
-                // 如果点击的是模态框背景（不是内容区域），也不关闭，防止误操作
-                // 只允许通过明确的按钮关闭
                 e.stopPropagation();
             });
             
@@ -179,8 +231,8 @@ class ApiSiteManager {
         // 添加ESC键支持关闭模态框
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('apiSiteModal');
-                const deleteModal = document.getElementById('confirmDeleteModal');
+                const modal = this.getElement('apiSiteModal');
+                const deleteModal = this.getElement('confirmDeleteModal');
                 
                 if (modal && modal.classList.contains('show')) {
                     this.hideModal();
@@ -196,10 +248,10 @@ class ApiSiteManager {
 
     // 绑定删除确认模态框事件
     bindDeleteModalEvents() {
-        const deleteModal = document.getElementById('confirmDeleteModal');
-        const deleteCloseBtn = document.getElementById('confirmDeleteModalClose');
-        const deleteCancelBtn = document.getElementById('confirmDeleteCancel');
-        const deleteConfirmBtn = document.getElementById('confirmDeleteConfirm');
+        const deleteModal = this.getElement('confirmDeleteModal');
+        const deleteCloseBtn = this.getElement('confirmDeleteModalClose');
+        const deleteCancelBtn = this.getElement('confirmDeleteCancel');
+        const deleteConfirmBtn = this.getElement('confirmDeleteConfirm');
 
         [deleteCloseBtn, deleteCancelBtn].forEach(btn => {
             if (btn) {
@@ -584,7 +636,7 @@ class ApiSiteManager {
 
     // 加载API站点列表
     async loadApiSites() {
-        try {
+        return this.handleAsyncOperation(async () => {
             const response = await fetch('/api/sites', {
                 credentials: 'include'
             });
@@ -595,18 +647,14 @@ class ApiSiteManager {
                 this.filterApiSites(); // 应用当前搜索过滤
                 this.renderApiSitesTable();
             } else {
-                console.error('加载API站点失败:', result.message);
-                this.showAlert('加载API站点失败', 'error');
+                throw new Error(result.message || '加载失败');
             }
-        } catch (error) {
-            console.error('加载API站点失败:', error);
-            this.showAlert('加载API站点失败', 'error');
-        }
+        }, '加载API站点失败', false);
     }
 
     // 加载API统计
     async loadApiStats() {
-        try {
+        return this.handleAsyncOperation(async () => {
             const response = await fetch('/api/sites/stats', {
                 credentials: 'include'
             });
@@ -614,17 +662,17 @@ class ApiSiteManager {
 
             if (result.success) {
                 this.updateStatsDisplay(result.data);
+            } else {
+                throw new Error(result.message || '加载统计失败');
             }
-        } catch (error) {
-            console.error('加载API统计失败:', error);
-        }
+        }, '加载API统计失败', false);
     }
 
     // 更新统计显示
     updateStatsDisplay(stats) {
-        const totalElement = document.getElementById('totalApiSites');
-        const enabledElement = document.getElementById('enabledApiSites');
-        const disabledElement = document.getElementById('disabledApiSites');
+        const totalElement = this.getElement('totalApiSites');
+        const enabledElement = this.getElement('enabledApiSites');
+        const disabledElement = this.getElement('disabledApiSites');
 
         if (totalElement) totalElement.textContent = stats.total || 0;
         if (enabledElement) enabledElement.textContent = stats.enabled || 0;
@@ -654,13 +702,13 @@ class ApiSiteManager {
             }
 
             // API类型过滤
-            const apiTypeFilter = document.getElementById('apiTypeFilter')?.value;
+            const apiTypeFilter = this.getElement('apiTypeFilter')?.value;
             if (apiTypeFilter && site.api_type !== apiTypeFilter) {
                 return false;
             }
 
             // 启用状态过滤
-            const enabledStatusFilter = document.getElementById('enabledStatusFilter')?.value;
+            const enabledStatusFilter = this.getElement('enabledStatusFilter')?.value;
             if (enabledStatusFilter) {
                 const isEnabled = site.enabled === 1;
                 if (enabledStatusFilter === 'enabled' && !isEnabled) return false;
@@ -668,7 +716,7 @@ class ApiSiteManager {
             }
 
             // 签到状态过滤
-            const checkinStatusFilter = document.getElementById('checkinStatusFilter')?.value;
+            const checkinStatusFilter = this.getElement('checkinStatusFilter')?.value;
             if (checkinStatusFilter) {
                 const checkinEnabled = site.auto_checkin === 1;
                 if (checkinStatusFilter === 'enabled' && !checkinEnabled) return false;
@@ -676,7 +724,7 @@ class ApiSiteManager {
             }
 
             // 最后检测状态过滤
-            const checkStatusFilter = document.getElementById('checkStatusFilter')?.value;
+            const checkStatusFilter = this.getElement('checkStatusFilter')?.value;
             if (checkStatusFilter) {
                 const checkStatus = site.last_check_status || 'pending';
                 if (checkStatusFilter !== checkStatus) return false;
@@ -693,41 +741,71 @@ class ApiSiteManager {
         this.applyFilters();
     }
 
+    // 通用模板系统
+    createTemplate(templateName, data) {
+        const templates = {
+            emptyState: ({ icon, text, description, colspan = 7 }) => `
+                <tr class="empty-state">
+                    <td colspan="${colspan}">
+                        <div class="empty-message">
+                            <div class="empty-icon">${icon}</div>
+                            <div class="empty-text">${text}</div>
+                            <div class="empty-description">${description}</div>
+                        </div>
+                    </td>
+                </tr>
+            `,
+            
+            tokenAction: ({ siteId, className, title, icon, text }) => `
+                <button class="btn-small btn-secondary ${className}" 
+                        data-site-id="${siteId}" 
+                        title="${title}">
+                    ${icon} ${text}
+                </button>
+            `,
+            
+            modelAction: ({ siteId, className, title, icon, text }) => `
+                <button class="btn-small btn-secondary ${className}" 
+                        data-site-id="${siteId}" 
+                        title="${title}">
+                    ${icon} ${text}
+                </button>
+            `,
+            
+            statusBadge: ({ enabled, title = '' }) => {
+                const statusClass = enabled ? 'status-enabled' : 'status-disabled';
+                const statusIcon = enabled ? '✅' : '❌';
+                const statusTitle = title || (enabled ? '已启用' : '已禁用');
+                return `<span class="status-badge ${statusClass}" title="${statusTitle}">${statusIcon}</span>`;
+            }
+        };
+        
+        return templates[templateName] ? templates[templateName](data) : '';
+    }
+
     // 渲染API站点表格
     renderApiSitesTable() {
-        const tbody = document.getElementById('apiSitesTableBody');
+        const tbody = this.getElement('apiSitesTableBody');
         if (!tbody) return;
 
         // 使用过滤后的站点列表
         const sitesToRender = this.filteredApiSites || this.apiSites;
 
         if (this.apiSites.length === 0) {
-            tbody.innerHTML = `
-                <tr class="empty-state">
-                    <td colspan="7">
-                        <div class="empty-message">
-                            <div class="empty-icon">🔗</div>
-                            <div class="empty-text">暂无API站点</div>
-                            <div class="empty-description">点击上方"添加API站点"按钮开始添加</div>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            tbody.innerHTML = this.createTemplate('emptyState', {
+                icon: '🔗',
+                text: '暂无API站点',
+                description: '点击上方"添加API站点"按钮开始添加'
+            });
             return;
         }
 
         if (sitesToRender.length === 0) {
-            tbody.innerHTML = `
-                <tr class="empty-state">
-                    <td colspan="7">
-                        <div class="empty-message">
-                            <div class="empty-icon">🔍</div>
-                            <div class="empty-text">没有找到匹配的站点</div>
-                            <div class="empty-description">请尝试其他搜索关键字</div>
-                        </div>
-                    </td>
-                </tr>
-            `;
+            tbody.innerHTML = this.createTemplate('emptyState', {
+                icon: '🔍',
+                text: '没有找到匹配的站点',
+                description: '请尝试其他搜索关键字'
+            });
             return;
         }
 
@@ -832,9 +910,13 @@ class ApiSiteManager {
                     <span class="info-label">
                         模型列表 
                         <div class="model-actions" style="display: inline-block; margin-left: 10px;">
-                            <button class="btn-small btn-secondary btn-refresh-models" 
-                                    data-site-id="${site.id}" 
-                                    title="刷新模型列表">🔄 刷新</button>
+                            ${this.createTemplate('modelAction', {
+                                siteId: site.id,
+                                className: 'btn-refresh-models',
+                                title: '刷新模型列表',
+                                icon: '🔄',
+                                text: '刷新'
+                            })}
                         </div>
                         <span class="copy-hint" style="display:none; color: green; font-size: 0.8em;">已复制</span>
                     </span>
@@ -844,13 +926,27 @@ class ApiSiteManager {
                     <span class="info-label">
                         令牌列表 
                         <div class="token-actions">
-                            <button class="btn-small btn-secondary btn-refresh-tokens" 
-                                    data-site-id="${site.id}" 
-                                    title="刷新令牌列表">🔄 刷新</button>
-                            <button class="btn-small btn-danger btn-delete-all-tokens" 
-                                    data-site-id="${site.id}">全部删除</button>
-                            <button class="btn-small btn-primary btn-auto-create-tokens" 
-                                    data-site-id="${site.id}">自动创建令牌</button>
+                            ${this.createTemplate('tokenAction', {
+                                siteId: site.id,
+                                className: 'btn-refresh-tokens',
+                                title: '刷新令牌列表',
+                                icon: '🔄',
+                                text: '刷新'
+                            })}
+                            ${this.createTemplate('tokenAction', {
+                                siteId: site.id,
+                                className: 'btn-delete-all-tokens btn-danger',
+                                title: '删除所有令牌',
+                                icon: '',
+                                text: '全部删除'
+                            })}
+                            ${this.createTemplate('tokenAction', {
+                                siteId: site.id,
+                                className: 'btn-auto-create-tokens btn-primary',
+                                title: '自动创建令牌',
+                                icon: '',
+                                text: '自动创建令牌'
+                            })}
                         </div>
                     </span>
                     <div class="info-value tokens-list">${tokensListHtml}</div>
@@ -933,9 +1029,9 @@ class ApiSiteManager {
         }
         
         const apiTypeBadge = `<span class="api-type-badge api-type-${site.api_type.toLowerCase()}">${site.api_type}</span>`;
-        const statusBadge = site.enabled 
-            ? '<span class="status-badge status-enabled" title="已启用">✅</span>'
-            : '<span class="status-badge status-disabled" title="已禁用">❌</span>';
+        const statusBadge = this.createTemplate('statusBadge', { 
+            enabled: Boolean(site.enabled)
+        });
         
         // 签到状态显示 - 三种状态：未启用(灰色圆点)、成功(绿勾)、失败(红叉)
         let checkinBadge = '<span class="checkin-badge checkin-disabled" title="自动签到未启用">⚫</span>';
