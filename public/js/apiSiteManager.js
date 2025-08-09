@@ -121,6 +121,21 @@ class ApiSiteManager {
             this.toggleSiteDetails(siteId);
         } else if (button.classList.contains('btn-copy-aff')) {
             this.copyAffiliateLink(button.dataset.siteUrl, button.dataset.affCode);
+        } else if (button.classList.contains('btn-refresh-tokens')) {
+            this.refreshTokens(siteId);
+        } else if (button.classList.contains('btn-delete-all-tokens')) {
+            this.deleteAllTokens(siteId);
+        } else if (button.classList.contains('btn-auto-create-tokens')) {
+            this.autoCreateTokens(siteId);
+        } else if (button.classList.contains('btn-refresh-models')) {
+            this.refreshModels(siteId);
+        } else if (button.classList.contains('btn-toggle-token')) {
+            const tokenId = parseInt(button.dataset.tokenId);
+            const newStatus = parseInt(button.dataset.newStatus);
+            this.toggleToken(siteId, tokenId, newStatus);
+        } else if (button.classList.contains('btn-delete-token')) {
+            const tokenId = parseInt(button.dataset.tokenId);
+            this.deleteToken(siteId, tokenId);
         }
     }
 
@@ -817,7 +832,9 @@ class ApiSiteManager {
                     <span class="info-label">
                         模型列表 
                         <div class="model-actions" style="display: inline-block; margin-left: 10px;">
-                            <button class="btn-small btn-secondary" onclick="apiSiteManager.refreshModels(${site.id})" title="刷新模型列表">🔄 刷新</button>
+                            <button class="btn-small btn-secondary btn-refresh-models" 
+                                    data-site-id="${site.id}" 
+                                    title="刷新模型列表">🔄 刷新</button>
                         </div>
                         <span class="copy-hint" style="display:none; color: green; font-size: 0.8em;">已复制</span>
                     </span>
@@ -827,9 +844,13 @@ class ApiSiteManager {
                     <span class="info-label">
                         令牌列表 
                         <div class="token-actions">
-                            <button class="btn-small btn-secondary" onclick="apiSiteManager.refreshTokens(${site.id})" title="刷新令牌列表">🔄 刷新</button>
-                            <button class="btn-small btn-danger" onclick="apiSiteManager.deleteAllTokens(${site.id})">全部删除</button>
-                            <button class="btn-small btn-primary" onclick="apiSiteManager.autoCreateTokens(${site.id})">自动创建令牌</button>
+                            <button class="btn-small btn-secondary btn-refresh-tokens" 
+                                    data-site-id="${site.id}" 
+                                    title="刷新令牌列表">🔄 刷新</button>
+                            <button class="btn-small btn-danger btn-delete-all-tokens" 
+                                    data-site-id="${site.id}">全部删除</button>
+                            <button class="btn-small btn-primary btn-auto-create-tokens" 
+                                    data-site-id="${site.id}">自动创建令牌</button>
                         </div>
                     </span>
                     <div class="info-value tokens-list">${tokensListHtml}</div>
@@ -1426,10 +1447,17 @@ class ApiSiteManager {
                     <td class="token-time-cell">${expiredTime}</td>
                     <td class="token-actions-cell">
                         <div class="token-actions-inline">
-                            <button class="btn-tiny btn-toggle" onclick="apiSiteManager.toggleToken(${siteId}, ${token.id}, ${token.status === 1 ? 2 : 1})" title="${token.status === 1 ? '禁用' : '启用'}">
+                            <button class="btn-tiny btn-toggle btn-toggle-token" 
+                                    data-site-id="${siteId}" 
+                                    data-token-id="${token.id}" 
+                                    data-new-status="${token.status === 1 ? 2 : 1}" 
+                                    title="${token.status === 1 ? '禁用' : '启用'}">
                                 ${token.status === 1 ? '🔴' : '🟢'}
                             </button>
-                            <button class="btn-tiny btn-danger" onclick="apiSiteManager.deleteToken(${siteId}, ${token.id})" title="删除">
+                            <button class="btn-tiny btn-danger btn-delete-token" 
+                                    data-site-id="${siteId}" 
+                                    data-token-id="${token.id}" 
+                                    title="删除">
                                 🗑️
                             </button>
                         </div>
@@ -1445,43 +1473,6 @@ class ApiSiteManager {
         `;
         
         return tableHtml;
-    }
-
-    // 切换令牌状态
-    async toggleToken(siteId, tokenId, newStatus) {
-        try {
-            const statusText = newStatus === 1 ? '启用' : '禁用';
-            console.log(`开始${statusText}令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 新状态: ${newStatus}`);
-            
-            this.showAlert('正在更新令牌状态...', 'info');
-
-            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}/toggle`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id: tokenId,
-                    status: newStatus
-                })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                console.log(`令牌${statusText}成功 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
-                this.showAlert(`令牌状态更新成功`, 'success');
-                // 刷新站点列表
-                this.loadApiSites();
-            } else {
-                console.error(`令牌${statusText}失败 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 错误: ${result.message}`);
-                this.showAlert(`令牌状态更新失败: ${result.message}`, 'error');
-            }
-
-        } catch (error) {
-            console.error('切换令牌状态失败:', error);
-            this.showAlert('切换令牌状态失败，请检查网络连接', 'error');
-        }
     }
 
     // 切换令牌状态
