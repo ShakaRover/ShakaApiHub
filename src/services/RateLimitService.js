@@ -72,7 +72,8 @@ class RateLimitService {
                     windowMs: config.windowMs,
                     limit: config.max || config.maxRequests || config.maxAttempts,
                     timeWindow: `${Math.floor(config.windowMs / 60000)}分钟`,
-                    violationCount: req.rateLimit?.used || 'unknown',
+                    currentHits: req.rateLimit?.totalHits || req.rateLimit?.used || 'unknown',
+                    remainingRequests: req.rateLimit?.remaining || 'unknown',
                     resetsAt: req.rateLimit?.resetTime ? new Date(req.rateLimit.resetTime) : 'unknown'
                 };
 

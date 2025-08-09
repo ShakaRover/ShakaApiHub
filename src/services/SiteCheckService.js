@@ -622,7 +622,17 @@ class SiteCheckService {
     // 记录检测日志
     async logCheckResult(siteId, status, message, responseData) {
         try {
-            await this.statements.insertCheckLog.run(siteId, status, message, responseData);
+            // 使用日志服务记录到独立的log.db
+            const logDb = await require('../config/logDatabase').getDatabase();
+            logDb.run(
+                'INSERT INTO site_check_logs (site_id, status, message, response_data) VALUES (?, ?, ?, ?)',
+                [siteId, status, message, responseData],
+                (err) => {
+                    if (err) {
+                        console.error('记录检测日志失败:', err.message);
+                    }
+                }
+            );
         } catch (error) {
             console.error('记录检测日志失败:', error.message);
         }
@@ -716,7 +726,17 @@ class SiteCheckService {
                 message: message
             };
 
-            await this.statements.insertCheckLog.run(siteId, status, `[签到] ${message}`, JSON.stringify(logData));
+            // 使用日志服务记录到独立的log.db
+            const logDb = await require('../config/logDatabase').getDatabase();
+            logDb.run(
+                'INSERT INTO site_check_logs (site_id, status, message, response_data) VALUES (?, ?, ?, ?)',
+                [siteId, status, `[签到] ${message}`, JSON.stringify(logData)],
+                (err) => {
+                    if (err) {
+                        console.error('记录签到日志失败:', err.message);
+                    }
+                }
+            );
             console.log(`📝 已记录站点 ${siteId} 的签到日志: ${status} - ${message}`);
         } catch (error) {
             console.error('记录签到日志失败:', error.message);
@@ -978,6 +998,107 @@ class SiteCheckService {
                 success: false,
                 message: `获取令牌列表失败: ${error.message}`,
                 data: null
+            };
+        }
+    }
+
+    // 只刷新模型列表的轻量级方法
+    async refreshModelsOnly(siteId) {
+        let site = null;
+        const startTime = Date.now();
+        try {
+            console.log(`开始刷新站点模型 ID: ${siteId}`);
+            
+            // 步骤1：获取站点信息
+            site = await this.statements.findApiSiteById.get(siteId);
+            if (!site) {
+                throw new Error('站点不存在');
+            }
+
+            console.log(`开始刷新站点模型: ${site.name} (${site.url})`);
+
+            // 步骤2：访问站点获取 cookies（保留cookie设置步骤）
+            console.log('获取站点cookies...');
+            const cookies = await this.getSiteCookies(site.url);
+
+            // 步骤3：只获取模型列表
+            console.log('获取模型列表...');
+            const modelsList = await this.getModelsList(site.url, cookies, site.sessions, site);
+            console.log('模型列表获取结果:', modelsList.success ? `获取到${modelsList.data?.length || 0}个模型` : modelsList.message);
+
+            // 步骤4：更新数据库中的模型信息
+            if (modelsList.success && modelsList.data) {
+                const modelsListJson = JSON.stringify(modelsList.data);
+                await this.statements.updateSiteCheckInfo.run(
+                    site.site_quota || 0,
+                    site.site_used_quota || 0,
+                    site.site_request_count || 0,
+                    site.site_user_group || null,
+                    site.site_aff_code || null,
+                    site.site_aff_count || 0,
+                    site.site_aff_quota || 0,
+                    site.site_aff_history_quota || 0,
+                    site.site_username || null,
+                    site.site_last_check_in_time || null,
+                    modelsListJson, // 更新模型列表
+                    site.tokens_list || null, // 保留原有令牌列表
+                    'success',
+                    '模型列表刷新成功',
+                    siteId
+                );
+
+                console.log(`✅ 站点 ${siteId} 模型刷新完成`);
+                
+                // 记录检测日志
+                await this.logCheckResult(siteId, 'success', '模型列表刷新成功', JSON.stringify({
+                    models: modelsList.data,
+                    refreshType: 'models_only',
+                    executionTime: Date.now() - startTime
+                }));
+
+                return {
+                    success: true,
+                    message: `模型刷新成功，获取到 ${modelsList.data.length} 个模型`,
+                    data: {
+                        models: modelsList.data,
+                        refreshType: 'models_only',
+                        executionTime: Date.now() - startTime
+                    }
+                };
+            } else {
+                const errorMsg = modelsList.message || '获取模型列表失败';
+                await this.statements.updateSiteCheckStatus.run('error', errorMsg, siteId);
+                await this.logCheckResult(siteId, 'error', errorMsg, null);
+                
+                return {
+                    success: false,
+                    message: errorMsg
+                };
+            }
+
+        } catch (error) {
+            const executionTime = Date.now() - startTime;
+            const errorMsg = `模型刷新失败: ${error.message}`;
+            console.error(`❌ ${errorMsg}`, error);
+            
+            // 更新检测状态为失败
+            if (site) {
+                try {
+                    await this.statements.updateSiteCheckStatus.run('error', errorMsg, siteId);
+                    await this.logCheckResult(siteId, 'error', errorMsg, JSON.stringify({
+                        error: error.message,
+                        stack: error.stack,
+                        refreshType: 'models_only',
+                        executionTime: executionTime
+                    }));
+                } catch (updateError) {
+                    console.error('更新检测状态失败:', updateError.message);
+                }
+            }
+
+            return {
+                success: false,
+                message: errorMsg
             };
         }
     }

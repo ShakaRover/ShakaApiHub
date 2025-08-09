@@ -181,6 +181,7 @@ class ApiSiteController {
     async checkSite(req, res) {
         try {
             const { id } = req.params;
+            const { refreshModelsOnly } = req.body; // 添加只刷新模型的选项
             
             if (!id || isNaN(id)) {
                 return res.status(400).json({
@@ -189,7 +190,9 @@ class ApiSiteController {
                 });
             }
 
-            const result = await this.siteCheckService.checkSite(parseInt(id));
+            const result = refreshModelsOnly 
+                ? await this.siteCheckService.refreshModelsOnly(parseInt(id))
+                : await this.siteCheckService.checkSite(parseInt(id));
             
             if (!result.success) {
                 return res.status(400).json(result);
@@ -200,7 +203,7 @@ class ApiSiteController {
             console.error('ApiSiteController.checkSite:', error.message);
             res.status(500).json({
                 success: false,
-                message: '服务器内部错误'
+                message: '检测站点失败: ' + error.message
             });
         }
     }

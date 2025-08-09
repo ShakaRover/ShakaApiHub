@@ -96,14 +96,6 @@ class ApiSiteManager {
 
         const siteId = parseInt(button.dataset.siteId);
         const siteName = button.dataset.siteName;
-        
-        // 验证 siteId 是否有效
-        if (!siteId || isNaN(siteId)) {
-            console.error('无效的站点ID:', button.dataset.siteId);
-            this.showAlert('操作失败：无效的站点ID', 'error');
-            return;
-        }
-        
         // 现在可以直接比较，因为Boolean()确保了"true"/"false"字符串
         const isEnabled = button.dataset.enabled === 'true';
 
@@ -1484,18 +1476,153 @@ class ApiSiteManager {
         }
     }
 
+    // 删除令牌
+    async deleteToken(siteId, tokenId) {
+        if (!confirm('确定要删除此令牌吗？此操作不可撤销。')) {
+            return;
+        }
+
+        try {
+            this.showAlert('正在删除令牌...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert('令牌删除成功', 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`令牌删除失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('删除令牌失败:', error);
+            this.showAlert('删除令牌失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 全部删除令牌
+    async deleteAllTokens(siteId) {
+        if (!confirm('确定要删除所有令牌吗？此操作不可撤销。')) {
+            return;
+        }
+
+        try {
+            this.showAlert('正在删除所有令牌...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/tokens/deleteAll`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`成功删除 ${result.deletedCount || 0} 个令牌`, 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`删除令牌失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('删除所有令牌失败:', error);
+            this.showAlert('删除所有令牌失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 刷新模型列表
+    async refreshModels(siteId) {
+        try {
+            this.showAlert('正在刷新模型列表...', 'info');
+            const response = await fetch(`/api/sites/${siteId}/check`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.showAlert('模型列表刷新成功', 'success');
+                // 刷新站点列表以显示最新的模型信息
+                this.loadApiSites();
+            } else {
+                this.showAlert(`刷新模型列表失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('刷新模型列表失败:', error);
+            this.showAlert('刷新模型列表失败，请检查网络连接', 'error');
+        }
+    }
+    
+    // 刷新令牌列表
+    async refreshTokens(siteId) {
+        try {
+            this.showAlert('正在刷新令牌列表...', 'info');
+            const response = await fetch(`/api/sites/${siteId}/check`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+            if (result.success) {
+                this.showAlert('令牌列表刷新成功', 'success');
+                // 刷新站点列表以显示最新的令牌信息
+                this.loadApiSites();
+            } else {
+                this.showAlert(`刷新令牌列表失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('刷新令牌列表失败:', error);
+            this.showAlert('刷新令牌列表失败，请检查网络连接', 'error');
+        }
+    }
+    
+    // 自动创建令牌
+    async autoCreateTokens(siteId) {
+        try {
+            // 先刷新令牌列表获取最新状态
+            this.showAlert('正在获取最新令牌列表...', 'info');
+            const checkResponse = await fetch(`/api/sites/${siteId}/check`, {
+                method: 'POST'
+            });
+            const checkResult = await checkResponse.json();
+            if (!checkResult.success) {
+                this.showAlert(`获取令牌列表失败: ${checkResult.message}`, 'error');
+                return;
+            }
+
+            // 然后创建令牌
+            this.showAlert('正在自动创建令牌...', 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/tokens/autoCreate`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showAlert(`成功创建 ${result.createdCount || 0} 个令牌`, 'success');
+                // 刷新站点列表
+                this.loadApiSites();
+            } else {
+                this.showAlert(`创建令牌失败: ${result.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('自动创建令牌失败:', error);
+            this.showAlert('自动创建令牌失败，请检查网络连接', 'error');
+        }
+    }
+
     // 切换令牌状态
     async toggleToken(siteId, tokenId, newStatus) {
         try {
-            const statusText = newStatus === 1 ? '启用' : '禁用';
-            console.log(`[令牌操作] 开始${statusText}令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 新状态: ${newStatus}`);
-            
-            this.showAlert(`正在${statusText}令牌...`, 'info');
+            const action = newStatus === 1 ? '启用' : '禁用';
+            this.showAlert(`正在${action}令牌...`, 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}/toggle`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens/status`, {
                 method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     id: tokenId,
@@ -1504,133 +1631,107 @@ class ApiSiteManager {
                 credentials: 'include'
             });
 
-            console.log(`[令牌操作] ${statusText}请求响应状态: ${response.status}`);
             const result = await response.json();
-            console.log(`[令牌操作] ${statusText}请求响应结果:`, result);
 
             if (result.success) {
-                console.log(`[令牌操作] 令牌${statusText}成功 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
-                this.showAlert(`令牌${statusText}成功`, 'success');
-                // 只刷新站点列表显示最新的令牌信息，不执行完整检查
-                this.loadApiSites();
+                this.showAlert(`令牌${action}成功`, 'success');
+                // 重新检查站点以获取最新令牌状态
+                await this.checkSite(siteId, '站点');
             } else {
-                console.error(`[令牌操作] 令牌${statusText}失败 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 错误: ${result.message}`);
-                this.showAlert(`令牌${statusText}失败: ${result.message}`, 'error');
+                this.showAlert(`令牌${action}失败: ${result.message}`, 'error');
             }
-
         } catch (error) {
-            console.error('[令牌操作] 切换令牌状态异常:', error);
-            this.showAlert('切换令牌状态失败，请检查网络连接', 'error');
+            console.error('切换令牌状态失败:', error);
+            this.showAlert('操作失败，请检查网络连接', 'error');
         }
     }
 
     // 删除令牌
     async deleteToken(siteId, tokenId, tokenName) {
-        if (!confirm(`确定要删除令牌"${tokenName || tokenId}"吗？\n\n此操作不可撤销！`)) {
+        if (!confirm(`确定要删除令牌"${tokenName}"吗？\n\n此操作无法撤销！`)) {
             return;
         }
 
         try {
-            console.log(`[令牌操作] 开始删除令牌 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
             this.showAlert('正在删除令牌...', 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens/${tokenId}`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
 
-            console.log(`[令牌操作] 删除请求响应状态: ${response.status}`);
             const result = await response.json();
-            console.log(`[令牌操作] 删除请求响应结果:`, result);
 
             if (result.success) {
-                console.log(`[令牌操作] 删除成功`);
                 this.showAlert('令牌删除成功', 'success');
                 // 重新检查站点以获取最新令牌状态
                 await this.checkSite(siteId, '站点');
             } else {
-                console.error(`[令牌操作] 删除失败: ${result.message}`);
                 this.showAlert(`删除令牌失败: ${result.message}`, 'error');
             }
-
         } catch (error) {
-            console.error('[令牌操作] 删除令牌异常:', error);
+            console.error('删除令牌失败:', error);
             this.showAlert('删除令牌失败，请检查网络连接', 'error');
         }
     }
 
     // 全部删除令牌
     async deleteAllTokens(siteId) {
-        console.log(`[令牌操作] 准备删除所有令牌，站点ID: ${siteId}`);
         if (!confirm('确定要删除该站点的所有令牌吗？\n\n此操作将删除所有令牌且无法撤销！\n请谨慎操作！')) {
-            console.log(`[令牌操作] 用户取消了删除操作`);
             return;
         }
 
         try {
-            console.log(`[令牌操作] 发送删除请求到 /api/sites/${siteId}/tokens/deleteAll`);
             this.showAlert('正在删除所有令牌...', 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/tokens/deleteAll`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
 
-            console.log(`[令牌操作] 删除请求响应状态: ${response.status}`);
             const result = await response.json();
-            console.log(`[令牌操作] 删除请求响应结果:`, result);
 
             if (result.success) {
-                console.log(`[令牌操作] 删除成功: ${result.message}`);
                 this.showAlert(result.message || '所有令牌删除成功', 'success');
                 // 重新检查站点以获取最新令牌状态
                 await this.checkSite(siteId, '站点');
             } else {
-                console.error(`[令牌操作] 删除失败: ${result.message}`);
                 this.showAlert(`删除失败: ${result.message}`, 'error');
             }
         } catch (error) {
-            console.error('[令牌操作] 批量删除令牌异常:', error);
+            console.error('批量删除令牌失败:', error);
             this.showAlert('批量删除失败，请检查网络连接', 'error');
         }
     }
 
     // 修正自动创建令牌方法
     async autoCreateTokens(siteId) {
-        console.log(`[令牌操作] 开始自动创建令牌，站点ID: ${siteId}`);
         try {
-            console.log(`[令牌操作] 发送自动创建请求到 /api/sites/${siteId}/tokens/autoCreate`);
             this.showAlert('正在自动创建令牌...', 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/tokens/autoCreate`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens/auto-create`, {
                 method: 'POST',
                 credentials: 'include'
             });
 
-            console.log(`[令牌操作] 自动创建请求响应状态: ${response.status}`);
             const result = await response.json();
-            console.log(`[令牌操作] 自动创建请求响应结果:`, result);
 
             if (result.success) {
-                console.log(`[令牌操作] 自动创建成功: ${result.message}`);
                 this.showAlert(result.message || '自动创建令牌完成', 'success');
                 // 重新检查站点以获取最新令牌状态
                 await this.checkSite(siteId, '站点');
             } else {
-                console.error(`[令牌操作] 自动创建失败: ${result.message}`);
                 this.showAlert(`自动创建失败: ${result.message}`, 'error');
             }
         } catch (error) {
-            console.error('[令牌操作] 自动创建令牌异常:', error);
+            console.error('自动创建令牌失败:', error);
             this.showAlert('自动创建令牌失败，请检查网络连接', 'error');
         }
     }
 
     // 修正刷新令牌方法 - 仅重新检查站点
     async refreshTokens(siteId) {
-        console.log(`[令牌操作] 开始刷新令牌列表，站点ID: ${siteId}`);
         try {
-            console.log(`[令牌操作] 发送刷新请求到 /api/sites/${siteId}/check`);
             this.showAlert('正在刷新令牌列表...', 'info');
             
             // 直接检查站点获取最新令牌信息
@@ -1639,57 +1740,18 @@ class ApiSiteManager {
                 credentials: 'include'
             });
             
-            console.log(`[令牌操作] 刷新请求响应状态: ${response.status}`);
             const result = await response.json();
-            console.log(`[令牌操作] 刷新请求响应结果:`, result);
             
             if (result.success) {
-                console.log(`[令牌操作] 刷新成功，更新站点列表`);
                 this.showAlert('令牌列表刷新成功', 'success');
                 // 刷新站点列表显示最新信息
                 this.loadApiSites();
             } else {
-                console.error(`[令牌操作] 刷新失败: ${result.message}`);
                 this.showAlert(`刷新失败: ${result.message}`, 'error');
             }
         } catch (error) {
-            console.error('[令牌操作] 刷新令牌列表异常:', error);
+            console.error('刷新令牌列表失败:', error);
             this.showAlert('刷新令牌列表失败，请检查网络连接', 'error');
-        }
-    }
-
-    // 刷新模型列表
-    async refreshModels(siteId) {
-        console.log(`[模型操作] 开始刷新模型列表，站点ID: ${siteId}`);
-        try {
-            console.log(`[模型操作] 发送刷新请求到 /api/sites/${siteId}/check`);
-            this.showAlert('正在刷新模型列表...', 'info');
-            
-            const response = await fetch(`/api/sites/${siteId}/check`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ refreshModelsOnly: true }), // 指定只刷新模型
-                credentials: 'include'
-            });
-            
-            console.log(`[模型操作] 刷新请求响应状态: ${response.status}`);
-            const result = await response.json();
-            console.log(`[模型操作] 刷新请求响应结果:`, result);
-            
-            if (result.success) {
-                console.log(`[模型操作] 刷新成功，更新站点列表`);
-                this.showAlert('模型列表刷新成功', 'success');
-                // 只刷新站点列表显示最新的模型信息，不重新获取整个数据
-                this.loadApiSites();
-            } else {
-                console.error(`[模型操作] 刷新失败: ${result.message}`);
-                this.showAlert(`模型刷新失败: ${result.message}`, 'error');
-            }
-        } catch (error) {
-            console.error('[模型操作] 刷新模型列表异常:', error);
-            this.showAlert('刷新模型列表失败，请检查网络连接', 'error');
         }
     }
 }
