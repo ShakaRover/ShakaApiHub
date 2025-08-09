@@ -574,15 +574,7 @@ class DatabaseConfig {
                 })
             },
             
-            // 检测日志相关语句
-            insertCheckLog: {
-                run: (siteId, status, message, responseData) => new Promise((resolve, reject) => {
-                    this.db.run('INSERT INTO site_check_logs (site_id, status, message, response_data) VALUES (?, ?, ?, ?)', [siteId, status, message, responseData], function(err) {
-                        if (err) reject(err);
-                        else resolve({ lastID: this.lastID, changes: this.changes });
-                    });
-                })
-            },
+            // 检测日志相关语句 - 已迁移到LogService统一管理
             findCheckLogsBySiteId: {
                 all: (siteId) => new Promise((resolve, reject) => {
                     this.db.all('SELECT * FROM site_check_logs WHERE site_id = ? ORDER BY check_time DESC LIMIT 10', [siteId], (err, rows) => {
