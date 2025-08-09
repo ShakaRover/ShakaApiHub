@@ -1,11 +1,13 @@
 const cron = require('node-cron');
 const databaseConfig = require('../config/database');
 const SiteCheckService = require('./SiteCheckService');
+const LogService = require('./LogService');
 
 class ScheduledCheckService {
     constructor() {
         this.statements = databaseConfig.getStatements();
         this.siteCheckService = new SiteCheckService();
+        this.logService = new LogService();
         this.scheduledTask = null;
         this.isRunning = false;
         
@@ -449,16 +451,11 @@ class ScheduledCheckService {
                 ...summary
             };
 
-            // 插入到系统日志表（创建一个简单的系统日志表）
-            await this.createSystemLogsTable();
-            
-            this.db.prepare(`
-                INSERT INTO system_logs (type, message, data) 
-                VALUES (?, ?, ?)
-            `).run(
+            // 使用LogService统一记录系统日志
+            await this.logService.logSystem(
                 'scheduled_check', 
                 `定时检测完成: 总数${summary.total}, 成功${summary.success}, 失败${summary.error}, 耗时${summary.duration}秒`,
-                JSON.stringify(logData)
+                logData
             );
 
         } catch (error) {
@@ -471,19 +468,17 @@ class ScheduledCheckService {
      */
     async logScheduledCheckError(errorMessage) {
         try {
-            await this.createSystemLogsTable();
+            const logData = {
+                type: 'scheduled_check_error',
+                timestamp: new Date().toISOString(),
+                error: errorMessage
+            };
             
-            this.db.prepare(`
-                INSERT INTO system_logs (type, message, data) 
-                VALUES (?, ?, ?)
-            `).run(
+            // 使用LogService统一记录系统日志
+            await this.logService.logSystem(
                 'scheduled_check_error', 
                 `定时检测执行失败: ${errorMessage}`,
-                JSON.stringify({
-                    type: 'scheduled_check_error',
-                    timestamp: new Date().toISOString(),
-                    error: errorMessage
-                })
+                logData
             );
 
         } catch (error) {
@@ -492,80 +487,47 @@ class ScheduledCheckService {
     }
 
     /**
-     * 创建系统日志表
-     */
-    async createSystemLogsTable() {
-        try {
-            const createTable = `
-                CREATE TABLE IF NOT EXISTS system_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    type TEXT NOT NULL,
-                    message TEXT NOT NULL,
-                    data TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            `;
-
-            const createIndex = `
-                CREATE INDEX IF NOT EXISTS idx_system_logs_type ON system_logs(type)
-            `;
-
-            const createTimeIndex = `
-                CREATE INDEX IF NOT EXISTS idx_system_logs_time ON system_logs(created_at)
-            `;
-
-            this.db.exec(createTable);
-            this.db.exec(createIndex);
-            this.db.exec(createTimeIndex);
-
-        } catch (error) {
-            // 忽略创建系统日志表的错误，不应影响主要功能
-            console.warn('创建系统日志表失败:', error.message);
-        }
-    }
-
-    /**
      * 获取检测历史
      */
     async getCheckHistory(limit = 50) {
-        return new Promise((resolve) => {
-            this.createSystemLogsTable().then(() => {
-                this.db.all(`
-                    SELECT * FROM system_logs 
-                    WHERE type IN ('scheduled_check', 'scheduled_check_error')
-                    ORDER BY created_at DESC 
-                    LIMIT ?
-                `, [limit], (err, logs) => {
-                    if (err) {
-                        console.error('获取检测历史失败:', err.message);
-                        resolve({
-                            success: false,
-                            message: err.message,
-                            data: []
-                        });
-                        return;
-                    }
-
-                    resolve({
-                        success: true,
-                        data: (logs || []).map(log => ({
-                            id: log.id,
-                            type: log.type,
-                            message: log.message,
-                            data: log.data ? JSON.parse(log.data) : null,
-                            timestamp: log.created_at
-                        }))
-                    });
-                });
-            }).catch(error => {
-                console.error('创建系统日志表失败:', error.message);
-                resolve({
-                    success: false,
-                    message: error.message,
-                    data: []
-                });
+        try {
+            // 使用LogService获取系统日志，过滤定时检测相关的日志
+            const result = await this.logService.getSystemLogs({
+                limit: limit,
+                offset: 0
             });
-        });
+
+            if (!result.success) {
+                return {
+                    success: false,
+                    message: result.message,
+                    data: []
+                };
+            }
+
+            // 过滤出定时检测相关的日志
+            const checkLogs = result.data.filter(log => 
+                log.type === 'scheduled_check' || log.type === 'scheduled_check_error'
+            );
+
+            return {
+                success: true,
+                data: checkLogs.map(log => ({
+                    id: log.id,
+                    type: log.type,
+                    message: log.message,
+                    data: log.data,
+                    timestamp: log.created_at
+                }))
+            };
+        } catch (error) {
+            console.error('获取检测历史失败:', error.message);
+            return {
+                success: false,
+                message: error.message,
+                data: []
+            };
+        }
     }
 }
 
