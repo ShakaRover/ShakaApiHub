@@ -288,11 +288,22 @@ class LogService {
                         return;
                     }
 
-                    // 解析details字段
-                    const parsedLogs = (logs || []).map(log => ({
-                        ...log,
-                        details: log && log.details ? JSON.parse(log.details) : null
-                    }));
+                    // 解析details字段，安全处理JSON解析
+                    const parsedLogs = (logs || []).map(log => {
+                        let parsedDetails = null;
+                        if (log && log.details) {
+                            try {
+                                parsedDetails = JSON.parse(log.details);
+                            } catch (e) {
+                                // 如果不是有效JSON，保持原字符串
+                                parsedDetails = log.details;
+                            }
+                        }
+                        return {
+                            ...log,
+                            details: parsedDetails
+                        };
+                    });
 
                     resolve({
                         success: true,
@@ -531,11 +542,22 @@ class LogService {
                         return;
                     }
 
-                    // 解析details字段
-                    const parsedLogs = (logs || []).map(log => ({
-                        ...log,
-                        details: log && log.details ? JSON.parse(log.details) : null
-                    }));
+                    // 解析details字段，安全处理JSON解析
+                    const parsedLogs = (logs || []).map(log => {
+                        let parsedDetails = null;
+                        if (log && log.details) {
+                            try {
+                                parsedDetails = JSON.parse(log.details);
+                            } catch (e) {
+                                // 如果不是有效JSON，保持原字符串
+                                parsedDetails = log.details;
+                            }
+                        }
+                        return {
+                            ...log,
+                            details: parsedDetails
+                        };
+                    });
 
                     resolve({
                         success: true,
@@ -618,11 +640,22 @@ class LogService {
                         return;
                     }
 
-                    // 解析details字段
-                    const parsedLogs = (logs || []).map(log => ({
-                        ...log,
-                        details: log && log.details ? JSON.parse(log.details) : null
-                    }));
+                    // 解析details字段，安全处理JSON解析
+                    const parsedLogs = (logs || []).map(log => {
+                        let parsedDetails = null;
+                        if (log && log.details) {
+                            try {
+                                parsedDetails = JSON.parse(log.details);
+                            } catch (e) {
+                                // 如果不是有效JSON，保持原字符串
+                                parsedDetails = log.details;
+                            }
+                        }
+                        return {
+                            ...log,
+                            details: parsedDetails
+                        };
+                    });
 
                     resolve({
                         success: true,
