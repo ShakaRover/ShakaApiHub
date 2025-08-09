@@ -162,6 +162,31 @@ class LogService {
         }
     }
 
+    // 记录站点检测日志
+    async logSiteCheck(siteId, status, message, responseData = null) {
+        try {
+            if (!this.db) {
+                this.db = await logDatabaseConfig.getDatabase();
+            }
+            
+            this.db.run(`
+                INSERT INTO site_check_logs (site_id, status, message, response_data) 
+                VALUES (?, ?, ?, ?)
+            `, [
+                siteId,
+                status,
+                message,
+                responseData ? JSON.stringify(responseData) : null
+            ], (err) => {
+                if (err) {
+                    console.error('记录站点检测日志失败:', err.message);
+                }
+            });
+        } catch (error) {
+            console.error('记录站点检测日志失败:', error.message);
+        }
+    }
+
     // 获取系统日志
     async getSystemLogs(options = {}) {
         return new Promise((resolve) => {

@@ -622,17 +622,8 @@ class SiteCheckService {
     // 记录检测日志
     async logCheckResult(siteId, status, message, responseData) {
         try {
-            // 使用日志服务记录到独立的log.db
-            const logDb = await require('../config/logDatabase').getDatabase();
-            logDb.run(
-                'INSERT INTO site_check_logs (site_id, status, message, response_data) VALUES (?, ?, ?, ?)',
-                [siteId, status, message, responseData],
-                (err) => {
-                    if (err) {
-                        console.error('记录检测日志失败:', err.message);
-                    }
-                }
-            );
+            // 使用LogService统一记录站点检测日志
+            await this.logService.logSiteCheck(siteId, status, message, responseData);
         } catch (error) {
             console.error('记录检测日志失败:', error.message);
         }
@@ -726,17 +717,8 @@ class SiteCheckService {
                 message: message
             };
 
-            // 使用日志服务记录到独立的log.db
-            const logDb = await require('../config/logDatabase').getDatabase();
-            logDb.run(
-                'INSERT INTO site_check_logs (site_id, status, message, response_data) VALUES (?, ?, ?, ?)',
-                [siteId, status, `[签到] ${message}`, JSON.stringify(logData)],
-                (err) => {
-                    if (err) {
-                        console.error('记录签到日志失败:', err.message);
-                    }
-                }
-            );
+            // 使用LogService统一记录签到日志
+            await this.logService.logSiteCheck(siteId, status, `[签到] ${message}`, logData);
             console.log(`📝 已记录站点 ${siteId} 的签到日志: ${status} - ${message}`);
         } catch (error) {
             console.error('记录签到日志失败:', error.message);
