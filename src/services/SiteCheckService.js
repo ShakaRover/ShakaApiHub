@@ -942,36 +942,57 @@ class SiteCheckService {
                 };
             }
 
-            // 兼容两种不同的响应格式
+            // 兼容多种不同的响应格式
             let tokensList = null;
             let tokensCount = 0;
+            let formatUsed = '';
 
             // 格式1: data.data.records (分页格式)
             if (data.data && data.data.records && Array.isArray(data.data.records)) {
                 tokensList = data.data.records;
                 tokensCount = data.data.records.length;
+                formatUsed = 'data.data.records';
                 console.log('令牌列表使用格式1: data.data.records');
             }
             // 格式2: data.data.items (简单格式)
             else if (data.data && data.data.items && Array.isArray(data.data.items)) {
                 tokensList = data.data.items;
                 tokensCount = data.data.items.length;
+                formatUsed = 'data.data.items';
                 console.log('令牌列表使用格式2: data.data.items');
+            }
+            // 格式3: data.data (数组直接在data.data内，新格式)
+            else if (data.data && Array.isArray(data.data)) {
+                tokensList = data.data;
+                tokensCount = data.data.length;
+                formatUsed = 'data.data';
+                console.log('令牌列表使用格式3: data.data (数组格式)');
             }
             // 格式不匹配
             else {
-                console.error('令牌列表数据格式不匹配，期望 data.data.records 或 data.data.items');
+                console.error('令牌列表数据格式不匹配，期望以下格式之一：data.data.records、data.data.items 或 data.data (数组)');
+                console.error('实际接收到的数据结构:', JSON.stringify(data.data, null, 2));
                 return {
                     success: false,
-                    message: '令牌列表数据格式异常',
+                    message: '令牌列表数据格式异常，请检查API响应格式',
                     data: null
                 };
             }
 
             return {
                 success: true,
-                message: `获取到${tokensCount}个令牌`,
-                data: tokensList
+                message: `获取到${tokensCount}个令牌 (使用${formatUsed}格式)`,
+                data: tokensList,
+                metadata: {
+                    format: formatUsed,
+                    count: tokensCount,
+                    // 如果是新格式，还可能包含分页信息
+                    pagination: data.data?.page ? {
+                        page: data.data.page,
+                        size: data.data.size,
+                        total_count: data.data.total_count
+                    } : null
+                }
             };
 
         } catch (error) {

@@ -1508,6 +1508,7 @@ class ApiSiteManager {
                             <th>密钥</th>
                             <th>状态</th>
                             <th>剩余限额</th>
+                            <th>模型组</th>
                             <th>创建时间</th>
                             <th>过期时间</th>
                             <th>操作</th>
@@ -1517,15 +1518,55 @@ class ApiSiteManager {
         `;
         
         tokensList.forEach(token => {
-            const quotaDisplay = token.model_limits_enabled === false ? '无限制' : 
-                `${(token.remain_quota / 500000).toFixed(2)}`;
+            // 兼容不同的配额字段名和计算方式
+            let quotaDisplay = '未知';
+            if (token.unlimited_quota === true) {
+                quotaDisplay = '无限制';
+            } else if (token.model_limits_enabled === false) {
+                quotaDisplay = '无限制';
+            } else if (typeof token.remain_quota === 'number') {
+                // 支持不同的配额单位计算
+                const quota = token.remain_quota;
+                if (quota >= 500000) {
+                    // 如果大于等于500000，按照原有逻辑除以500000
+                    quotaDisplay = `${(quota / 500000).toFixed(2)} 刀`;
+                } else if (quota >= 1000) {
+                    // 如果大于等于1000，可能是以分为单位，除以1000
+                    quotaDisplay = `${(quota / 1000).toFixed(2)} 刀`;
+                } else {
+                    // 直接显示数值
+                    quotaDisplay = `${quota} 点`;
+                }
+            }
             
             const statusDisplay = token.status === 1 ? '启用' : '禁用';
             const statusClass = token.status === 1 ? 'status-enabled' : 'status-disabled';
             
-            const createdTime = new Date(token.created_time * 1000).toLocaleString('zh-CN');
-            const expiredTime = token.expired_time === -1 ? '永不过期' : 
-                new Date(token.expired_time * 1000).toLocaleString('zh-CN');
+            // 支持不同的时间戳格式
+            let createdTime = '未知';
+            if (token.created_time) {
+                if (token.created_time > 1000000000000) {
+                    // 毫秒时间戳
+                    createdTime = new Date(token.created_time).toLocaleString('zh-CN');
+                } else {
+                    // 秒时间戳
+                    createdTime = new Date(token.created_time * 1000).toLocaleString('zh-CN');
+                }
+            }
+            
+            let expiredTime = '永不过期';
+            if (token.expired_time && token.expired_time !== -1) {
+                if (token.expired_time > 1000000000000) {
+                    // 毫秒时间戳
+                    expiredTime = new Date(token.expired_time).toLocaleString('zh-CN');
+                } else {
+                    // 秒时间戳
+                    expiredTime = new Date(token.expired_time * 1000).toLocaleString('zh-CN');
+                }
+            }
+            
+            // 支持新的group字段
+            const groupDisplay = token.group || '默认组';
             
             tableHtml += `
                 <tr>
@@ -1538,7 +1579,8 @@ class ApiSiteManager {
                     <td class="token-status-cell">
                         <span class="token-status ${statusClass}">${statusDisplay}</span>
                     </td>
-                    <td class="token-quota-cell">${quotaDisplay}${token.model_limits_enabled !== false ? ' 刀' : ''}</td>
+                    <td class="token-quota-cell">${quotaDisplay}</td>
+                    <td class="token-group-cell" title="模型组: ${this.escapeHtml(groupDisplay)}">${this.escapeHtml(groupDisplay)}</td>
                     <td class="token-time-cell">${createdTime}</td>
                     <td class="token-time-cell">${expiredTime}</td>
                     <td class="token-actions-cell">
