@@ -58,6 +58,8 @@ class LogDatabaseConfig {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     action TEXT NOT NULL,
+                    resource_type TEXT,
+                    resource_id TEXT,
                     details TEXT,
                     ip_address TEXT,
                     user_agent TEXT,
