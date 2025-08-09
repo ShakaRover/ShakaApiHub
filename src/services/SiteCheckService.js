@@ -961,16 +961,23 @@ class SiteCheckService {
                 formatUsed = 'data.data.items';
                 console.log('令牌列表使用格式2: data.data.items');
             }
-            // 格式3: data.data (数组直接在data.data内，新格式)
+            // 格式3: data.data.data (新嵌套格式)
+            else if (data.data && data.data.data && Array.isArray(data.data.data)) {
+                tokensList = data.data.data;
+                tokensCount = data.data.data.length;
+                formatUsed = 'data.data.data';
+                console.log('令牌列表使用格式3: data.data.data (新嵌套格式)');
+            }
+            // 格式4: data.data (数组直接在data.data内)
             else if (data.data && Array.isArray(data.data)) {
                 tokensList = data.data;
                 tokensCount = data.data.length;
                 formatUsed = 'data.data';
-                console.log('令牌列表使用格式3: data.data (数组格式)');
+                console.log('令牌列表使用格式4: data.data (数组格式)');
             }
             // 格式不匹配
             else {
-                console.error('令牌列表数据格式不匹配，期望以下格式之一：data.data.records、data.data.items 或 data.data (数组)');
+                console.error('令牌列表数据格式不匹配，期望以下格式之一：data.data.records、data.data.items、data.data.data 或 data.data (数组)');
                 console.error('实际接收到的数据结构:', JSON.stringify(data.data, null, 2));
                 return {
                     success: false,
