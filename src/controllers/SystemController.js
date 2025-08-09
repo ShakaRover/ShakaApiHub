@@ -1,5 +1,4 @@
 const configService = require('../services/ConfigService');
-const RateLimitService = require('../services/RateLimitService');
 const { logCleanupService } = require('../services/LogCleanupService');
 const { systemSettingsService } = require('../services/SystemSettingsService');
 const { timezoneManager } = require('../utils/TimezoneManager');
@@ -211,120 +210,8 @@ class SystemController {
         }
     }
 
-    // 获取速率限制配置
-    async getRateLimitConfig(req, res) {
-        try {
-            const config = await RateLimitService.getCurrentConfig();
-            res.json({
-                success: true,
-                data: config
-            });
-        } catch (error) {
-            console.error('获取速率限制配置失败:', error);
-            res.status(500).json({
-                success: false,
-                message: '获取速率限制配置失败'
-            });
-        }
-    }
 
-    // 更新速率限制配置
-    async updateRateLimitConfig(req, res) {
-        try {
-            const { rateLimiting } = req.body;
 
-            // 验证输入数据
-            if (!rateLimiting || typeof rateLimiting !== 'object') {
-                return res.status(400).json({
-                    success: false,
-                    message: '速率限制配置格式错误'
-                });
-            }
-
-            if (!rateLimiting.general || !rateLimiting.login) {
-                return res.status(400).json({
-                    success: false,
-                    message: '缺少必要的速率限制配置'
-                });
-            }
-
-            // 验证数值范围
-            const { general, login } = rateLimiting;
-            
-            if (!Number.isInteger(general.windowMs) || general.windowMs < 60000 || general.windowMs > 3600000) {
-                return res.status(400).json({
-                    success: false,
-                    message: '一般请求时间窗口必须在1-60分钟之间'
-                });
-            }
-
-            if (!Number.isInteger(general.maxRequests) || general.maxRequests < 10 || general.maxRequests > 1000) {
-                return res.status(400).json({
-                    success: false,
-                    message: '一般请求最大次数必须在10-1000之间'
-                });
-            }
-
-            if (!Number.isInteger(login.windowMs) || login.windowMs < 60000 || login.windowMs > 3600000) {
-                return res.status(400).json({
-                    success: false,
-                    message: '登录尝试时间窗口必须在1-60分钟之间'
-                });
-            }
-
-            if (!Number.isInteger(login.maxAttempts) || login.maxAttempts < 3 || login.maxAttempts > 50) {
-                return res.status(400).json({
-                    success: false,
-                    message: '登录最大尝试次数必须在3-50之间'
-                });
-            }
-
-            const result = await RateLimitService.updateRateLimitConfig(rateLimiting);
-            
-            if (result.success) {
-                res.json({
-                    success: true,
-                    message: result.message,
-                    data: {
-                        requiresRestart: result.requiresRestart
-                    }
-                });
-            } else {
-                res.status(500).json({
-                    success: false,
-                    message: result.message
-                });
-            }
-        } catch (error) {
-            console.error('更新速率限制配置失败:', error);
-            res.status(500).json({
-                success: false,
-                message: '更新速率限制配置失败'
-            });
-        }
-    }
-
-    // 获取速率限制状态统计
-    async getRateLimitStats(req, res) {
-        try {
-            const stats = RateLimitService.getRateLimitStats();
-            const config = await RateLimitService.getCurrentConfig();
-            
-            res.json({
-                success: true,
-                data: {
-                    ...stats,
-                    config
-                }
-            });
-        } catch (error) {
-            console.error('获取速率限制统计失败:', error);
-            res.status(500).json({
-                success: false,
-                message: '获取速率限制统计失败'
-            });
-        }
-    }
 
     // 获取API类型配置信息
     async getApiTypes(req, res) {

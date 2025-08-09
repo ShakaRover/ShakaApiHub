@@ -206,20 +206,6 @@ class SystemManager {
             logRetentionDays.value = this.config.logRetentionDays;
         }
 
-        // 速率限制
-        if (this.config.rateLimiting) {
-            const { general, login } = this.config.rateLimiting;
-            
-            if (general) {
-                document.getElementById('generalTimeWindow').value = Math.floor(general.windowMs / (60 * 1000));
-                document.getElementById('generalMaxRequests').value = general.maxRequests;
-            }
-            
-            if (login) {
-                document.getElementById('loginTimeWindow').value = Math.floor(login.windowMs / (60 * 1000));
-                document.getElementById('loginMaxAttempts').value = login.maxAttempts;
-            }
-        }
     }
 
     // 绑定事件
@@ -234,12 +220,6 @@ class SystemManager {
         document.getElementById('logConfigForm').addEventListener('submit', (e) => {
             e.preventDefault();
             this.saveLogConfig();
-        });
-
-        // 速率限制配置表单
-        document.getElementById('rateLimitForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.saveRateLimitConfig();
         });
 
         // 日志清理相关事件
@@ -346,74 +326,6 @@ class SystemManager {
         }
     }
 
-    // 保存速率限制配置
-    async saveRateLimitConfig() {
-        const generalTimeWindow = parseInt(document.getElementById('generalTimeWindow').value);
-        const generalMaxRequests = parseInt(document.getElementById('generalMaxRequests').value);
-        const loginTimeWindow = parseInt(document.getElementById('loginTimeWindow').value);
-        const loginMaxAttempts = parseInt(document.getElementById('loginMaxAttempts').value);
-
-        if (!generalTimeWindow || !generalMaxRequests || !loginTimeWindow || !loginMaxAttempts) {
-            this.showAlert('请填写所有必填字段', 'error');
-            return;
-        }
-
-        if (generalTimeWindow < 1 || generalTimeWindow > 60) {
-            this.showAlert('一般请求时间窗口必须在1-60分钟之间', 'error');
-            return;
-        }
-
-        if (generalMaxRequests < 10 || generalMaxRequests > 1000) {
-            this.showAlert('一般请求最大次数必须在10-1000之间', 'error');
-            return;
-        }
-
-        if (loginTimeWindow < 1 || loginTimeWindow > 60) {
-            this.showAlert('登录尝试时间窗口必须在1-60分钟之间', 'error');
-            return;
-        }
-
-        if (loginMaxAttempts < 3 || loginMaxAttempts > 50) {
-            this.showAlert('登录最大尝试次数必须在3-50之间', 'error');
-            return;
-        }
-
-        const rateLimiting = {
-            general: {
-                windowMs: generalTimeWindow * 60 * 1000,
-                maxRequests: generalMaxRequests
-            },
-            login: {
-                windowMs: loginTimeWindow * 60 * 1000,
-                maxAttempts: loginMaxAttempts
-            }
-        };
-
-        try {
-            const response = await fetch('/api/system/rate-limit/config', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ rateLimiting })
-            });
-
-            const result = await response.json();
-            if (result.success) {
-                this.showAlert('速率限制配置保存成功', 'success');
-                if (result.data.requiresRestart) {
-                    this.showAlert('配置已保存，重启服务后生效', 'warning');
-                }
-                // 重新加载配置
-                await this.loadConfig();
-            } else {
-                this.showAlert(`保存失败: ${result.message}`, 'error');
-            }
-        } catch (error) {
-            console.error('保存速率限制配置失败:', error);
-            this.showAlert('保存速率限制配置失败，请检查网络连接', 'error');
-        }
-    }
 
     // 重置时区为默认值
     resetTimezone() {
@@ -421,14 +333,6 @@ class SystemManager {
         this.showAlert('已重置为默认时区', 'info');
     }
 
-    // 重置速率限制为默认值
-    resetRateLimits() {
-        document.getElementById('generalTimeWindow').value = 5;
-        document.getElementById('generalMaxRequests').value = 200;
-        document.getElementById('loginTimeWindow').value = 5;
-        document.getElementById('loginMaxAttempts').value = 10;
-        this.showAlert('已重置为默认速率限制', 'info');
-    }
 
     // 显示提示信息
     showAlert(message, type = 'info') {

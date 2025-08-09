@@ -712,41 +712,6 @@
                     </div>
                 </div>
 
-                <!-- 速率限制配置 -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">速率限制配置</h3>
-                        <p class="card-subtitle">配置API请求和登录尝试限制</p>
-                    </div>
-                    <div class="card-body">
-                        <form id="rateLimitForm">
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label for="generalTimeWindow" class="form-label">一般请求时间窗口 (分钟)</label>
-                                    <input type="number" id="generalTimeWindow" class="form-control" min="1" max="60" required>
-                                </div>
-                                <div class="form-group col-md-6">
-                                    <label for="generalMaxRequests" class="form-label">一般请求最大次数</label>
-                                    <input type="number" id="generalMaxRequests" class="form-control" min="10" max="1000" required>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label for="loginTimeWindow" class="form-label">登录尝试时间窗口 (分钟)</label>
-                                    <input type="number" id="loginTimeWindow" class="form-control" min="1" max="60" required>
-                                </div>
-                                <div class="form-group col-md-6">
-                                    <label for="loginMaxAttempts" class="form-label">登录最大尝试次数</label>
-                                    <input type="number" id="loginMaxAttempts" class="form-control" min="3" max="50" required>
-                                </div>
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">保存速率限制</button>
-                                <button type="button" class="btn btn-secondary" onclick="systemManager.resetRateLimits()">恢复默认</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
             </div>
 
             <!-- 日志管理页面 -->

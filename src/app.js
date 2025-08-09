@@ -8,7 +8,6 @@ const sessionConfig = require('./config/session');
 const databaseConfig = require('./config/database');
 const logDatabaseConfig = require('./config/logDatabase');
 const configService = require('./services/ConfigService');
-const RateLimitService = require('./services/RateLimitService');
 const BackupService = require('./services/BackupService');
 const ScheduledCheckService = require('./services/ScheduledCheckService');
 const { logCleanupService } = require('./services/LogCleanupService');
@@ -49,10 +48,6 @@ async function startApp() {
             credentials: true
         }));
 
-        // 初始化并应用速率限制器
-        const rateLimiters = await RateLimitService.initRateLimiters(app);
-        app.use('/api', rateLimiters.generalLimiter);
-        app.use('/api/auth/login', rateLimiters.authLimiter);
 
         app.use(express.json({ limit: '10mb' }));
         app.use(express.urlencoded({ extended: true, limit: '10mb' }));

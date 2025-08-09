@@ -656,8 +656,8 @@ class ApiSiteService {
                 };
             }
 
-            // 构建令牌状态切换API URL
-            const toggleUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}/status`;
+            // 构建令牌状态切换API URL (修正为规范路径)
+            const toggleUrl = `${site.url.replace(/\/$/, '')}/api/token/?status_only=true`;
             
             // 准备请求头
             const headers = {
@@ -697,8 +697,9 @@ class ApiSiteService {
             console.log(`发起令牌状态切换请求: ${toggleUrl}`);
             console.log('新状态:', newStatus);
 
-            // 发送状态切换请求
+            // 发送状态切换请求 (修正请求体为 {id, status})
             const response = await axios.put(toggleUrl, {
+                id: tokenId,
                 status: newStatus
             }, {
                 headers,

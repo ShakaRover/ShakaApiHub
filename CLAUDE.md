@@ -85,7 +85,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     - `bcrypt`: 密码哈希
     - `helmet`: 设置安全的 HTTP 头
     - `express-session`: 会话管理
-    - `express-rate-limit`: API 速率限制
 - **前端**: 原生 HTML/CSS/JavaScript（响应式设计）
 
 ### 核心业务流程
