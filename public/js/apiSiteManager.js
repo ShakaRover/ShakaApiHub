@@ -1028,6 +1028,25 @@ class ApiSiteManager {
             checkStatusTitle = '尚未检测';
         }
         
+        // 当前金额显示（直接使用site_quota，不做计算）
+        const currentQuota = site.site_quota ? site.site_quota.toFixed(2) : '0.00';
+        const usedQuota = site.site_used_quota ? site.site_used_quota.toFixed(2) : '0.00';
+        const quotaDisplay = `
+            <div class="quota-display" title="当前余额: $${currentQuota}, 已用: $${usedQuota}">
+                <span class="remaining-quota">$${currentQuota}</span>
+            </div>
+        `;
+
+        // 站点名称可点击显示
+        const siteNameDisplay = `
+            <div class="site-name-display">
+                <a href="${this.escapeHtml(site.url)}" target="_blank" rel="noopener noreferrer" 
+                   class="site-name-link" title="点击在新窗口打开: ${this.escapeHtml(site.url)}">
+                    ${this.escapeHtml(site.name)}
+                </a>
+            </div>
+        `;
+
         const apiTypeBadge = `<span class="api-type-badge api-type-${site.api_type.toLowerCase()}">${site.api_type}</span>`;
         const statusBadge = this.createTemplate('statusBadge', { 
             enabled: Boolean(site.enabled)
@@ -1062,8 +1081,8 @@ class ApiSiteManager {
                         ${apiTypeBadge}
                     </div>
                 </td>
-                <td>${this.escapeHtml(site.name)}</td>
-                <td><a href="${this.escapeHtml(site.url)}" target="_blank" rel="noopener noreferrer" class="api-url" title="点击在新窗口打开: ${this.escapeHtml(site.url)}">${this.escapeHtml(site.url)}</a></td>
+                <td>${siteNameDisplay}</td>
+                <td>${quotaDisplay}</td>
                 <td>${statusBadge}</td>
                 <td>${checkinBadge}</td>
                 <td class="check-time-cell">${checkTimeDisplay}</td>

@@ -1380,8 +1380,49 @@ body {
         grid-template-columns: 1fr;
         gap: 0.5rem;
     }
-}/*
- 邀请码容器样式 */
+}/* 站点名称链接样式 */
+.site-name-display {
+    display: flex;
+    align-items: center;
+}
+
+.site-name-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+}
+
+.site-name-link:hover {
+    color: var(--primary-hover);
+    background-color: rgba(102, 126, 234, 0.1);
+    text-decoration: underline;
+    transform: translateY(-1px);
+}
+
+.site-name-link:active {
+    transform: translateY(0);
+}
+
+/* 配额显示样式 */
+.quota-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.875rem;
+    line-height: 1.3;
+}
+
+.remaining-quota {
+    font-weight: 600;
+    color: var(--success-color);
+    font-size: 0.9rem;
+}
+
+/* 邀请码容器样式 */
 .aff-code-container {
     display: inline-flex;
     align-items: center;
