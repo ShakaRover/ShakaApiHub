@@ -847,7 +847,7 @@ class ApiSiteService {
             }
 
             // 首先获取令牌列表
-            const tokenListUrl = `${site.url.replace(/\/$/, '')}/api/token/?p=1&size=100`;
+            const tokenListUrl = `${site.url.replace(/\/$/, '')}/api/token/?p=0&size=10`;
             
             // 准备请求头
             const headers = {

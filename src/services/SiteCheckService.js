@@ -861,7 +861,7 @@ class SiteCheckService {
     // 获取令牌列表
     async getTokensList(siteUrl, cookies, sessions, site) {
         try {
-            const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/token/?p=1&size=10`;
+            const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/token/?p=0&size=10`;
             console.log(`正在请求令牌列表API: ${apiUrl}`);
 
             const headers = {

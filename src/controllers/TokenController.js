@@ -10,7 +10,6 @@ class TokenController {
     async getTokens(req, res) {
         try {
             const { siteId } = req.params;
-            const { p = 1, size = 10 } = req.query;
             
             // 获取站点信息
             const site = await this.getSiteById(siteId);
@@ -22,7 +21,7 @@ class TokenController {
             }
 
             // 构建请求
-            const result = await this.makeApiRequest(site, `/api/token/?p=${p}&size=${size}`, 'GET');
+            const result = await this.makeApiRequest(site, `/api/token/?p=0&size=10`, 'GET');
             
             if (result.success && result.data && result.data.data && result.data.data.records) {
                 // 记录操作日志
@@ -279,7 +278,7 @@ class TokenController {
             }
 
             // 先获取令牌列表
-            const listResult = await this.makeApiRequest(site, '/api/token/?p=1&size=100', 'GET');
+            const listResult = await this.makeApiRequest(site, '/api/token/?p=0&size=10', 'GET');
             
             if (!listResult.success || !listResult.data.data || !listResult.data.data.records) {
                 return res.status(400).json({
@@ -359,7 +358,7 @@ class TokenController {
             }
 
             // 获取现有令牌列表
-            const tokensResult = await this.makeApiRequest(site, '/api/token/?p=1&size=100', 'GET');
+            const tokensResult = await this.makeApiRequest(site, '/api/token/?p=0&size=10', 'GET');
             const existingTokens = tokensResult.success && tokensResult.data.data && tokensResult.data.data.records 
                 ? tokensResult.data.data.records 
                 : [];
