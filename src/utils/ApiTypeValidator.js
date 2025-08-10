@@ -218,6 +218,16 @@ class ApiTypeValidator {
     }
 
     /**
+     * 检查API类型在指定授权方法下是否需要userId
+     * @param {string} apiType - API类型
+     * @param {string} authMethod - 授权方法
+     * @returns {boolean} 是否需要userId
+     */
+    static requiresUserId(apiType, authMethod) {
+        return requiresUserId(apiType, authMethod);
+    }
+
+    /**
      * 创建验证错误消息（用于用户友好的错误提示）
      * @param {Object} validationResult - 验证结果
      * @param {string} context - 上下文信息（如"站点27"）

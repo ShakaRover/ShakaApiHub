@@ -1,5 +1,6 @@
 /**
- * API类型和授权模式集中配置
+ * API类型和授权模式配置（前端版本）
+ * 与后端 src/config/apiTypes.js 保持一致
  * 遵循DRY原则，避免在多处重复定义
  */
 
@@ -166,7 +167,8 @@ function getDefaultAutoCheckin(apiType) {
     return config ? config.defaultAutoCheckin : false;
 }
 
-module.exports = {
+// 导出供其他模块使用
+window.ApiTypeConfig = {
     API_TYPES,
     AUTH_METHODS,
     getSupportedApiTypes,

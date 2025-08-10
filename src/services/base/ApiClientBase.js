@@ -67,18 +67,30 @@ class ApiClientBase {
 
     /**
      * 根据API类型添加用户头信息
+     * DoneHub类型不需要设置UserId头信息
      * 
      * @param {Object} headers - 请求头对象
      * @param {Object} site - 站点信息对象
      * @param {string} context - 上下文标识（用于日志）
      */
     addApiTypeHeaders(headers, site, context = '') {
-        if (!site || !site.user_id) {
-            console.log(`${context}未提供User ID，跳过用户头信息设置`);
+        if (!site) {
+            console.log(`${context}未提供站点信息，跳过用户头信息设置`);
             return;
         }
 
         const logPrefix = context ? `${context}` : '';
+        
+        // DoneHub类型不需要设置UserId头信息
+        if (site.api_type === 'DoneHub') {
+            console.log(`${logPrefix}DoneHub类型，跳过用户头信息设置`);
+            return;
+        }
+        
+        if (!site.user_id) {
+            console.log(`${context}未提供User ID，跳过用户头信息设置`);
+            return;
+        }
         
         if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
             headers['new-api-user'] = site.user_id;

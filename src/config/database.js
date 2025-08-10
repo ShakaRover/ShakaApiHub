@@ -123,7 +123,7 @@ class DatabaseConfig {
                     this.db.run(`
                         CREATE TABLE api_sites (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi')),
+                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'DoneHub')),
                             name TEXT NOT NULL,
                             url TEXT NOT NULL,
                             auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),
@@ -368,7 +368,7 @@ class DatabaseConfig {
             const createApiSitesTable = `
                 CREATE TABLE IF NOT EXISTS api_sites (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi')),
+                    api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'DoneHub')),
                     name TEXT NOT NULL,
                     url TEXT NOT NULL,
                     auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),

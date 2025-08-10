@@ -425,15 +425,6 @@ class ApiSiteManager {
                 autoCheckinInput.checked = true;
             }
         } else if (apiType === 'Veloera') {
-            // 为Veloera设置默认值和显示签到选项
-            const urlInput = document.getElementById('apiSiteUrl');
-            
-            // 设置默认URL（如果需要的话）
-            if (urlInput && !urlInput.value) {
-                // 可以设置Veloera的默认URL，如果有的话
-                // urlInput.value = 'https://veloera.example.com';
-            }
-            
             // Veloera支持所有授权方式，恢复token选项并设置为默认
             if (authMethodSelect) {
                 const tokenOption = authMethodSelect.querySelector('option[value="token"]');
@@ -458,6 +449,38 @@ class ApiSiteManager {
             }
             if (autoCheckinInput) {
                 autoCheckinInput.checked = true;
+            }
+        } else if (apiType === 'DoneHub') {
+            const urlInput = document.getElementById('apiSiteUrl');
+            // 设置默认URL
+            if (urlInput && !urlInput.value) {
+                urlInput.value = 'https://api.ccode.qzz.io';
+            }
+
+            // DoneHub类型：支持所有授权方式，但不需要User ID字段
+            if (authMethodSelect) {
+                const tokenOption = authMethodSelect.querySelector('option[value="token"]');
+                if (tokenOption) {
+                    tokenOption.disabled = false;
+                    tokenOption.textContent = 'Token';
+                }
+                
+                // 如果没有选择授权方式，设置默认为token
+                if (!authMethodSelect.value) {
+                    authMethodSelect.value = 'token';
+                    this.handleAuthMethodChange('token');
+                } else {
+                    // 重新触发授权方式变更（DoneHub不需要User ID）
+                    this.handleAuthMethodChange(authMethodSelect.value);
+                }
+            }
+            
+            // 隐藏签到选项
+            if (autoCheckinGroup) {
+                autoCheckinGroup.style.display = 'none';
+            }
+            if (autoCheckinInput) {
+                autoCheckinInput.checked = false;
             }
         } else if (apiType === 'NewApi' || !apiType) {
             // NewApi类型或其他未指定类型，恢复token选项并设置为默认
@@ -499,6 +522,17 @@ class ApiSiteManager {
         [sessionsGroup, tokenGroup, userIdGroup].forEach(group => {
             if (group) group.style.display = 'none';
         });
+
+        // DoneHub类型不需要User ID字段
+        if (apiTypeSelect && apiTypeSelect.value === 'DoneHub') {
+            if (authMethod === 'sessions') {
+                if (sessionsGroup) sessionsGroup.style.display = 'block';
+            } else if (authMethod === 'token') {
+                if (tokenGroup) tokenGroup.style.display = 'block';
+            }
+            // DoneHub类型不显示User ID字段
+            return;
+        }
 
         // 根据授权方式显示相应字段
         if (authMethod === 'sessions') {
@@ -615,9 +649,12 @@ class ApiSiteManager {
                 this.showAlert('Token授权方式必须提供token信息', 'error');
                 return false;
             }
-            if (!data.userId) {
-                this.showAlert('Token授权方式必须提供userId信息', 'error');
-                return false;
+            // 使用统一的配置检查是否需要 userId
+            if (window.ApiTypeConfig && window.ApiTypeConfig.requiresUserId) {
+                if (window.ApiTypeConfig.requiresUserId(data.apiType, data.authMethod) && !data.userId) {
+                    this.showAlert(`${data.apiType} 的 Token授权方式必须提供userId信息`, 'error');
+                    return false;
+                }
             }
         }
 

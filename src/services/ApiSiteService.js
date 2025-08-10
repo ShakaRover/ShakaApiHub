@@ -1,4 +1,5 @@
 const ApiSite = require('../models/ApiSite');
+const ApiTypeValidator = require('../utils/ApiTypeValidator');
 const ImportDiagnostic = require('../utils/importDiagnostic');
 
 class ApiSiteService {
@@ -386,7 +387,7 @@ class ApiSiteService {
         const { apiType, name, url, authMethod, sessions, token, userId } = data;
 
         // 必填字段验证
-        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi'].includes(apiType)) {
+        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'DoneHub'].includes(apiType)) {
             return { isValid: false, message: '请选择有效的API类型' };
         }
 
@@ -434,8 +435,11 @@ class ApiSiteService {
             if (!token || typeof token !== 'string' || token.trim().length === 0) {
                 return { isValid: false, message: 'Token授权方式必须提供token信息' };
             }
-            if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
-                return { isValid: false, message: 'Token授权方式必须提供userId信息' };
+            // 使用 ApiTypeValidator 检查是否需要 userId
+            if (ApiTypeValidator.requiresUserId(apiType, authMethod)) {
+                if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+                    return { isValid: false, message: `${apiType} 的 Token授权方式必须提供userId信息` };
+                }
             }
         }
 
@@ -449,7 +453,7 @@ class ApiSiteService {
             data: {
                 format: '导入数据必须是JSON格式，包含sites数组',
                 requiredFields: {
-                    apiType: 'API类型 (NewApi, Veloera, AnyRouter)',
+                    apiType: 'API类型 (NewApi, Veloera, AnyRouter, VoApi, DoneHub)',
                     name: '站点名称 (不超过100字符)',
                     url: 'API地址 (有效的URL)',
                     authMethod: '授权方式 (sessions, token)'
@@ -457,7 +461,7 @@ class ApiSiteService {
                 conditionalFields: {
                     sessions: '当authMethod为sessions时必需',
                     token: '当authMethod为token时必需',
-                    userId: '当authMethod为token或apiType为AnyRouter时必需'
+                    userId: '根据API类型和授权方式可能需要（NewApi/Veloera/VoApi的token模式，AnyRouter的任何模式）'
                 },
                 optionalFields: {
                     enabled: '是否启用 (默认true)',
