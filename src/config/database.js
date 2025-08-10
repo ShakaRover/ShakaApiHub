@@ -560,6 +560,20 @@ class DatabaseConfig {
                     });
                 })
             },
+            updateSiteTokensList: {
+                run: (tokensList, siteId) => new Promise((resolve, reject) => {
+                    this.db.run(`
+                        UPDATE api_sites SET 
+                            tokens_list = ?, 
+                            last_check_time = CURRENT_TIMESTAMP, 
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `, [tokensList, siteId], function(err) {
+                        if (err) reject(err);
+                        else resolve({ changes: this.changes });
+                    });
+                })
+            },
             updateSiteCheckStatus: {
                 run: (lastCheckStatus, lastCheckMessage, id) => new Promise((resolve, reject) => {
                     this.db.run(`

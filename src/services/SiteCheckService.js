@@ -350,8 +350,8 @@ class SiteCheckService {
     // 只刷新令牌列表的轻量级方法
     async refreshTokensOnly(siteId) {
         try {
-            // 获取站点信息
-            const site = await this.apiSiteService.getSiteById(siteId);
+            // 获取站点信息 - 使用现有的数据库查询方法
+            const site = await this.statements.findApiSiteById.get(siteId);
             if (!site) {
                 return {
                     success: false,
@@ -363,7 +363,13 @@ class SiteCheckService {
             
             if (result.success) {
                 console.log(`✅ 站点 ${site.name} 令牌刷新成功`);
-                await this.logService.logSiteAction(siteId, 'refresh_tokens', `令牌刷新成功`);
+                // 保存令牌到数据库
+                if (result.data && result.data.tokens) {
+                    const tokensListJson = JSON.stringify(result.data.tokens);
+                    await this.statements.updateSiteTokensList.run(tokensListJson, siteId);
+                }
+                // 记录成功日志
+                await this.logService.logSiteCheck(siteId, 'success', '令牌刷新成功', result.data);
                 
                 return {
                     success: true,
@@ -372,7 +378,7 @@ class SiteCheckService {
                 };
             } else {
                 console.log(`❌ 站点 ${site.name} 令牌刷新失败: ${result.message}`);
-                await this.logService.logSiteAction(siteId, 'refresh_tokens', `令牌刷新失败: ${result.message}`);
+                await this.logService.logSiteCheck(siteId, 'error', `令牌刷新失败: ${result.message}`);
                 
                 return {
                     success: false,
@@ -381,7 +387,7 @@ class SiteCheckService {
             }
         } catch (error) {
             console.error(`refreshTokensOnly error:`, error);
-            await this.logService.logSiteAction(siteId, 'refresh_tokens', `令牌刷新异常: ${error.message}`);
+            await this.logService.logSiteCheck(siteId, 'error', `令牌刷新异常: ${error.message}`);
             
             return {
                 success: false,
