@@ -63,6 +63,7 @@ class SitePasswordService {
     /**
      * 修改站点用户密码
      * 通过站点的 PUT /api/user/self 接口修改用户密码
+     * 先不修改username，如果遇到'User.Username'错误才修改username重试
      */
     async changeSiteUserPassword(siteId, newPassword, operatorUserId) {
         try {
@@ -91,22 +92,23 @@ class SitePasswordService {
             const currentUsername = currentUserInfo.data.username || '';
             console.log(`[密码管理] 当前用户名: ${currentUsername}`);
 
-            // 准备修改后的用户数据
-            const updatedUserData = {
+            // 获取站点cookies
+            const cookies = await this.siteApiOperations.getSiteCookies(site.url);
+
+            // 第一次尝试：不修改username，只修改密码
+            console.log(`[密码管理] 第一次尝试：不修改username，只修改密码`);
+            const updatedUserDataWithoutUsername = {
                 ...currentUserInfo.data,
                 password: newPassword  // 设置新密码
             };
 
-            console.log(`[密码管理] 准备更新用户数据:`, { ...updatedUserData, password: '***' });
-
-            // 获取站点cookies
-            const cookies = await this.siteApiOperations.getSiteCookies(site.url);
+            console.log(`[密码管理] 准备更新用户数据（不修改username）:`, { ...updatedUserDataWithoutUsername, password: '***' });
 
             // 调用站点的用户更新API
-            const updateResult = await this.siteApiOperations.updateUser(site.url, cookies, site.sessions, site, updatedUserData);
+            let updateResult = await this.siteApiOperations.updateUser(site.url, cookies, site.sessions, site, updatedUserDataWithoutUsername);
             
             if (updateResult.success) {
-                console.log(`[密码管理] 密码修改成功`);
+                console.log(`[密码管理] 密码修改成功（未修改username）`);
                 
                 // 记录密码修改日志到数据库（保存密码原文）
                 await this.logPasswordChange(
@@ -143,27 +145,95 @@ class SitePasswordService {
                         username: currentUsername
                     }
                 };
-            } else {
-                console.error(`[密码管理] 密码修改失败: ${updateResult.message}`);
-                
-                // 记录失败日志（不保存密码哈希）
-                await this.logPasswordChange(
-                    siteId, 
-                    site.name, 
-                    site.url, 
-                    currentUsername, 
-                    null, // 失败时不保存密码哈希
-                    false, 
-                    operatorUserId, 
-                    'error', 
-                    updateResult.message
-                );
-
-                return {
-                    success: false,
-                    message: updateResult.message || '密码修改失败'
-                };
             }
+
+            // 如果第一次尝试失败，检查是否是'User.Username'错误
+            console.log(`[密码管理] 第一次尝试失败: ${updateResult.message}`);
+            
+            if (updateResult.message && updateResult.message.includes('User.Username')) {
+                console.log(`[密码管理] 检测到'User.Username'错误，尝试修改username重试`);
+                
+                // 第二次尝试：修改username和密码
+                const newUsername = `user`; // 生成新的用户名
+                const updatedUserDataWithUsername = {
+                    ...currentUserInfo.data,
+                    username: newUsername,  // 修改username
+                    password: newPassword  // 设置新密码
+                };
+
+                console.log(`[密码管理] 准备更新用户数据（修改username）:`, { 
+                    ...updatedUserDataWithUsername, 
+                    password: '***' 
+                });
+
+                // 重新调用站点的用户更新API
+                updateResult = await this.siteApiOperations.updateUser(site.url, cookies, site.sessions, site, updatedUserDataWithUsername);
+                
+                if (updateResult.success) {
+                    console.log(`[密码管理] 密码修改成功（已修改username）`);
+                    
+                    // 记录密码修改日志到数据库（保存密码原文）
+                    await this.logPasswordChange(
+                        siteId, 
+                        site.name, 
+                        site.url, 
+                        newUsername, // 使用新的用户名
+                        newPassword, // 保存密码原文
+                        true, // 密码已修改
+                        operatorUserId, 
+                        'success', 
+                        null
+                    );
+
+                    // 记录操作日志
+                    await this.logService.logUserAction(
+                        operatorUserId, 
+                        'change_site_password', 
+                        'site_password', 
+                        siteId, 
+                        {
+                            site_name: site.name,
+                            site_url: site.url,
+                            username: newUsername,
+                            username_changed: true,
+                            old_username: currentUsername
+                        }
+                    );
+
+                    return {
+                        success: true,
+                        message: '密码修改成功（已同时修改用户名）',
+                        data: {
+                            site_name: site.name,
+                            site_url: site.url,
+                            username: newUsername,
+                            username_changed: true,
+                            old_username: currentUsername
+                        }
+                    };
+                }
+            }
+
+            // 所有尝试都失败
+            console.error(`[密码管理] 密码修改失败: ${updateResult.message}`);
+            
+            // 记录失败日志（不保存密码哈希）
+            await this.logPasswordChange(
+                siteId, 
+                site.name, 
+                site.url, 
+                currentUsername, 
+                null, // 失败时不保存密码哈希
+                false, 
+                operatorUserId, 
+                'error', 
+                updateResult.message
+            );
+
+            return {
+                success: false,
+                message: updateResult.message || '密码修改失败'
+            };
         } catch (error) {
             console.error('[密码管理] 修改站点用户密码异常:', error);
             
