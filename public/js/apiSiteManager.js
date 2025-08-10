@@ -16,6 +16,7 @@ class ApiSiteManager {
             ['btn-edit', (siteId, siteName) => this.showEditModal(siteId)],
             ['btn-check', (siteId, siteName) => this.checkSite(siteId, siteName)],
             ['btn-topup', (siteId, siteName) => this.showTopupModal(siteId, siteName)],
+            ['btn-change-password', (siteId, siteName) => this.showChangePasswordModal(siteId, siteName)],
             ['btn-toggle', (siteId, siteName, button) => {
                 const isEnabled = button.dataset.enabled === 'true';
                 this.toggleEnabled(siteId, !isEnabled);
@@ -1106,6 +1107,12 @@ class ApiSiteManager {
                                 title="兑换码">
                             💰
                         </button>
+                        <button class="btn-icon btn-change-password" 
+                                data-site-id="${site.id}" 
+                                data-site-name="${this.escapeHtml(site.name)}" 
+                                title="修改密码">
+                            🔐
+                        </button>
                         <button class="btn-icon btn-toggle ${site.enabled ? 'enabled' : ''}" 
                                 data-site-id="${site.id}" 
                                 data-site-name="${this.escapeHtml(site.name)}" 
@@ -1842,6 +1849,140 @@ class ApiSiteManager {
         } catch (error) {
             console.error('[模型操作] 刷新模型列表异常:', error);
             this.showAlert('刷新模型列表失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 显示修改密码模态框
+    showChangePasswordModal(siteId, siteName) {
+        console.log(`[密码管理] 显示修改密码模态框，站点: ${siteName} (ID: ${siteId})`);
+        
+        const newPassword = prompt(`请输入新密码 (站点: ${siteName}):\n\n密码长度至少6个字符`, '');
+        
+        if (newPassword && newPassword.trim().length >= 6) {
+            this.changeSitePassword(siteId, siteName, newPassword.trim());
+        } else if (newPassword !== null) {
+            this.showAlert('密码长度至少6个字符', 'error');
+        }
+    }
+
+    // 修改站点密码
+    async changeSitePassword(siteId, siteName, newPassword) {
+        try {
+            console.log(`[密码管理] 开始修改站点密码: ${siteName} (ID: ${siteId})`);
+            this.showAlert(`正在修改站点 ${siteName} 的密码...`, 'info');
+
+            const response = await fetch(`/api/sites/${siteId}/user/password`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    newPassword: newPassword
+                }),
+                credentials: 'include'
+            });
+
+            console.log(`[密码管理] 修改密码请求响应状态: ${response.status}`);
+            const result = await response.json();
+            console.log(`[密码管理] 修改密码请求响应结果:`, result);
+
+            if (result.success) {
+                console.log(`[密码管理] 密码修改成功: ${siteName}`);
+                this.showAlert(`站点 ${siteName} 密码修改成功`, 'success');
+                
+                // 可以选择是否需要重新检测站点以验证密码修改是否成功
+                // await this.checkSite(siteId, siteName);
+            } else {
+                console.error(`[密码管理] 密码修改失败: ${result.message}`);
+                this.showAlert(`密码修改失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('[密码管理] 修改站点密码异常:', error);
+            this.showAlert('修改密码失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 获取站点用户信息
+    async getSiteUserInfo(siteId) {
+        try {
+            console.log(`[密码管理] 获取站点用户信息，站点ID: ${siteId}`);
+
+            const response = await fetch(`/api/sites/${siteId}/user/self`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            console.log(`[密码管理] 获取用户信息响应状态: ${response.status}`);
+            const result = await response.json();
+            console.log(`[密码管理] 获取用户信息响应结果:`, result);
+
+            if (result.success) {
+                console.log(`[密码管理] 成功获取用户信息:`, result.data);
+                return result;
+            } else {
+                console.error(`[密码管理] 获取用户信息失败: ${result.message}`);
+                return result;
+            }
+        } catch (error) {
+            console.error('[密码管理] 获取站点用户信息异常:', error);
+            return {
+                success: false,
+                message: `获取用户信息异常: ${error.message}`
+            };
+        }
+    }
+
+    // 获取密码修改历史
+    async getPasswordChangeHistory(siteId, limit = 10) {
+        try {
+            console.log(`[密码管理] 获取密码修改历史，站点ID: ${siteId}`);
+
+            const response = await fetch(`/api/sites/${siteId}/password-history?limit=${limit}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            console.log(`[密码管理] 获取修改历史响应状态: ${response.status}`);
+            const result = await response.json();
+            console.log(`[密码管理] 获取修改历史响应结果:`, result);
+
+            return result;
+        } catch (error) {
+            console.error('[密码管理] 获取密码修改历史异常:', error);
+            return {
+                success: false,
+                message: `获取修改历史异常: ${error.message}`
+            };
+        }
+    }
+
+    // 显示密码修改历史（可选功能，用于调试和管理）
+    async showPasswordChangeHistory(siteId, siteName) {
+        try {
+            console.log(`[密码管理] 显示密码修改历史: ${siteName}`);
+            
+            const result = await this.getPasswordChangeHistory(siteId);
+            
+            if (result.success && result.data && result.data.length > 0) {
+                let historyText = `站点 ${siteName} 密码修改历史:\n\n`;
+                
+                result.data.forEach((log, index) => {
+                    const changeTime = new Date(log.change_time).toLocaleString('zh-CN');
+                    const status = log.status === 'success' ? '✅ 成功' : '❌ 失败';
+                    const errorMsg = log.error_message ? ` (${log.error_message})` : '';
+                    
+                    historyText += `${index + 1}. ${changeTime} - ${status}${errorMsg}\n`;
+                });
+                
+                alert(historyText);
+            } else if (result.success && (!result.data || result.data.length === 0)) {
+                this.showAlert(`站点 ${siteName} 暂无密码修改记录`, 'info');
+            } else {
+                this.showAlert(`获取修改历史失败: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            console.error('[密码管理] 显示密码修改历史异常:', error);
+            this.showAlert('显示修改历史失败，请检查网络连接', 'error');
         }
     }
 }

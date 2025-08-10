@@ -244,6 +244,33 @@ class DatabaseConfig {
                 CREATE INDEX IF NOT EXISTS idx_check_logs_time ON site_check_logs(check_time)
             `;
 
+            const createPasswordChangeLogsTable = `
+                CREATE TABLE IF NOT EXISTS password_change_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    site_id INTEGER NOT NULL,
+                    site_name TEXT NOT NULL,
+                    site_url TEXT NOT NULL,
+                    old_username TEXT,
+                    new_username TEXT,
+                    password_changed BOOLEAN DEFAULT TRUE,
+                    change_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    user_id INTEGER NOT NULL,
+                    status TEXT DEFAULT 'success' CHECK (status IN ('success', 'error')),
+                    error_message TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            `;
+
+            const createPasswordChangeLogsIndex = `
+                CREATE INDEX IF NOT EXISTS idx_password_change_logs_site_id ON password_change_logs(site_id)
+            `;
+
+            const createPasswordChangeLogsTimeIndex = `
+                CREATE INDEX IF NOT EXISTS idx_password_change_logs_time ON password_change_logs(change_time)
+            `;
+
             this.db.serialize(() => {
                 this.db.run(createCheckLogsTable, (err) => {
                     if (err) {
@@ -260,10 +287,29 @@ class DatabaseConfig {
                         this.db.run(createCheckLogsTimeIndex, (err) => {
                             if (err) {
                                 console.error('创建检测日志表时间索引失败:', err.message);
-                            } else {
-                                console.log('检测日志表创建完成');
                             }
-                            resolve();
+                            
+                            // 创建密码修改日志表
+                            this.db.run(createPasswordChangeLogsTable, (err) => {
+                                if (err) {
+                                    console.error('创建密码修改日志表失败:', err.message);
+                                }
+                                
+                                this.db.run(createPasswordChangeLogsIndex, (err) => {
+                                    if (err) {
+                                        console.error('创建密码修改日志表索引失败:', err.message);
+                                    }
+                                    
+                                    this.db.run(createPasswordChangeLogsTimeIndex, (err) => {
+                                        if (err) {
+                                            console.error('创建密码修改日志表时间索引失败:', err.message);
+                                        } else {
+                                            console.log('检测日志表和密码修改日志表创建完成');
+                                        }
+                                        resolve();
+                                    });
+                                });
+                            });
                         });
                     });
                 });
@@ -632,6 +678,37 @@ class DatabaseConfig {
                     this.db.get('SELECT site_last_check_in_time FROM api_sites WHERE id = ?', [siteId], (err, row) => {
                         if (err) reject(err);
                         else resolve(row);
+                    });
+                })
+            },
+            
+            // 密码修改日志相关语句
+            insertPasswordChangeLog: {
+                run: (siteId, siteName, siteUrl, oldUsername, newUsername, passwordChanged, userId, status, errorMessage) => new Promise((resolve, reject) => {
+                    this.db.run(`
+                        INSERT INTO password_change_logs (
+                            site_id, site_name, site_url, old_username, new_username, 
+                            password_changed, user_id, status, error_message
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `, [siteId, siteName, siteUrl, oldUsername, newUsername, passwordChanged, userId, status, errorMessage], function(err) {
+                        if (err) reject(err);
+                        else resolve({ lastID: this.lastID, changes: this.changes });
+                    });
+                })
+            },
+            findPasswordChangeLogsBySiteId: {
+                all: (siteId, limit = 10) => new Promise((resolve, reject) => {
+                    this.db.all('SELECT * FROM password_change_logs WHERE site_id = ? ORDER BY change_time DESC LIMIT ?', [siteId, limit], (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows);
+                    });
+                })
+            },
+            findPasswordChangeLogsByUserId: {
+                all: (userId, limit = 50) => new Promise((resolve, reject) => {
+                    this.db.all('SELECT * FROM password_change_logs WHERE user_id = ? ORDER BY change_time DESC LIMIT ?', [userId, limit], (err, rows) => {
+                        if (err) reject(err);
+                        else resolve(rows);
                     });
                 })
             }

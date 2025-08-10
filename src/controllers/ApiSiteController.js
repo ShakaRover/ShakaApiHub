@@ -1,6 +1,7 @@
 const ApiSiteService = require('../services/ApiSiteService');
 const SiteCheckService = require('../services/SiteCheckService');
 const BackupService = require('../services/BackupService');
+const SitePasswordService = require('../services/SitePasswordService');
 const TimeUtils = require('../utils/TimeUtils');
 
 class ApiSiteController {
@@ -8,6 +9,7 @@ class ApiSiteController {
         this.apiSiteService = new ApiSiteService();
         this.siteCheckService = new SiteCheckService();
         this.backupService = new BackupService();
+        this.sitePasswordService = new SitePasswordService();
     }
 
     // 获取所有API站点
@@ -682,6 +684,131 @@ class ApiSiteController {
             res.status(500).json({
                 success: false,
                 message: '诊断导入数据失败'
+            });
+        }
+    }
+
+    // 获取站点用户信息 (GET /api/sites/:id/user/self)
+    async getSiteUserInfo(req, res) {
+        try {
+            const { id } = req.params;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.sitePasswordService.getSiteUserInfo(parseInt(id));
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.getSiteUserInfo:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 修改站点用户密码 (PUT /api/sites/:id/user/password)
+    async changeSiteUserPassword(req, res) {
+        try {
+            const { id } = req.params;
+            const { newPassword } = req.body;
+            const operatorUserId = req.session.userId;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: '新密码不能为空'
+                });
+            }
+
+            if (newPassword.length < 6) {
+                return res.status(400).json({
+                    success: false,
+                    message: '密码长度至少6个字符'
+                });
+            }
+
+            const result = await this.sitePasswordService.changeSiteUserPassword(
+                parseInt(id), 
+                newPassword.trim(), 
+                operatorUserId
+            );
+            
+            if (!result.success) {
+                return res.status(400).json(result);
+            }
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.changeSiteUserPassword:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 获取站点密码修改历史 (GET /api/sites/:id/password-history)
+    async getPasswordChangeHistory(req, res) {
+        try {
+            const { id } = req.params;
+            const { limit = 10 } = req.query;
+            
+            if (!id || isNaN(id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: '无效的站点ID'
+                });
+            }
+
+            const result = await this.sitePasswordService.getPasswordChangeHistory(
+                parseInt(id), 
+                parseInt(limit) || 10
+            );
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.getPasswordChangeHistory:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
+            });
+        }
+    }
+
+    // 获取用户密码修改历史 (GET /api/user/password-history)
+    async getUserPasswordChangeHistory(req, res) {
+        try {
+            const userId = req.session.userId;
+            const { limit = 50 } = req.query;
+
+            const result = await this.sitePasswordService.getUserPasswordChangeHistory(
+                userId, 
+                parseInt(limit) || 50
+            );
+            
+            res.json(result);
+        } catch (error) {
+            console.error('ApiSiteController.getUserPasswordChangeHistory:', error.message);
+            res.status(500).json({
+                success: false,
+                message: '服务器内部错误'
             });
         }
     }

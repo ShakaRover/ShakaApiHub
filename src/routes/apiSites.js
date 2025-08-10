@@ -164,6 +164,26 @@ router.get('/sites/:id/checkin-status', requireAuth, (req, res) => {
     apiSiteController.getCheckinStatus(req, res);
 });
 
+// 密码管理相关路由
+// GET /api/sites/:id/user/self - 获取站点用户信息
+router.get('/sites/:id/user/self', requireAuth, (req, res) => {
+    apiSiteController.getSiteUserInfo(req, res);
+});
+
+// PUT /api/sites/:id/user/password - 修改站点用户密码
+router.put('/sites/:id/user/password', requireAuth, (req, res) => {
+    apiSiteController.changeSiteUserPassword(req, res);
+});
+
+// GET /api/sites/:id/password-history - 获取站点密码修改历史
+router.get('/sites/:id/password-history', requireAuth, (req, res) => {
+    apiSiteController.getPasswordChangeHistory(req, res);
+});
+
+// GET /api/user/password-history - 获取用户密码修改历史
+router.get('/user/password-history', requireAuth, (req, res) => {
+    apiSiteController.getUserPasswordChangeHistory(req, res);
+});
 
 
 // POST /api/backups - 创建备份
