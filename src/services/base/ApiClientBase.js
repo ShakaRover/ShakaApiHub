@@ -232,6 +232,32 @@ class ApiClientBase {
     }
 
     /**
+     * 发送PUT请求的通用方法
+     * 
+     * @param {string} url - 请求URL
+     * @param {Object} data - 请求数据
+     * @param {Object} site - 站点信息对象
+     * @param {string} sessions - sessions字符串
+     * @param {string} cookies - cookies字符串
+     * @param {string} context - 上下文标识
+     * @param {Object} options - 额外的axios选项
+     * @returns {Promise<Object>} axios响应对象
+     */
+    async put(url, data, site, sessions, cookies = '', context = '', options = {}) {
+        const headers = this.buildHeaders(site, sessions, cookies, context);
+        
+        const axiosConfig = {
+            headers,
+            timeout: this.defaultTimeout,
+            validateStatus: (status) => status < 500, // 接受 4xx 和 2xx
+            ...options
+        };
+
+        console.log(`${context}正在请求API: ${url}`);
+        return await axios.put(url, data, axiosConfig);
+    }
+
+    /**
      * 处理API响应的通用方法
      * 检查响应格式和状态，返回标准化的结果
      * 

@@ -524,6 +524,47 @@ class SiteApiOperations extends ApiClientBase {
             };
         }
     }
+
+    /**
+     * 更新用户信息
+     * 用于修改用户密码等操作
+     * 
+     * @param {string} siteUrl - 站点URL
+     * @param {string} cookies - cookies字符串
+     * @param {string} sessions - sessions字符串
+     * @param {Object} site - 站点信息对象
+     * @param {Object} userData - 要更新的用户数据
+     * @returns {Promise<Object>} 更新结果
+     */
+    async updateUser(siteUrl, cookies, sessions, site, userData) {
+        try {
+            const apiUrl = `${siteUrl.replace(/\/$/, '')}/api/user/self`;
+            const context = '[更新用户]';
+
+            console.log(`${context}准备更新用户数据:`, { ...userData, password: userData.password ? '***' : undefined });
+
+            const response = await this.put(apiUrl, userData, site, sessions, cookies, context);
+            const data = this.processApiResponse(response, context);
+
+            if (!data.success) {
+                throw new Error(data.message || '更新用户信息失败');
+            }
+
+            console.log(`${context}✅ 用户信息更新成功`);
+            return {
+                success: true,
+                data: data.data,
+                message: '用户信息更新成功'
+            };
+
+        } catch (error) {
+            console.error('更新用户信息失败:', error.message);
+            return {
+                success: false,
+                message: `更新用户信息失败: ${error.message}`
+            };
+        }
+    }
 }
 
 module.exports = SiteApiOperations;

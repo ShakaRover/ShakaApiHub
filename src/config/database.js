@@ -213,14 +213,64 @@ class DatabaseConfig {
 
     async createPasswordChangeLogTable() {
         return new Promise((resolve) => {
+            // 检查表是否存在
+            this.db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='password_change_logs'", (err, tableExists) => {
+                if (err) {
+                    console.error('检查密码修改日志表失败:', err.message);
+                    resolve();
+                    return;
+                }
+                
+                if (tableExists) {
+                    // 表已存在，检查结构
+                    this.db.all("PRAGMA table_info(password_change_logs)", (err, tableInfo) => {
+                        if (err) {
+                            console.error('获取表信息失败:', err.message);
+                            resolve();
+                            return;
+                        }
+                        
+                        const hasCurrentUsername = tableInfo.some(column => column.name === 'current_username');
+                        const hasNewPassword = tableInfo.some(column => column.name === 'new_password');
+                        const hasOldUsername = tableInfo.some(column => column.name === 'old_username');
+                        const hasNewUsername = tableInfo.some(column => column.name === 'new_username');
+                        
+                        if (!hasCurrentUsername || !hasNewPassword || hasOldUsername || hasNewUsername) {
+                            console.log('需要重建密码修改日志表...');
+                            this.rebuildPasswordChangeLogTable()
+                                .then(() => {
+                                    console.log('密码修改日志表重建完成');
+                                    resolve();
+                                })
+                                .catch(() => resolve());
+                        } else {
+                            console.log('密码修改日志表结构已是最新');
+                            resolve();
+                        }
+                    });
+                } else {
+                    // 表不存在，创建新表
+                    this.createNewPasswordChangeLogTable()
+                        .then(() => {
+                            console.log('密码修改日志表创建完成');
+                            resolve();
+                        })
+                        .catch(() => resolve());
+                }
+            });
+        });
+    }
+
+    async createNewPasswordChangeLogTable() {
+        return new Promise((resolve) => {
             const createPasswordChangeLogsTable = `
-                CREATE TABLE IF NOT EXISTS password_change_logs (
+                CREATE TABLE password_change_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     site_id INTEGER NOT NULL,
                     site_name TEXT NOT NULL,
                     site_url TEXT NOT NULL,
-                    old_username TEXT,
-                    new_username TEXT,
+                    current_username TEXT NOT NULL,
+                    new_password TEXT NOT NULL,
                     password_changed BOOLEAN DEFAULT TRUE,
                     change_time DATETIME DEFAULT CURRENT_TIMESTAMP,
                     user_id INTEGER NOT NULL,
@@ -241,7 +291,6 @@ class DatabaseConfig {
             `;
 
             this.db.serialize(() => {
-                // 创建密码修改日志表
                 this.db.run(createPasswordChangeLogsTable, (err) => {
                     if (err) {
                         console.error('创建密码修改日志表失败:', err.message);
@@ -255,12 +304,46 @@ class DatabaseConfig {
                         this.db.run(createPasswordChangeLogsTimeIndex, (err) => {
                             if (err) {
                                 console.error('创建密码修改日志表时间索引失败:', err.message);
-                            } else {
-                                console.log('密码修改日志表创建完成');
                             }
                             resolve();
                         });
                     });
+                });
+            });
+        });
+    }
+
+    async rebuildPasswordChangeLogTable() {
+        return new Promise((resolve, reject) => {
+            // 1. 备份现有数据
+            this.db.run(`
+                CREATE TABLE password_change_logs_backup AS 
+                SELECT * FROM password_change_logs
+            `, (err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                
+                // 2. 删除旧表
+                this.db.run('DROP TABLE password_change_logs', (err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    
+                    // 3. 创建新表
+                    this.createNewPasswordChangeLogTable()
+                        .then(() => {
+                            // 4. 删除备份表
+                            this.db.run('DROP TABLE password_change_logs_backup', (err) => {
+                                if (err) {
+                                    console.error('删除备份表失败:', err.message);
+                                }
+                                resolve();
+                            });
+                        })
+                        .catch(reject);
                 });
             });
         });
@@ -609,13 +692,13 @@ class DatabaseConfig {
               
             // 密码修改日志相关语句
             insertPasswordChangeLog: {
-                run: (siteId, siteName, siteUrl, oldUsername, newUsername, passwordChanged, userId, status, errorMessage) => new Promise((resolve, reject) => {
+                run: (siteId, siteName, siteUrl, currentUsername, newPassword, passwordChanged, userId, status, errorMessage) => new Promise((resolve, reject) => {
                     this.db.run(`
                         INSERT INTO password_change_logs (
-                            site_id, site_name, site_url, old_username, new_username, 
+                            site_id, site_name, site_url, current_username, new_password, 
                             password_changed, user_id, status, error_message
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    `, [siteId, siteName, siteUrl, oldUsername, newUsername, passwordChanged, userId, status, errorMessage], function(err) {
+                    `, [siteId, siteName, siteUrl, currentUsername, newPassword, passwordChanged, userId, status, errorMessage], function(err) {
                         if (err) reject(err);
                         else resolve({ lastID: this.lastID, changes: this.changes });
                     });
