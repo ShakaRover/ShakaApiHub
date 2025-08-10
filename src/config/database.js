@@ -53,12 +53,8 @@ class DatabaseConfig {
                 // 如果表不存在，跳过迁移（表会在 initializeSchema 中创建）
                 if (!tableExists) {
                     console.log('api_sites表不存在，跳过迁移');
-                    this.createCheckLogTable()
-                        .then(() => {
-                            console.log('数据库结构已是最新版本');
-                            resolve();
-                        })
-                        .catch(() => resolve());
+                    console.log('数据库结构已是最新版本');
+                    resolve();
                     return;
                 }
                 
@@ -88,20 +84,14 @@ class DatabaseConfig {
                         if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
                             console.log('需要重建api_sites表以支持新功能...');
                             this.rebuildApiSitesTable()
-                                .then(() => this.createCheckLogTable())
                                 .then(() => {
                                     console.log('数据库结构已是最新版本');
                                     resolve();
                                 })
                                 .catch(() => resolve());
                         } else {
-                            // 创建检测日志表
-                            this.createCheckLogTable()
-                                .then(() => {
-                                    console.log('数据库结构已是最新版本');
-                                    resolve();
-                                })
-                                .catch(() => resolve());
+                            console.log('数据库结构已是最新版本');
+                            resolve();
                         }
                     });
                 });
@@ -221,29 +211,8 @@ class DatabaseConfig {
         });
     }
 
-    async createCheckLogTable() {
+    async createPasswordChangeLogTable() {
         return new Promise((resolve) => {
-            const createCheckLogsTable = `
-                CREATE TABLE IF NOT EXISTS site_check_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    site_id INTEGER NOT NULL,
-                    check_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT NOT NULL CHECK (status IN ('success', 'error', 'timeout')),
-                    message TEXT,
-                    response_data TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (site_id) REFERENCES api_sites(id) ON DELETE CASCADE
-                )
-            `;
-
-            const createCheckLogsIndex = `
-                CREATE INDEX IF NOT EXISTS idx_check_logs_site_id ON site_check_logs(site_id)
-            `;
-
-            const createCheckLogsTimeIndex = `
-                CREATE INDEX IF NOT EXISTS idx_check_logs_time ON site_check_logs(check_time)
-            `;
-
             const createPasswordChangeLogsTable = `
                 CREATE TABLE IF NOT EXISTS password_change_logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -272,44 +241,24 @@ class DatabaseConfig {
             `;
 
             this.db.serialize(() => {
-                this.db.run(createCheckLogsTable, (err) => {
+                // 创建密码修改日志表
+                this.db.run(createPasswordChangeLogsTable, (err) => {
                     if (err) {
-                        console.error('创建检测日志表失败:', err.message);
-                        resolve();
-                        return;
+                        console.error('创建密码修改日志表失败:', err.message);
                     }
                     
-                    this.db.run(createCheckLogsIndex, (err) => {
+                    this.db.run(createPasswordChangeLogsIndex, (err) => {
                         if (err) {
-                            console.error('创建检测日志表索引失败:', err.message);
+                            console.error('创建密码修改日志表索引失败:', err.message);
                         }
                         
-                        this.db.run(createCheckLogsTimeIndex, (err) => {
+                        this.db.run(createPasswordChangeLogsTimeIndex, (err) => {
                             if (err) {
-                                console.error('创建检测日志表时间索引失败:', err.message);
+                                console.error('创建密码修改日志表时间索引失败:', err.message);
+                            } else {
+                                console.log('密码修改日志表创建完成');
                             }
-                            
-                            // 创建密码修改日志表
-                            this.db.run(createPasswordChangeLogsTable, (err) => {
-                                if (err) {
-                                    console.error('创建密码修改日志表失败:', err.message);
-                                }
-                                
-                                this.db.run(createPasswordChangeLogsIndex, (err) => {
-                                    if (err) {
-                                        console.error('创建密码修改日志表索引失败:', err.message);
-                                    }
-                                    
-                                    this.db.run(createPasswordChangeLogsTimeIndex, (err) => {
-                                        if (err) {
-                                            console.error('创建密码修改日志表时间索引失败:', err.message);
-                                        } else {
-                                            console.log('检测日志表和密码修改日志表创建完成');
-                                        }
-                                        resolve();
-                                    });
-                                });
-                            });
+                            resolve();
                         });
                     });
                 });
@@ -411,6 +360,9 @@ class DatabaseConfig {
                                 try {
                                     // 数据库迁移：为现有表添加新字段
                                     await this.migrateDatabase();
+                                    
+                                    // 创建密码修改日志表
+                                    await this.createPasswordChangeLogTable();
                                     
                                     // 创建默认管理员用户（仅在表为空时）
                                     this.db.get('SELECT COUNT(*) as count FROM users', async (err, row) => {
@@ -634,34 +586,7 @@ class DatabaseConfig {
                 })
             },
             
-            // 检测日志相关语句 - 已迁移到LogService统一管理
-            findCheckLogsBySiteId: {
-                all: (siteId) => new Promise((resolve, reject) => {
-                    this.db.all('SELECT * FROM site_check_logs WHERE site_id = ? ORDER BY check_time DESC LIMIT 10', [siteId], (err, rows) => {
-                        if (err) reject(err);
-                        else resolve(rows);
-                    });
-                })
-            },
-            findLatestCheckLog: {
-                get: (siteId) => new Promise((resolve, reject) => {
-                    this.db.get('SELECT * FROM site_check_logs WHERE site_id = ? ORDER BY check_time DESC LIMIT 1', [siteId], (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    });
-                })
-            },
-            findLatestCheckinStatus: {
-                get: (siteId) => new Promise((resolve, reject) => {
-                    this.db.get(`SELECT status, message, created_at 
-                                FROM site_check_logs 
-                                WHERE site_id = ? AND message LIKE '[签到]%'
-                                ORDER BY created_at DESC LIMIT 1`, [siteId], (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    });
-                })
-            },
+            // 站点签到时间相关语句
             updateSiteCheckinTime: {
                 run: (siteId) => new Promise((resolve, reject) => {
                     this.db.run(`UPDATE api_sites SET 
@@ -681,7 +606,7 @@ class DatabaseConfig {
                     });
                 })
             },
-            
+              
             // 密码修改日志相关语句
             insertPasswordChangeLog: {
                 run: (siteId, siteName, siteUrl, oldUsername, newUsername, passwordChanged, userId, status, errorMessage) => new Promise((resolve, reject) => {

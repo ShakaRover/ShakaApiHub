@@ -227,11 +227,8 @@ class SiteCheckService {
     // 获取站点检测历史
     async getCheckHistory(siteId) {
         try {
-            const logs = await this.statements.findCheckLogsBySiteId.all(siteId);
-            return {
-                success: true,
-                data: logs
-            };
+            const result = await this.logService.getSiteCheckLogs({ siteId, limit: 10 });
+            return result;
         } catch (error) {
             console.error('获取检测历史失败:', error.message);
             return {
@@ -244,10 +241,11 @@ class SiteCheckService {
     // 获取最新检测结果
     async getLatestCheckResult(siteId) {
         try {
-            const log = await this.statements.findLatestCheckLog.get(siteId);
+            const result = await this.logService.getSiteCheckLogs({ siteId, limit: 1 });
             return {
-                success: true,
-                data: log
+                success: result.success,
+                data: result.success && result.data.length > 0 ? result.data[0] : null,
+                message: result.message
             };
         } catch (error) {
             console.error('获取最新检测结果失败:', error.message);
@@ -323,16 +321,30 @@ class SiteCheckService {
     // 获取最近的签到状态
     async getLatestCheckinStatus(siteId) {
         try {
-            const result = await this.statements.findLatestCheckinStatus.get(siteId);
+            // 使用LogService获取最近的签到记录
+            const result = await this.logService.getSiteCheckLogs({ 
+                siteId, 
+                limit: 50 // 获取更多记录以便筛选签到相关的
+            });
             
-            return result ? {
-                success: true,
-                data: {
-                    status: result.status,
-                    message: result.message,
-                    time: result.created_at
+            if (result.success && result.data.length > 0) {
+                // 筛选出签到相关的日志
+                const checkinLogs = result.data.filter(log => log.message && log.message.includes('[签到]'));
+                const latestCheckin = checkinLogs[0]; // 按时间倒序，第一个是最新的
+                
+                if (latestCheckin) {
+                    return {
+                        success: true,
+                        data: {
+                            status: latestCheckin.status,
+                            message: latestCheckin.message,
+                            time: latestCheckin.check_time
+                        }
+                    };
                 }
-            } : {
+            }
+            
+            return {
                 success: false,
                 message: '未找到签到记录'
             };
