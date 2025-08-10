@@ -181,7 +181,7 @@ class ApiSiteController {
     async checkSite(req, res) {
         try {
             const { id } = req.params;
-            const { refreshModelsOnly } = req.body; // 添加只刷新模型的选项
+            const { refreshModelsOnly, refreshTokensOnly } = req.body; // 添加刷新选项
             
             if (!id || isNaN(id)) {
                 return res.status(400).json({
@@ -190,9 +190,14 @@ class ApiSiteController {
                 });
             }
 
-            const result = refreshModelsOnly 
-                ? await this.siteCheckService.refreshModelsOnly(parseInt(id))
-                : await this.siteCheckService.checkSite(parseInt(id));
+            let result;
+            if (refreshModelsOnly) {
+                result = await this.siteCheckService.refreshModelsOnly(parseInt(id));
+            } else if (refreshTokensOnly) {
+                result = await this.siteCheckService.refreshTokensOnly(parseInt(id));
+            } else {
+                result = await this.siteCheckService.checkSite(parseInt(id));
+            }
             
             if (!result.success) {
                 return res.status(400).json(result);

@@ -1774,16 +1774,20 @@ class ApiSiteManager {
         }
     }
 
-    // 修正刷新令牌方法 - 仅重新检查站点
+    // 修正刷新令牌方法 - 只刷新令牌列表
     async refreshTokens(siteId) {
         console.log(`[令牌操作] 开始刷新令牌列表，站点ID: ${siteId}`);
         try {
             console.log(`[令牌操作] 发送刷新请求到 /api/sites/${siteId}/check`);
             this.showAlert('正在刷新令牌列表...', 'info');
             
-            // 直接检查站点获取最新令牌信息
+            // 只刷新令牌信息，不执行完整检测
             const response = await fetch(`/api/sites/${siteId}/check`, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ refreshTokensOnly: true }), // 指定只刷新令牌
                 credentials: 'include'
             });
             

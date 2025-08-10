@@ -425,6 +425,60 @@ class SiteApiOperations extends ApiClientBase {
      * @param {Object} site - 站点信息对象
      * @returns {Promise<Object>} 刷新结果
      */
+    /**
+     * 只刷新令牌列表（不执行完整检测）
+     * @param {Object} site - 站点信息对象
+     * @returns {Promise<Object>} 刷新结果
+     */
+    async refreshTokensOnly(site) {
+        const startTime = Date.now();
+        try {
+            console.log(`[令牌刷新]开始刷新站点令牌: ${site.name} (${site.url})`);
+
+            // 获取站点cookies
+            console.log('[令牌刷新]获取站点cookies...');
+            const cookies = await this.getSiteCookies(site.url);
+
+            // 只获取令牌列表
+            console.log('[令牌刷新]获取令牌列表...');
+            const tokensList = await this.getTokensList(site.url, cookies, site.sessions, site);
+            console.log('[令牌刷新]令牌列表获取结果:', tokensList.success ? `获取到${tokensList.data?.length || 0}个令牌` : tokensList.message);
+
+            if (tokensList.success && tokensList.data) {
+                console.log(`[令牌刷新]✅ 站点 ${site.id} 令牌刷新完成`);
+                
+                const duration = Date.now() - startTime;
+                return {
+                    success: true,
+                    message: `令牌刷新成功，共${tokensList.data.length}个令牌`,
+                    data: {
+                        tokens: tokensList.data,
+                        tokensCount: tokensList.data.length,
+                        duration: `${duration}ms`
+                    }
+                };
+            } else {
+                console.log(`[令牌刷新]❌ 站点 ${site.id} 令牌刷新失败: ${tokensList.message}`);
+                
+                const duration = Date.now() - startTime;
+                return {
+                    success: false,
+                    message: tokensList.message || '令牌刷新失败',
+                    duration: `${duration}ms`
+                };
+            }
+        } catch (error) {
+            console.error(`[令牌刷新]❌ 站点 ${site.id} 令牌刷新异常:`, error);
+            
+            const duration = Date.now() - startTime;
+            return {
+                success: false,
+                message: `令牌刷新异常: ${error.message}`,
+                duration: `${duration}ms`
+            };
+        }
+    }
+
     async refreshModelsOnly(site) {
         const startTime = Date.now();
         try {

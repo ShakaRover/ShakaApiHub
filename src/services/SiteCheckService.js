@@ -347,6 +347,49 @@ class SiteCheckService {
 
 
 
+    // 只刷新令牌列表的轻量级方法
+    async refreshTokensOnly(siteId) {
+        try {
+            // 获取站点信息
+            const site = await this.apiSiteService.getSiteById(siteId);
+            if (!site) {
+                return {
+                    success: false,
+                    message: '站点不存在'
+                };
+            }
+
+            const result = await this.siteApiOperations.refreshTokensOnly(site);
+            
+            if (result.success) {
+                console.log(`✅ 站点 ${site.name} 令牌刷新成功`);
+                await this.logService.logSiteAction(siteId, 'refresh_tokens', `令牌刷新成功`);
+                
+                return {
+                    success: true,
+                    message: '令牌刷新成功',
+                    data: result.data
+                };
+            } else {
+                console.log(`❌ 站点 ${site.name} 令牌刷新失败: ${result.message}`);
+                await this.logService.logSiteAction(siteId, 'refresh_tokens', `令牌刷新失败: ${result.message}`);
+                
+                return {
+                    success: false,
+                    message: result.message
+                };
+            }
+        } catch (error) {
+            console.error(`refreshTokensOnly error:`, error);
+            await this.logService.logSiteAction(siteId, 'refresh_tokens', `令牌刷新异常: ${error.message}`);
+            
+            return {
+                success: false,
+                message: `令牌刷新失败: ${error.message}`
+            };
+        }
+    }
+
     // 只刷新模型列表的轻量级方法
     async refreshModelsOnly(siteId) {
         try {
