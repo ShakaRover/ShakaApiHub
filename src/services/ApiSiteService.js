@@ -1,9 +1,20 @@
 const ApiSite = require('../models/ApiSite');
 const ApiTypeValidator = require('../utils/ApiTypeValidator');
 const ImportDiagnostic = require('../utils/importDiagnostic');
+const ApiClientBase = require('./base/ApiClientBase');
 
-class ApiSiteService {
+/**
+ * API站点服务
+ * 负责API站点的管理、检测和操作
+ * 
+ * 遵循SOLID原则：
+ * - 单一职责：专门处理API站点相关业务逻辑
+ * - 依赖倒置：继承ApiClientBase获得通用API处理能力
+ * - 开放封闭：可扩展新的站点操作，不修改现有方法
+ */
+class ApiSiteService extends ApiClientBase {
     constructor() {
+        super();
         this.apiSiteModel = new ApiSite();
     }
 
@@ -505,8 +516,6 @@ class ApiSiteService {
 
     // 兑换码充值
     async topupSite(siteId, topupKey) {
-        const axios = require('axios');
-        
         try {
             // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
@@ -519,68 +528,27 @@ class ApiSiteService {
 
             // 构建兑换码API URL
             const topupUrl = `${site.url.replace(/\/$/, '')}/api/user/topup`;
-            
-            // 准备请求头
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
+            const context = '[兑换码充值]';
 
-            // 处理认证信息
-            if (site.auth_method === 'token' && site.token) {
-                headers['Authorization'] = `Bearer ${site.token}`;
-            } else if (site.auth_method === 'sessions' && site.sessions) {
-                try {
-                    const sessionData = JSON.parse(site.sessions);
-                    if (sessionData.token) {
-                        headers['Authorization'] = `Bearer ${sessionData.token}`;
-                    }
-                    if (sessionData.cookie) {
-                        headers['Cookie'] = sessionData.cookie;
-                    }
-                } catch (e) {
-                    // 如果不是JSON，直接作为cookie使用
-                    headers['Cookie'] = site.sessions;
-                }
-            }
+            console.log(`${context}发起兑换码请求: ${topupUrl}`);
+            console.log(`${context}兑换码: ${topupKey}`);
 
-            // 根据API类型添加用户头信息
-            if (site.user_id) {
-                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
-                    headers['new-api-user'] = site.user_id;
-                } else if (site.api_type === 'Veloera') {
-                    headers['veloera-user'] = site.user_id;
-                } else if (site.api_type === 'VoApi') {
-                    headers['voapi-user'] = site.user_id;
-                } else if (site.api_type === 'HusanApi') {
-                    headers['Husan-Api-User'] = site.user_id;
-                }
-            }
-
-            console.log(`发起兑换码请求: ${topupUrl}`);
-            console.log('请求头:', headers);
-            console.log('兑换码:', topupKey);
-
-            // 发送兑换码请求
-            const response = await axios.post(topupUrl, {
+            // 使用ApiClientBase的post方法，自动处理头信息
+            const response = await this.post(topupUrl, {
                 key: topupKey
-            }, {
-                headers,
-                timeout: 15000,
-                validateStatus: (status) => status < 500
-            });
+            }, site, site.sessions, '', context);
 
-            console.log(`兑换码响应状态: ${response.status}`);
-            console.log('响应数据:', response.data);
-
-            const data = response.data;
-
-            // 检查响应格式
-            if (!data || typeof data !== 'object') {
+            console.log(`${context}响应状态: ${response.status}`);
+            
+            // 使用ApiClientBase的响应处理方法
+            let data;
+            try {
+                data = this.processApiResponse(response, context);
+            } catch (processError) {
+                console.error(`${context}响应处理失败:`, processError.message);
                 return {
                     success: false,
-                    message: 'API返回数据格式错误'
+                    message: processError.message
                 };
             }
 
@@ -650,8 +618,6 @@ class ApiSiteService {
 
     // 切换令牌状态
     async toggleToken(siteId, tokenId, newStatus) {
-        const axios = require('axios');
-        
         try {
             // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
@@ -664,61 +630,30 @@ class ApiSiteService {
 
             // 构建令牌状态切换API URL (修正为规范路径)
             const toggleUrl = `${site.url.replace(/\/$/, '')}/api/token/?status_only=true`;
-            
-            // 准备请求头
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
+            const context = '[令牌状态切换]';
 
-            // 处理认证信息
-            if (site.auth_method === 'token' && site.token) {
-                headers['Authorization'] = `Bearer ${site.token}`;
-            } else if (site.auth_method === 'sessions' && site.sessions) {
-                try {
-                    const sessionData = JSON.parse(site.sessions);
-                    if (sessionData.token) {
-                        headers['Authorization'] = `Bearer ${sessionData.token}`;
-                    }
-                    if (sessionData.cookie) {
-                        headers['Cookie'] = sessionData.cookie;
-                    }
-                } catch (e) {
-                    headers['Cookie'] = site.sessions;
-                }
-            }
+            console.log(`${context}发起令牌状态切换请求: ${toggleUrl}`);
+            console.log(`${context}新状态: ${newStatus}`);
 
-            // 根据API类型添加用户头信息
-            if (site.user_id) {
-                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
-                    headers['new-api-user'] = site.user_id;
-                } else if (site.api_type === 'Veloera') {
-                    headers['veloera-user'] = site.user_id;
-                } else if (site.api_type === 'VoApi') {
-                    headers['voapi-user'] = site.user_id;
-                } else if (site.api_type === 'HusanApi') {
-                    headers['Husan-Api-User'] = site.user_id;
-                }
-            }
-
-            console.log(`发起令牌状态切换请求: ${toggleUrl}`);
-            console.log('新状态:', newStatus);
-
-            // 发送状态切换请求 (修正请求体为 {id, status})
-            const response = await axios.put(toggleUrl, {
+            // 使用ApiClientBase的put方法，自动处理头信息
+            const response = await this.put(toggleUrl, {
                 id: tokenId,
                 status: newStatus
-            }, {
-                headers,
-                timeout: 15000,
-                validateStatus: (status) => status < 500
-            });
+            }, site, site.sessions, '', context);
 
-            console.log(`令牌状态切换响应状态: ${response.status}`);
-            console.log('响应数据:', response.data);
-
-            const data = response.data;
+            console.log(`${context}响应状态: ${response.status}`);
+            
+            // 使用ApiClientBase的响应处理方法
+            let data;
+            try {
+                data = this.processApiResponse(response, context);
+            } catch (processError) {
+                console.error(`${context}响应处理失败:`, processError.message);
+                return {
+                    success: false,
+                    message: processError.message
+                };
+            }
 
             return {
                 success: data.success || false,
@@ -844,8 +779,6 @@ class ApiSiteService {
 
     // 全部删除令牌
     async deleteAllTokens(siteId) {
-        const axios = require('axios');
-        
         try {
             // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
@@ -858,63 +791,35 @@ class ApiSiteService {
 
             // 首先获取令牌列表
             const tokenListUrl = `${site.url.replace(/\/$/, '')}/api/token/?p=0&size=10`;
+            const context = '[删除所有令牌]';
+
+            console.log(`${context}获取令牌列表: ${tokenListUrl}`);
+
+            // 使用ApiClientBase的get方法，自动处理头信息
+            const listResponse = await this.get(tokenListUrl, site, site.sessions, '', context);
+
+            console.log(`${context}令牌列表响应状态: ${listResponse.status}`);
             
-            // 准备请求头
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
-
-            // 处理认证信息
-            if (site.auth_method === 'token' && site.token) {
-                headers['Authorization'] = `Bearer ${site.token}`;
-            } else if (site.auth_method === 'sessions' && site.sessions) {
-                try {
-                    const sessionData = JSON.parse(site.sessions);
-                    if (sessionData.token) {
-                        headers['Authorization'] = `Bearer ${sessionData.token}`;
-                    }
-                    if (sessionData.cookie) {
-                        headers['Cookie'] = sessionData.cookie;
-                    }
-                } catch (e) {
-                    headers['Cookie'] = site.sessions;
-                }
+            // 使用ApiClientBase的响应处理方法
+            let listData;
+            try {
+                listData = this.processApiResponse(listResponse, context);
+            } catch (processError) {
+                console.error(`${context}令牌列表响应处理失败:`, processError.message);
+                return {
+                    success: false,
+                    message: `获取令牌列表失败: ${processError.message}`
+                };
             }
 
-            // 根据API类型添加用户头信息
-            if (site.user_id) {
-                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
-                    headers['new-api-user'] = site.user_id;
-                } else if (site.api_type === 'Veloera') {
-                    headers['veloera-user'] = site.user_id;
-                } else if (site.api_type === 'VoApi') {
-                    headers['voapi-user'] = site.user_id;
-                } else if (site.api_type === 'HusanApi') {
-                    headers['Husan-Api-User'] = site.user_id;
-                }
-            }
-
-            console.log(`获取令牌列表: ${tokenListUrl}`);
-
-            // 获取令牌列表
-            const listResponse = await axios.get(tokenListUrl, {
-                headers,
-                timeout: 15000,
-                validateStatus: (status) => status < 500
-            });
-
-            console.log(`令牌列表响应状态: ${listResponse.status}`);
-
-            if (!listResponse.data || !listResponse.data.success) {
+            if (!listData.success) {
                 return {
                     success: false,
                     message: '获取令牌列表失败'
                 };
             }
 
-            const tokens = listResponse.data.data?.records || [];
+            const tokens = listData.data?.records || [];
             if (tokens.length === 0) {
                 return {
                     success: true,
@@ -980,8 +885,6 @@ class ApiSiteService {
 
     // 自动创建令牌
     async autoCreateTokens(siteId) {
-        const axios = require('axios');
-        
         try {
             // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
@@ -994,43 +897,7 @@ class ApiSiteService {
 
             // 构建令牌创建API URL
             const createUrl = `${site.url.replace(/\/$/, '')}/api/token`;
-            
-            // 准备请求头
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
-
-            // 处理认证信息
-            if (site.auth_method === 'token' && site.token) {
-                headers['Authorization'] = `Bearer ${site.token}`;
-            } else if (site.auth_method === 'sessions' && site.sessions) {
-                try {
-                    const sessionData = JSON.parse(site.sessions);
-                    if (sessionData.token) {
-                        headers['Authorization'] = `Bearer ${sessionData.token}`;
-                    }
-                    if (sessionData.cookie) {
-                        headers['Cookie'] = sessionData.cookie;
-                    }
-                } catch (e) {
-                    headers['Cookie'] = site.sessions;
-                }
-            }
-
-            // 根据API类型添加用户头信息
-            if (site.user_id) {
-                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
-                    headers['new-api-user'] = site.user_id;
-                } else if (site.api_type === 'Veloera') {
-                    headers['veloera-user'] = site.user_id;
-                } else if (site.api_type === 'VoApi') {
-                    headers['voapi-user'] = site.user_id;
-                } else if (site.api_type === 'HusanApi') {
-                    headers['Husan-Api-User'] = site.user_id;
-                }
-            }
+            const context = '[自动创建令牌]';
 
             // 自动创建多个令牌的配置
             const tokenConfigs = [
@@ -1047,21 +914,28 @@ class ApiSiteService {
             // 逐个创建令牌
             for (const tokenConfig of tokenConfigs) {
                 try {
-                    console.log(`创建令牌: ${tokenConfig.name}`);
+                    console.log(`${context}创建令牌: ${tokenConfig.name}`);
                     
-                    const response = await axios.post(createUrl, tokenConfig, {
-                        headers,
-                        timeout: 15000,
-                        validateStatus: (status) => status < 500
-                    });
+                    // 使用ApiClientBase的post方法，自动处理头信息
+                    const response = await this.post(createUrl, tokenConfig, site, site.sessions, '', context);
 
-                    console.log(`令牌创建响应: ${response.status}`, response.data);
+                    console.log(`${context}令牌创建响应: ${response.status}`);
+                    
+                    // 使用ApiClientBase的响应处理方法
+                    let data;
+                    try {
+                        data = this.processApiResponse(response, context);
+                    } catch (processError) {
+                        console.error(`${context}令牌创建响应处理失败:`, processError.message);
+                        errors.push(`创建令牌 ${tokenConfig.name} 失败: ${processError.message}`);
+                        continue;
+                    }
 
-                    if (response.data && response.data.success) {
+                    if (data.success) {
                         createdCount++;
-                        console.log(`成功创建令牌: ${tokenConfig.name}`);
+                        console.log(`${context}成功创建令牌: ${tokenConfig.name}`);
                     } else {
-                        errors.push(`创建令牌 ${tokenConfig.name} 失败: ${response.data?.message || '未知错误'}`);
+                        errors.push(`创建令牌 ${tokenConfig.name} 失败: ${data.message || '未知错误'}`);
                     }
                 } catch (createError) {
                     errors.push(`创建令牌 ${tokenConfig.name} 失败: ${createError.message}`);
