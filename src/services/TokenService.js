@@ -21,30 +21,30 @@ class TokenService extends ApiClientBase {
      */
     async getTokens(site, userId = null) {
         try {
-            const tokenListUrl = `${site.url.replace(/\/$/, '')}/api/token/?p=0&size=10`;
-            const context = '[获取令牌列表]';
-
-            console.log(`${context}发起请求: ${tokenListUrl}`);
-
-            const response = await this.get(tokenListUrl, site, site.sessions, '', context);
-            const data = this.processApiResponse(response, context);
-
-            if (data.success) {
+            // 使用SiteApiOperations的getTokensList方法，它有完整的兼容性处理
+            const SiteApiOperations = require('./operations/SiteApiOperations');
+            const apiOps = new SiteApiOperations();
+            
+            // 获取站点cookies
+            const cookies = await apiOps.getSiteCookies(site.url);
+            const result = await apiOps.getTokensList(site.url, cookies, site.sessions, site);
+            
+            if (result.success) {
                 // 记录操作日志
                 if (userId) {
                     await this.logService.logAction(
                         userId,
                         'token_list', 
                         `获取站点 ${site.name} 的令牌列表`,
-                        { siteId: site.id, count: data.data?.records?.length || 0 }
+                        { siteId: site.id, count: result.data?.length || 0 }
                     );
                 }
             }
 
             return {
-                success: data.success,
-                message: data.message || '获取令牌列表成功',
-                data: data.data
+                success: result.success,
+                message: result.message || '获取令牌列表成功',
+                data: result.data
             };
 
         } catch (error) {
@@ -136,16 +136,22 @@ class TokenService extends ApiClientBase {
      */
     async deleteAllTokens(site, userId = null) {
         try {
-            // 首先获取令牌列表
-            const listResult = await this.getTokens(site);
-            if (!listResult.success || !listResult.data?.records) {
+            // 使用SiteApiOperations的getTokensList方法，它有完整的兼容性处理
+            const SiteApiOperations = require('./operations/SiteApiOperations');
+            const apiOps = new SiteApiOperations();
+            
+            // 获取站点cookies
+            const cookies = await apiOps.getSiteCookies(site.url);
+            const listResult = await apiOps.getTokensList(site.url, cookies, site.sessions, site);
+            
+            if (!listResult.success || !listResult.data) {
                 return {
                     success: false,
-                    message: '获取令牌列表失败'
+                    message: '获取令牌列表失败: ' + listResult.message
                 };
             }
 
-            const tokens = listResult.data.records;
+            const tokens = listResult.data;
             if (tokens.length === 0) {
                 return {
                     success: true,
@@ -254,9 +260,14 @@ class TokenService extends ApiClientBase {
                 };
             }
 
+            // 使用SiteApiOperations的getTokensList方法，它有完整的兼容性处理
+            const SiteApiOperations = require('./operations/SiteApiOperations');
+            const apiOps = new SiteApiOperations();
+            
             // 获取现有令牌列表
-            const tokensResult = await this.getTokens(site);
-            const existingTokens = tokensResult.success && tokensResult.data?.records ? tokensResult.data.records : [];
+            const cookies = await apiOps.getSiteCookies(site.url);
+            const tokensResult = await apiOps.getTokensList(site.url, cookies, site.sessions, site);
+            const existingTokens = tokensResult.success && tokensResult.data ? tokensResult.data : [];
 
             // 获取已存在的组名
             const existingGroups = new Set(existingTokens.map(token => token.group));

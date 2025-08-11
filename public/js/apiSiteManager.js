@@ -1796,10 +1796,10 @@ class ApiSiteManager {
         }
 
         try {
-            console.log(`[令牌操作] 发送删除请求到 /api/sites/${siteId}/tokens/deleteAll`);
+            console.log(`[令牌操作] 发送删除请求到 /api/sites/${siteId}/tokens`);
             this.showAlert('正在删除所有令牌...', 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/tokens/deleteAll`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens`, {
                 method: 'DELETE',
                 credentials: 'include'
             });
@@ -1827,10 +1827,10 @@ class ApiSiteManager {
     async autoCreateTokens(siteId) {
         console.log(`[令牌操作] 开始自动创建令牌，站点ID: ${siteId}`);
         try {
-            console.log(`[令牌操作] 发送自动创建请求到 /api/sites/${siteId}/tokens/autoCreate`);
+            console.log(`[令牌操作] 发送自动创建请求到 /api/sites/${siteId}/tokens/auto-create`);
             this.showAlert('正在自动创建令牌...', 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/tokens/autoCreate`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens/auto-create`, {
                 method: 'POST',
                 credentials: 'include'
             });
