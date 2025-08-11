@@ -21,7 +21,7 @@ const requireAuth = (req, res, next) => {
 const validateApiSiteInput = (req, res, next) => {
     const { apiType, name, url, authMethod } = req.body;
     
-    if (!apiType || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'DoneHub'].includes(apiType)) {
+    if (!apiType || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'HusanApi', 'DoneHub'].includes(apiType)) {
         return res.status(400).json({
             success: false,
             message: '请选择有效的API类型'

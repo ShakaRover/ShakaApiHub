@@ -227,7 +227,7 @@ class SiteApiOperations extends ApiClientBase {
 
     /**
      * 执行签到操作
-     * 支持Veloera, AnyRouter, VoApi三种API类型的签到
+     * 支持Veloera, AnyRouter, VoApi, HusanApi四种API类型的签到
      * 
      * @param {string} siteUrl - 站点URL
      * @param {string} cookies - cookies字符串
@@ -245,6 +245,8 @@ class SiteApiOperations extends ApiClientBase {
                 checkinPath = '/api/user/sign_in';
             } else if (site.api_type === 'VoApi') {
                 checkinPath = '/api/user/clock_in';
+            } else if (site.api_type === 'HusanApi') {
+                checkinPath = '/api/user/check_in';
             } else {
                 console.log(`${site.api_type} 不支持签到`);
                 return {

@@ -103,6 +103,10 @@ class ApiClientBase {
         } else if (site.api_type === 'VoApi') {
             headers['voapi-user'] = site.user_id;
             console.log(`${logPrefix}添加voapi-user头: ${site.user_id}`);
+            
+        } else if (site.api_type === 'HusanApi') {
+            headers['Husan-Api-User'] = site.user_id;
+            console.log(`${logPrefix}添加Husan-Api-User头: ${site.user_id}`);
         }
     }
 

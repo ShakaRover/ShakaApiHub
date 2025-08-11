@@ -387,7 +387,7 @@ class ApiSiteService {
         const { apiType, name, url, authMethod, sessions, token, userId } = data;
 
         // 必填字段验证
-        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'DoneHub'].includes(apiType)) {
+        if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'HusanApi', 'DoneHub'].includes(apiType)) {
             return { isValid: false, message: '请选择有效的API类型' };
         }
 
@@ -453,7 +453,7 @@ class ApiSiteService {
             data: {
                 format: '导入数据必须是JSON格式，包含sites数组',
                 requiredFields: {
-                    apiType: 'API类型 (NewApi, Veloera, AnyRouter, VoApi, DoneHub)',
+                    apiType: 'API类型 (NewApi, Veloera, AnyRouter, VoApi, HusanApi, DoneHub)',
                     name: '站点名称 (不超过100字符)',
                     url: 'API地址 (有效的URL)',
                     authMethod: '授权方式 (sessions, token)'
@@ -553,6 +553,8 @@ class ApiSiteService {
                     headers['veloera-user'] = site.user_id;
                 } else if (site.api_type === 'VoApi') {
                     headers['voapi-user'] = site.user_id;
+                } else if (site.api_type === 'HusanApi') {
+                    headers['Husan-Api-User'] = site.user_id;
                 }
             }
 
@@ -695,6 +697,8 @@ class ApiSiteService {
                     headers['veloera-user'] = site.user_id;
                 } else if (site.api_type === 'VoApi') {
                     headers['voapi-user'] = site.user_id;
+                } else if (site.api_type === 'HusanApi') {
+                    headers['Husan-Api-User'] = site.user_id;
                 }
             }
 
@@ -792,6 +796,8 @@ class ApiSiteService {
                     headers['veloera-user'] = site.user_id;
                 } else if (site.api_type === 'VoApi') {
                     headers['voapi-user'] = site.user_id;
+                } else if (site.api_type === 'HusanApi') {
+                    headers['Husan-Api-User'] = site.user_id;
                 }
             }
 
@@ -885,6 +891,8 @@ class ApiSiteService {
                     headers['veloera-user'] = site.user_id;
                 } else if (site.api_type === 'VoApi') {
                     headers['voapi-user'] = site.user_id;
+                } else if (site.api_type === 'HusanApi') {
+                    headers['Husan-Api-User'] = site.user_id;
                 }
             }
 
@@ -1019,6 +1027,8 @@ class ApiSiteService {
                     headers['veloera-user'] = site.user_id;
                 } else if (site.api_type === 'VoApi') {
                     headers['voapi-user'] = site.user_id;
+                } else if (site.api_type === 'HusanApi') {
+                    headers['Husan-Api-User'] = site.user_id;
                 }
             }
 

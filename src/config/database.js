@@ -123,7 +123,7 @@ class DatabaseConfig {
                     this.db.run(`
                         CREATE TABLE api_sites (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'DoneHub')),
+                            api_type TEXT NOT NULL CHECK (api_type IN ('NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'HusanApi', 'DoneHub')),
                             name TEXT NOT NULL,
                             url TEXT NOT NULL,
                             auth_method TEXT NOT NULL CHECK (auth_method IN ('sessions', 'token')),

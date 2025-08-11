@@ -471,6 +471,8 @@ class TokenController {
                     headers['veloera-user'] = site.user_id;
                 } else if (site.api_type === 'VoApi') {
                     headers['voapi-user'] = site.user_id;
+                } else if (site.api_type === 'HusanApi') {
+                    headers['Husan-Api-User'] = site.user_id;
                 }
             }
 

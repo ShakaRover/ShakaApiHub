@@ -50,6 +50,17 @@ const API_TYPES = {
         defaultAutoCheckin: true,
         description: 'Voice API with dual auth support'
     },
+    HusanApi: {
+        name: 'HusanApi',
+        displayName: 'Husan API',
+        supportedAuthMethods: ['sessions', 'token'],
+        requiresUserId: {
+            sessions: false,
+            token: true
+        },
+        defaultAutoCheckin: false,
+        description: 'Husan API implementation'
+    },
     DoneHub: {
         name: 'DoneHub',
         displayName: 'Done Hub',

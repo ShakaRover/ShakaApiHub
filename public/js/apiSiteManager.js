@@ -482,6 +482,40 @@ class ApiSiteManager {
             if (autoCheckinInput) {
                 autoCheckinInput.checked = false;
             }
+        } else if (apiType === 'HusanApi') {
+            // HusanApi类型：与NewApi保持一致，但设置默认URL
+            const urlInput = document.getElementById('apiSiteUrl');
+            
+            // 设置默认URL
+            if (urlInput && !urlInput.value) {
+                urlInput.value = 'https://claude.husan97x.xyz';
+            }
+            
+            // 恢复token选项并设置为默认
+            if (authMethodSelect) {
+                const tokenOption = authMethodSelect.querySelector('option[value="token"]');
+                if (tokenOption) {
+                    tokenOption.disabled = false;
+                    tokenOption.textContent = 'Token';
+                }
+                
+                // 如果没有选择授权方式，设置默认为token
+                if (!authMethodSelect.value) {
+                    authMethodSelect.value = 'token';
+                    this.handleAuthMethodChange('token');
+                } else {
+                    // 重新触发授权方式变更以隐藏不必要的字段
+                    this.handleAuthMethodChange(authMethodSelect.value);
+                }
+            }
+            
+            // 隐藏签到选项
+            if (autoCheckinGroup) {
+                autoCheckinGroup.style.display = 'none';
+            }
+            if (autoCheckinInput) {
+                autoCheckinInput.checked = false;
+            }
         } else if (apiType === 'NewApi' || !apiType) {
             // NewApi类型或其他未指定类型，恢复token选项并设置为默认
             if (authMethodSelect) {

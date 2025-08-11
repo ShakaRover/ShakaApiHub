@@ -45,7 +45,7 @@ class SiteCheckService {
             console.log(`获取到cookies: ${cookies ? cookies.substring(0, 100) + '...' : '无'}`);
 
             // 步骤3：检查是否需要签到并执行签到
-            if (site.auto_checkin && (site.api_type === 'Veloera' || site.api_type === 'AnyRouter' || site.api_type === 'VoApi')) {
+            if (site.auto_checkin && (site.api_type === 'Veloera' || site.api_type === 'AnyRouter' || site.api_type === 'VoApi' || site.api_type === 'HusanApi')) {
                 console.log('第三步：执行自动签到...');
                 await this.logService.logSiteOperation(1, siteId, 'site_check', '执行自动签到', 3, 'success');
                 const checkinResult = await this.siteApiOperations.performCheckin(site.url, cookies, site.sessions, site);
