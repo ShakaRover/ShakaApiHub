@@ -1,8 +1,9 @@
-const axios = require('axios');
 const LogService = require('../services/LogService');
+const ApiClientBase = require('../services/base/ApiClientBase');
 
-class TokenController {
+class TokenController extends ApiClientBase {
     constructor() {
+        super();
         this.logService = new LogService();
     }
 
@@ -128,7 +129,7 @@ class TokenController {
             // 构建请求
             const result = await this.makeApiRequest(
                 site, 
-                `/api/token/${tokenId}`, 
+                `/api/token/${tokenId}/`, 
                 'DELETE'
             );
             
@@ -433,85 +434,38 @@ class TokenController {
     async makeApiRequest(site, path, method = 'GET', data = null) {
         try {
             const url = `${site.url.replace(/\/$/, '')}${path}`;
-            
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
+            const context = `TokenController[${site.name}]`;
 
-            // 处理认证信息
-            let configCookies = '';
+            console.log(`${context}发起${method}请求: ${url}`);
 
-            if (site.auth_method === 'token' && site.token) {
-                headers['Authorization'] = `Bearer ${site.token}`;
-            } else if (site.auth_method === 'sessions' && site.sessions) {
-                try {
-                    const sessionData = JSON.parse(site.sessions);
-                    if (sessionData.token) {
-                        headers['Authorization'] = `Bearer ${sessionData.token}`;
-                    }
-                    if (sessionData.cookie) {
-                        configCookies = sessionData.cookie;
-                    }
-                } catch (e) {
-                    configCookies = site.sessions;
-                }
+            let response;
+            const sessions = site.sessions || '';
+            const cookies = '';
+
+            switch (method.toUpperCase()) {
+                case 'GET':
+                    response = await this.get(url, site, sessions, cookies, context);
+                    break;
+                case 'POST':
+                    response = await this.post(url, data, site, sessions, cookies, context);
+                    break;
+                case 'PUT':
+                    response = await this.put(url, data, site, sessions, cookies, context);
+                    break;
+                case 'DELETE':
+                    response = await this.delete(url, site, sessions, cookies, context);
+                    break;
+                default:
+                    throw new Error(`不支持的HTTP方法: ${method}`);
             }
 
-            if (configCookies) {
-                headers['Cookie'] = configCookies;
-            }
-
-            // 根据API类型添加用户头信息
-            if (site.user_id) {
-                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
-                    headers['new-api-user'] = site.user_id;
-                } else if (site.api_type === 'Veloera') {
-                    headers['veloera-user'] = site.user_id;
-                } else if (site.api_type === 'VoApi') {
-                    headers['voapi-user'] = site.user_id;
-                } else if (site.api_type === 'HusanApi') {
-                    headers['Husan-Api-User'] = site.user_id;
-                }
-            }
-
-            const requestConfig = {
-                method,
-                url,
-                headers,
-                timeout: 15000,
-                validateStatus: (status) => status < 500
-            };
-
-            if (data && (method === 'POST' || method === 'PUT')) {
-                requestConfig.data = data;
-            }
-
-            const response = await axios(requestConfig);
-
-            if (response.status >= 400) {
-                return {
-                    success: false,
-                    message: `HTTP ${response.status}: ${response.statusText}`,
-                    data: response.data
-                };
-            }
-
-            const responseData = response.data;
-
-            if (!responseData || typeof responseData !== 'object') {
-                return {
-                    success: false,
-                    message: 'API返回数据格式错误',
-                    data: null
-                };
-            }
+            // 使用Base类的响应处理方法
+            const processedData = this.processApiResponse(response, context);
 
             return {
-                success: responseData.success !== undefined ? responseData.success : true,
-                message: responseData.message || '',
-                data: responseData.success !== undefined ? responseData.data : responseData
+                success: processedData.success !== undefined ? processedData.success : true,
+                message: processedData.message || '',
+                data: processedData.success !== undefined ? processedData.data : processedData
             };
 
         } catch (error) {

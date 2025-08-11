@@ -695,7 +695,7 @@ class ApiSiteService extends ApiClientBase {
             }
 
             // 构建令牌删除API URL
-            const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}`;
+            const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}/`;
             const context = '[令牌删除]';
 
             console.log(`${context}发起令牌删除请求: ${deleteUrl}`);
