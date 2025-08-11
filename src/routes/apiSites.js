@@ -140,7 +140,12 @@ router.post('/sites/:id/topup', requireAuth, (req, res) => {
 router.put('/sites/:id/token/:tokenId/toggle', requireAuth, (req, res) => {
     // 转换参数格式以适配TokenController
     req.params.siteId = req.params.id;
-    // 保持前端发送的请求体不变，只需要确保siteId参数正确
+    // 将URL中的tokenId转换为请求体中的id，并保持status参数
+    req.body.id = req.params.tokenId;
+    // 如果请求体中没有status，默认切换为启用（1）
+    if (req.body.status === undefined) {
+        req.body.status = 1;
+    }
     tokenController.updateTokenStatus(req, res);
 });
 
