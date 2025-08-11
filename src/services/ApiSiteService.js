@@ -684,8 +684,6 @@ class ApiSiteService extends ApiClientBase {
 
     // 删除令牌
     async deleteToken(siteId, tokenId) {
-        const axios = require('axios');
-        
         try {
             // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
@@ -698,57 +696,17 @@ class ApiSiteService extends ApiClientBase {
 
             // 构建令牌删除API URL
             const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}`;
+            const context = '[令牌删除]';
+
+            console.log(`${context}发起令牌删除请求: ${deleteUrl}`);
+
+            // 使用ApiClientBase的delete方法
+            const response = await this.delete(deleteUrl, site, site.sessions, '', context);
+
+            console.log(`${context}响应状态: ${response.status}`);
             
-            // 准备请求头
-            const headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            };
-
-            // 处理认证信息
-            if (site.auth_method === 'token' && site.token) {
-                headers['Authorization'] = `Bearer ${site.token}`;
-            } else if (site.auth_method === 'sessions' && site.sessions) {
-                try {
-                    const sessionData = JSON.parse(site.sessions);
-                    if (sessionData.token) {
-                        headers['Authorization'] = `Bearer ${sessionData.token}`;
-                    }
-                    if (sessionData.cookie) {
-                        headers['Cookie'] = sessionData.cookie;
-                    }
-                } catch (e) {
-                    headers['Cookie'] = site.sessions;
-                }
-            }
-
-            // 根据API类型添加用户头信息
-            if (site.user_id) {
-                if (site.api_type === 'AnyRouter' || site.api_type === 'NewApi') {
-                    headers['new-api-user'] = site.user_id;
-                } else if (site.api_type === 'Veloera') {
-                    headers['veloera-user'] = site.user_id;
-                } else if (site.api_type === 'VoApi') {
-                    headers['voapi-user'] = site.user_id;
-                } else if (site.api_type === 'HusanApi') {
-                    headers['Husan-Api-User'] = site.user_id;
-                }
-            }
-
-            console.log(`发起令牌删除请求: ${deleteUrl}`);
-
-            // 发送删除请求
-            const response = await axios.delete(deleteUrl, {
-                headers,
-                timeout: 15000,
-                validateStatus: (status) => status < 500
-            });
-
-            console.log(`令牌删除响应状态: ${response.status}`);
-            console.log('响应数据:', response.data);
-
-            const data = response.data;
+            // 使用ApiClientBase的响应处理方法
+            const data = this.processApiResponse(response, context);
 
             return {
                 success: data.success || false,
@@ -837,11 +795,7 @@ class ApiSiteService extends ApiClientBase {
             for (const token of tokens) {
                 try {
                     const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${token.id}`;
-                    const deleteResponse = await axios.delete(deleteUrl, {
-                        headers,
-                        timeout: 10000,
-                        validateStatus: (status) => status < 500
-                    });
+                    const deleteResponse = await this.delete(deleteUrl, site, site.sessions, '', `${context}_删除${token.name}`);
 
                     if (deleteResponse.data && deleteResponse.data.success) {
                         deletedCount++;
