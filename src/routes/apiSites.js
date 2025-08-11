@@ -1,9 +1,11 @@
 const express = require('express');
 const ApiSiteController = require('../controllers/ApiSiteController');
+const TokenController = require('../controllers/TokenController');
 const LogController = require('../controllers/LogController');
 
 const router = express.Router();
 const apiSiteController = new ApiSiteController();
+const tokenController = new TokenController();
 const logController = new LogController();
 
 // 认证中间件 - 检查用户是否已登录
@@ -136,22 +138,32 @@ router.post('/sites/:id/topup', requireAuth, (req, res) => {
 
 // PUT /api/sites/:id/token/:tokenId/toggle - 切换令牌状态
 router.put('/sites/:id/token/:tokenId/toggle', requireAuth, (req, res) => {
-    apiSiteController.toggleToken(req, res);
+    // 转换参数格式以适配TokenController
+    req.params.siteId = req.params.id;
+    // 保持前端发送的请求体不变，只需要确保siteId参数正确
+    tokenController.updateTokenStatus(req, res);
 });
 
 // DELETE /api/sites/:id/token/:tokenId - 删除令牌
 router.delete('/sites/:id/token/:tokenId', requireAuth, (req, res) => {
-    apiSiteController.deleteToken(req, res);
+    // 转换参数格式以适配TokenController
+    req.params.siteId = req.params.id;
+    req.params.tokenId = req.params.tokenId;
+    tokenController.deleteToken(req, res);
 });
 
 // DELETE /api/sites/:id/tokens/deleteAll - 全部删除令牌
 router.delete('/sites/:id/tokens/deleteAll', requireAuth, (req, res) => {
-    apiSiteController.deleteAllTokens(req, res);
+    // 转换参数格式以适配TokenController
+    req.params.siteId = req.params.id;
+    tokenController.deleteAllTokens(req, res);
 });
 
 // POST /api/sites/:id/tokens/autoCreate - 自动创建令牌
 router.post('/sites/:id/tokens/autoCreate', requireAuth, (req, res) => {
-    apiSiteController.autoCreateTokens(req, res);
+    // 转换参数格式以适配TokenController
+    req.params.siteId = req.params.id;
+    tokenController.autoCreateTokens(req, res);
 });
 
 // GET /api/sites/:id/check-history - 获取检测历史
