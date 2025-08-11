@@ -1682,7 +1682,7 @@ class ApiSiteManager {
                     <td class="token-time-cell">${expiredTime}</td>
                     <td class="token-actions-cell">
                         <div class="token-actions-inline">
-                            <button class="btn-tiny btn-toggle btn-toggle-token" 
+                            <button class="btn-tiny btn-toggle-token" 
                                     data-site-id="${siteId}" 
                                     data-token-id="${token.id}" 
                                     data-new-status="${token.status === 1 ? 2 : 1}" 
@@ -1718,7 +1718,7 @@ class ApiSiteManager {
             
             this.showAlert(`正在${statusText}令牌...`, 'info');
 
-            const response = await fetch(`/api/sites/${siteId}/token/${tokenId}/toggle`, {
+            const response = await fetch(`/api/sites/${siteId}/tokens/status`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1737,8 +1737,10 @@ class ApiSiteManager {
             if (result.success) {
                 console.log(`[令牌操作] 令牌${statusText}成功 - 站点ID: ${siteId}, 令牌ID: ${tokenId}`);
                 this.showAlert(`令牌${statusText}成功`, 'success');
-                // 只刷新站点列表显示最新的令牌信息，不执行完整检查
-                this.loadApiSites();
+                
+                // 令牌状态切换成功后，调用刷新令牌操作来刷新页面显示和数据库
+                console.log(`[令牌操作] 开始刷新令牌数据...`);
+                await this.refreshTokens(siteId);
             } else {
                 console.error(`[令牌操作] 令牌${statusText}失败 - 站点ID: ${siteId}, 令牌ID: ${tokenId}, 错误: ${result.message}`);
                 this.showAlert(`令牌${statusText}失败: ${result.message}`, 'error');

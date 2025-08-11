@@ -43,6 +43,8 @@ class TokenController {
 
     // 更新令牌状态
     async updateTokenStatus(req, res) {
+        console.log('🔄 [TokenController] updateTokenStatus 被调用');
+        console.log('🔄 [TokenController] 参数:', { siteId: req.params.siteId, body: req.body });
         try {
             const { siteId } = req.params;
             const { id, status } = req.body;
