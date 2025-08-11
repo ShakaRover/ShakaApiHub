@@ -1,10 +1,8 @@
-const LogService = require('../services/LogService');
-const ApiClientBase = require('../services/base/ApiClientBase');
+const TokenService = require('../services/TokenService');
 
-class TokenController extends ApiClientBase {
+class TokenController {
     constructor() {
-        super();
-        this.logService = new LogService();
+        this.tokenService = new TokenService();
     }
 
     // 获取站点令牌列表
@@ -21,26 +19,17 @@ class TokenController extends ApiClientBase {
                 });
             }
 
-            // 构建请求
-            const result = await this.makeApiRequest(site, `/api/token/?p=0&size=10`, 'GET');
+            const result = await this.tokenService.getTokens(site, req.session.userId);
             
-            if (result.success && result.data && result.data.data && result.data.data.records) {
-                // 记录操作日志
-                await this.logService.logAction(
-                    req.session.userId,
-                    'token_list', 
-                    `获取站点 ${site.name} 的令牌列表`,
-                    { siteId, count: result.data.data.records.length }
-                );
-
+            if (result.success) {
                 res.json({
                     success: true,
-                    data: result.data.data
+                    data: result.data
                 });
             } else {
                 res.status(400).json({
                     success: false,
-                    message: result.message || '获取令牌列表失败'
+                    message: result.message
                 });
             }
         } catch (error) {
@@ -74,24 +63,10 @@ class TokenController extends ApiClientBase {
                 });
             }
 
-            // 构建请求
-            const result = await this.makeApiRequest(
-                site, 
-                '/api/token/?status_only=true', 
-                'PUT',
-                { id, status }
-            );
+            const result = await this.tokenService.toggleTokenStatus(site, id, status, req.session.userId);
             
             if (result.success) {
-                // 记录操作日志
                 const action = status === 1 ? '启用' : '禁用';
-                await this.logService.logAction(
-                    req.session.userId,
-                    'token_status', 
-                    `${action}站点 ${site.name} 的令牌 ${id}`,
-                    { siteId, tokenId: id, status }
-                );
-
                 res.json({
                     success: true,
                     message: `令牌${action}成功`,
@@ -100,7 +75,7 @@ class TokenController extends ApiClientBase {
             } else {
                 res.status(400).json({
                     success: false,
-                    message: result.message || '更新令牌状态失败'
+                    message: result.message
                 });
             }
         } catch (error) {
@@ -126,22 +101,9 @@ class TokenController extends ApiClientBase {
                 });
             }
 
-            // 构建请求
-            const result = await this.makeApiRequest(
-                site, 
-                `/api/token/${tokenId}/`, 
-                'DELETE'
-            );
+            const result = await this.tokenService.deleteToken(site, tokenId, req.session.userId);
             
             if (result.success) {
-                // 记录操作日志
-                await this.logService.logAction(
-                    req.session.userId,
-                    'token_delete', 
-                    `删除站点 ${site.name} 的令牌 ${tokenId}`,
-                    { siteId, tokenId }
-                );
-
                 res.json({
                     success: true,
                     message: '令牌删除成功'
@@ -149,7 +111,7 @@ class TokenController extends ApiClientBase {
             } else {
                 res.status(400).json({
                     success: false,
-                    message: result.message || '删除令牌失败'
+                    message: result.message
                 });
             }
         } catch (error) {
@@ -175,8 +137,7 @@ class TokenController extends ApiClientBase {
                 });
             }
 
-            // 构建请求
-            const result = await this.makeApiRequest(site, '/api/user/self/groups', 'GET');
+            const result = await this.tokenService.getTokenGroups(site);
             
             if (result.success) {
                 res.json({
@@ -186,7 +147,7 @@ class TokenController extends ApiClientBase {
             } else {
                 res.status(400).json({
                     success: false,
-                    message: result.message || '获取令牌组失败'
+                    message: result.message
                 });
             }
         } catch (error) {
@@ -233,18 +194,9 @@ class TokenController extends ApiClientBase {
                 group
             };
 
-            // 构建请求
-            const result = await this.makeApiRequest(site, '/api/token/', 'POST', tokenData);
+            const result = await this.tokenService.createToken(site, tokenData, req.session.userId);
             
             if (result.success) {
-                // 记录操作日志
-                await this.logService.logAction(
-                    req.session.userId,
-                    'token_create', 
-                    `在站点 ${site.name} 创建令牌 ${name}`,
-                    { siteId, tokenName: name, group }
-                );
-
                 res.json({
                     success: true,
                     message: '令牌创建成功'
@@ -252,7 +204,7 @@ class TokenController extends ApiClientBase {
             } else {
                 res.status(400).json({
                     success: false,
-                    message: result.message || '创建令牌失败'
+                    message: result.message
                 });
             }
         } catch (error) {
@@ -278,54 +230,23 @@ class TokenController extends ApiClientBase {
                 });
             }
 
-            // 先获取令牌列表
-            const listResult = await this.makeApiRequest(site, '/api/token/?p=0&size=10', 'GET');
+            const result = await this.tokenService.deleteAllTokens(site, req.session.userId);
             
-            if (!listResult.success || !listResult.data.data || !listResult.data.data.records) {
-                return res.status(400).json({
+            if (result.success) {
+                res.json({
+                    success: true,
+                    message: result.message,
+                    data: { 
+                        deleteCount: result.deletedCount, 
+                        failCount: result.errors?.length || 0 
+                    }
+                });
+            } else {
+                res.status(400).json({
                     success: false,
-                    message: '获取令牌列表失败'
+                    message: result.message
                 });
             }
-
-            const tokens = listResult.data.data.records;
-            let deleteCount = 0;
-            let failCount = 0;
-
-            // 逐个删除令牌
-            for (const token of tokens) {
-                try {
-                    const deleteResult = await this.makeApiRequest(
-                        site, 
-                        `/api/token/${token.id}`, 
-                        'DELETE'
-                    );
-                    
-                    if (deleteResult.success) {
-                        deleteCount++;
-                    } else {
-                        failCount++;
-                        console.warn(`删除令牌 ${token.id} 失败:`, deleteResult.message);
-                    }
-                } catch (error) {
-                    failCount++;
-                    console.error(`删除令牌 ${token.id} 异常:`, error.message);
-                }
-            }
-
-            // 记录操作日志
-            await this.logService.logAction(
-                req.session.userId,
-                'token_delete_all', 
-                `批量删除站点 ${site.name} 的所有令牌`,
-                { siteId, deleteCount, failCount }
-            );
-
-            res.json({
-                success: true,
-                message: `批量删除完成：成功${deleteCount}个，失败${failCount}个`,
-                data: { deleteCount, failCount }
-            });
         } catch (error) {
             console.error('批量删除令牌失败:', error);
             res.status(500).json({
@@ -349,71 +270,20 @@ class TokenController extends ApiClientBase {
                 });
             }
 
-            // 获取令牌组信息
-            const groupsResult = await this.makeApiRequest(site, '/api/user/self/groups', 'GET');
-            if (!groupsResult.success || !groupsResult.data) {
-                return res.status(400).json({
+            const result = await this.tokenService.autoCreateTokens(site, req.session.userId);
+            
+            if (result.success) {
+                res.json({
+                    success: true,
+                    message: result.message,
+                    data: result.data
+                });
+            } else {
+                res.status(400).json({
                     success: false,
-                    message: '获取令牌组失败'
+                    message: result.message
                 });
             }
-
-            // 获取现有令牌列表
-            const tokensResult = await this.makeApiRequest(site, '/api/token/?p=0&size=10', 'GET');
-            const existingTokens = tokensResult.success && tokensResult.data.data && tokensResult.data.data.records 
-                ? tokensResult.data.data.records 
-                : [];
-
-            // 获取已存在的组名
-            const existingGroups = new Set(existingTokens.map(token => token.group));
-            const availableGroups = groupsResult.data;
-
-            let createCount = 0;
-            let failCount = 0;
-
-            // 为不存在的组创建令牌
-            for (const [groupKey, groupName] of Object.entries(availableGroups)) {
-                if (!existingGroups.has(groupKey)) {
-                    try {
-                        const tokenData = {
-                            name: groupKey,
-                            remain_quota: 500000,
-                            expired_time: -1,
-                            unlimited_quota: true,
-                            model_limits_enabled: false,
-                            model_limits: "",
-                            allow_ips: "",
-                            group: groupKey
-                        };
-
-                        const createResult = await this.makeApiRequest(site, '/api/token/', 'POST', tokenData);
-                        
-                        if (createResult.success) {
-                            createCount++;
-                        } else {
-                            failCount++;
-                            console.warn(`创建组 ${groupKey} 的令牌失败:`, createResult.message);
-                        }
-                    } catch (error) {
-                        failCount++;
-                        console.error(`创建组 ${groupKey} 的令牌异常:`, error.message);
-                    }
-                }
-            }
-
-            // 记录操作日志
-            await this.logService.logAction(
-                req.session.userId,
-                'token_auto_create', 
-                `自动创建站点 ${site.name} 的缺失组令牌`,
-                { siteId, createCount, failCount }
-            );
-
-            res.json({
-                success: true,
-                message: `自动创建完成：成功${createCount}个，失败${failCount}个，已跳过${existingGroups.size}个已存在的组`,
-                data: { createCount, failCount, existingCount: existingGroups.size }
-            });
         } catch (error) {
             console.error('自动创建令牌失败:', error);
             res.status(500).json({
@@ -428,54 +298,6 @@ class TokenController extends ApiClientBase {
         const databaseConfig = require('../config/database');
         const statements = databaseConfig.getStatements();
         return await statements.findApiSiteById.get(siteId);
-    }
-
-    // 辅助方法：发起API请求
-    async makeApiRequest(site, path, method = 'GET', data = null) {
-        try {
-            const url = `${site.url.replace(/\/$/, '')}${path}`;
-            const context = `TokenController[${site.name}]`;
-
-            console.log(`${context}发起${method}请求: ${url}`);
-
-            let response;
-            const sessions = site.sessions || '';
-            const cookies = '';
-
-            switch (method.toUpperCase()) {
-                case 'GET':
-                    response = await this.get(url, site, sessions, cookies, context);
-                    break;
-                case 'POST':
-                    response = await this.post(url, data, site, sessions, cookies, context);
-                    break;
-                case 'PUT':
-                    response = await this.put(url, data, site, sessions, cookies, context);
-                    break;
-                case 'DELETE':
-                    response = await this.delete(url, site, sessions, cookies, context);
-                    break;
-                default:
-                    throw new Error(`不支持的HTTP方法: ${method}`);
-            }
-
-            // 使用Base类的响应处理方法
-            const processedData = this.processApiResponse(response, context);
-
-            return {
-                success: processedData.success !== undefined ? processedData.success : true,
-                message: processedData.message || '',
-                data: processedData.success !== undefined ? processedData.data : processedData
-            };
-
-        } catch (error) {
-            console.error('API请求失败:', error.message);
-            return {
-                success: false,
-                message: `请求失败: ${error.message}`,
-                data: null
-            };
-        }
     }
 }
 

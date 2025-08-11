@@ -1,6 +1,7 @@
 const ApiSite = require('../models/ApiSite');
 const ApiTypeValidator = require('../utils/ApiTypeValidator');
 const ImportDiagnostic = require('../utils/importDiagnostic');
+const TokenService = require('./TokenService');
 const ApiClientBase = require('./base/ApiClientBase');
 
 /**
@@ -16,6 +17,7 @@ class ApiSiteService extends ApiClientBase {
     constructor() {
         super();
         this.apiSiteModel = new ApiSite();
+        this.tokenService = new TokenService();
     }
 
     // 获取所有API站点
@@ -616,10 +618,9 @@ class ApiSiteService extends ApiClientBase {
         }
     }
 
-    // 切换令牌状态
+    // 切换令牌状态 - 委托给TokenService
     async toggleToken(siteId, tokenId, newStatus) {
         try {
-            // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
             if (!site) {
                 return {
@@ -627,65 +628,19 @@ class ApiSiteService extends ApiClientBase {
                     message: 'API站点不存在'
                 };
             }
-
-            // 构建令牌状态切换API URL (修正为规范路径)
-            const toggleUrl = `${site.url.replace(/\/$/, '')}/api/token/?status_only=true`;
-            const context = '[令牌状态切换]';
-
-            console.log(`${context}发起令牌状态切换请求: ${toggleUrl}`);
-            console.log(`${context}新状态: ${newStatus}`);
-
-            // 使用ApiClientBase的put方法，自动处理头信息
-            const response = await this.put(toggleUrl, {
-                id: tokenId,
-                status: newStatus
-            }, site, site.sessions, '', context);
-
-            console.log(`${context}响应状态: ${response.status}`);
-            
-            // 使用ApiClientBase的响应处理方法
-            let data;
-            try {
-                data = this.processApiResponse(response, context);
-            } catch (processError) {
-                console.error(`${context}响应处理失败:`, processError.message);
-                return {
-                    success: false,
-                    message: processError.message
-                };
-            }
-
-            return {
-                success: data.success || false,
-                message: data.message || (data.success ? '令牌状态更新成功' : '令牌状态更新失败')
-            };
-
+            return await this.tokenService.toggleTokenStatus(site, tokenId, newStatus);
         } catch (error) {
-            console.error('令牌状态切换失败:', error);
-            
-            if (error.code === 'ECONNABORTED') {
-                return {
-                    success: false,
-                    message: '请求超时'
-                };
-            } else if (error.response) {
-                return {
-                    success: false,
-                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
-                };
-            } else {
-                return {
-                    success: false,
-                    message: error.message || '令牌状态切换失败'
-                };
-            }
+            console.error('切换令牌状态失败:', error);
+            return {
+                success: false,
+                message: error.message || '切换令牌状态失败'
+            };
         }
     }
 
-    // 删除令牌
+    // 删除令牌 - 委托给TokenService
     async deleteToken(siteId, tokenId) {
         try {
-            // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
             if (!site) {
                 return {
@@ -693,52 +648,19 @@ class ApiSiteService extends ApiClientBase {
                     message: 'API站点不存在'
                 };
             }
-
-            // 构建令牌删除API URL
-            const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${tokenId}/`;
-            const context = '[令牌删除]';
-
-            console.log(`${context}发起令牌删除请求: ${deleteUrl}`);
-
-            // 使用ApiClientBase的delete方法
-            const response = await this.delete(deleteUrl, site, site.sessions, '', context);
-
-            console.log(`${context}响应状态: ${response.status}`);
-            
-            // 使用ApiClientBase的响应处理方法
-            const data = this.processApiResponse(response, context);
-
-            return {
-                success: data.success || false,
-                message: data.message || (data.success ? '令牌删除成功' : '令牌删除失败')
-            };
-
+            return await this.tokenService.deleteToken(site, tokenId);
         } catch (error) {
-            console.error('令牌删除失败:', error);
-            
-            if (error.code === 'ECONNABORTED') {
-                return {
-                    success: false,
-                    message: '请求超时'
-                };
-            } else if (error.response) {
-                return {
-                    success: false,
-                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
-                };
-            } else {
-                return {
-                    success: false,
-                    message: error.message || '令牌删除失败'
-                };
-            }
+            console.error('删除令牌失败:', error);
+            return {
+                success: false,
+                message: error.message || '删除令牌失败'
+            };
         }
     }
 
-    // 全部删除令牌
+    // 全部删除令牌 - 委托给TokenService
     async deleteAllTokens(siteId) {
         try {
-            // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
             if (!site) {
                 return {
@@ -746,101 +668,19 @@ class ApiSiteService extends ApiClientBase {
                     message: 'API站点不存在'
                 };
             }
-
-            // 首先获取令牌列表
-            const tokenListUrl = `${site.url.replace(/\/$/, '')}/api/token/?p=0&size=10`;
-            const context = '[删除所有令牌]';
-
-            console.log(`${context}获取令牌列表: ${tokenListUrl}`);
-
-            // 使用ApiClientBase的get方法，自动处理头信息
-            const listResponse = await this.get(tokenListUrl, site, site.sessions, '', context);
-
-            console.log(`${context}令牌列表响应状态: ${listResponse.status}`);
-            
-            // 使用ApiClientBase的响应处理方法
-            let listData;
-            try {
-                listData = this.processApiResponse(listResponse, context);
-            } catch (processError) {
-                console.error(`${context}令牌列表响应处理失败:`, processError.message);
-                return {
-                    success: false,
-                    message: `获取令牌列表失败: ${processError.message}`
-                };
-            }
-
-            if (!listData.success) {
-                return {
-                    success: false,
-                    message: '获取令牌列表失败'
-                };
-            }
-
-            const tokens = listData.data?.records || [];
-            if (tokens.length === 0) {
-                return {
-                    success: true,
-                    message: '没有需要删除的令牌',
-                    deletedCount: 0
-                };
-            }
-
-            console.log(`找到${tokens.length}个令牌，开始逐个删除`);
-
-            let deletedCount = 0;
-            const errors = [];
-
-            // 逐个删除令牌
-            for (const token of tokens) {
-                try {
-                    const deleteUrl = `${site.url.replace(/\/$/, '')}/api/token/${token.id}`;
-                    const deleteResponse = await this.delete(deleteUrl, site, site.sessions, '', `${context}_删除${token.name}`);
-
-                    if (deleteResponse.data && deleteResponse.data.success) {
-                        deletedCount++;
-                        console.log(`成功删除令牌: ${token.name}`);
-                    } else {
-                        errors.push(`删除令牌 ${token.name} 失败: ${deleteResponse.data?.message || '未知错误'}`);
-                    }
-                } catch (deleteError) {
-                    errors.push(`删除令牌 ${token.name} 失败: ${deleteError.message}`);
-                }
-            }
-
-            return {
-                success: true,
-                message: `删除操作完成，成功删除${deletedCount}个令牌${errors.length > 0 ? `，${errors.length}个失败` : ''}`,
-                deletedCount: deletedCount,
-                errors: errors
-            };
-
+            return await this.tokenService.deleteAllTokens(site);
         } catch (error) {
             console.error('批量删除令牌失败:', error);
-            
-            if (error.code === 'ECONNABORTED') {
-                return {
-                    success: false,
-                    message: '请求超时'
-                };
-            } else if (error.response) {
-                return {
-                    success: false,
-                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
-                };
-            } else {
-                return {
-                    success: false,
-                    message: error.message || '批量删除令牌失败'
-                };
-            }
+            return {
+                success: false,
+                message: error.message || '批量删除令牌失败'
+            };
         }
     }
 
-    // 自动创建令牌
+    // 自动创建令牌 - 委托给TokenService
     async autoCreateTokens(siteId) {
         try {
-            // 获取站点信息
             const site = await this.apiSiteModel.findById(siteId);
             if (!site) {
                 return {
@@ -848,83 +688,13 @@ class ApiSiteService extends ApiClientBase {
                     message: 'API站点不存在'
                 };
             }
-
-            // 构建令牌创建API URL
-            const createUrl = `${site.url.replace(/\/$/, '')}/api/token`;
-            const context = '[自动创建令牌]';
-
-            // 自动创建多个令牌的配置
-            const tokenConfigs = [
-                { name: `AutoToken_${Date.now()}_1`, expired_time: -1, remain_quota: 500000 },
-                { name: `AutoToken_${Date.now()}_2`, expired_time: -1, remain_quota: 500000 },
-                { name: `AutoToken_${Date.now()}_3`, expired_time: -1, remain_quota: 500000 }
-            ];
-
-            console.log(`开始自动创建${tokenConfigs.length}个令牌`);
-
-            let createdCount = 0;
-            const errors = [];
-
-            // 逐个创建令牌
-            for (const tokenConfig of tokenConfigs) {
-                try {
-                    console.log(`${context}创建令牌: ${tokenConfig.name}`);
-                    
-                    // 使用ApiClientBase的post方法，自动处理头信息
-                    const response = await this.post(createUrl, tokenConfig, site, site.sessions, '', context);
-
-                    console.log(`${context}令牌创建响应: ${response.status}`);
-                    
-                    // 使用ApiClientBase的响应处理方法
-                    let data;
-                    try {
-                        data = this.processApiResponse(response, context);
-                    } catch (processError) {
-                        console.error(`${context}令牌创建响应处理失败:`, processError.message);
-                        errors.push(`创建令牌 ${tokenConfig.name} 失败: ${processError.message}`);
-                        continue;
-                    }
-
-                    if (data.success) {
-                        createdCount++;
-                        console.log(`${context}成功创建令牌: ${tokenConfig.name}`);
-                    } else {
-                        errors.push(`创建令牌 ${tokenConfig.name} 失败: ${data.message || '未知错误'}`);
-                    }
-                } catch (createError) {
-                    errors.push(`创建令牌 ${tokenConfig.name} 失败: ${createError.message}`);
-                }
-
-                // 添加延迟避免频率限制
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-
-            return {
-                success: true,
-                message: `创建操作完成，成功创建${createdCount}个令牌${errors.length > 0 ? `，${errors.length}个失败` : ''}`,
-                createdCount: createdCount,
-                errors: errors
-            };
-
+            return await this.tokenService.autoCreateTokens(site);
         } catch (error) {
             console.error('自动创建令牌失败:', error);
-            
-            if (error.code === 'ECONNABORTED') {
-                return {
-                    success: false,
-                    message: '请求超时'
-                };
-            } else if (error.response) {
-                return {
-                    success: false,
-                    message: `HTTP ${error.response.status}: ${error.response.statusText}`
-                };
-            } else {
-                return {
-                    success: false,
-                    message: error.message || '自动创建令牌失败'
-                };
-            }
+            return {
+                success: false,
+                message: error.message || '自动创建令牌失败'
+            };
         }
     }
 }
