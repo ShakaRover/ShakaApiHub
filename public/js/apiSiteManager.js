@@ -1772,8 +1772,8 @@ class ApiSiteManager {
             if (result.success) {
                 console.log(`[令牌操作] 删除成功`);
                 this.showAlert('令牌删除成功', 'success');
-                // 重新检查站点以获取最新令牌状态
-                await this.checkSite(siteId, '站点');
+                // 只刷新令牌列表以获取最新令牌状态（性能优化）
+                await this.refreshTokens(siteId);
             } else {
                 console.error(`[令牌操作] 删除失败: ${result.message}`);
                 this.showAlert(`删除令牌失败: ${result.message}`, 'error');
@@ -1809,8 +1809,8 @@ class ApiSiteManager {
             if (result.success) {
                 console.log(`[令牌操作] 删除成功: ${result.message}`);
                 this.showAlert(result.message || '所有令牌删除成功', 'success');
-                // 重新检查站点以获取最新令牌状态
-                await this.checkSite(siteId, '站点');
+                // 只刷新令牌列表以获取最新令牌状态（性能优化）
+                await this.refreshTokens(siteId);
             } else {
                 console.error(`[令牌操作] 删除失败: ${result.message}`);
                 this.showAlert(`删除失败: ${result.message}`, 'error');
@@ -1840,8 +1840,8 @@ class ApiSiteManager {
             if (result.success) {
                 console.log(`[令牌操作] 自动创建成功: ${result.message}`);
                 this.showAlert(result.message || '自动创建令牌完成', 'success');
-                // 重新检查站点以获取最新令牌状态
-                await this.checkSite(siteId, '站点');
+                // 只刷新令牌列表以获取最新令牌状态（性能优化）
+                await this.refreshTokens(siteId);
             } else {
                 console.error(`[令牌操作] 自动创建失败: ${result.message}`);
                 this.showAlert(`自动创建失败: ${result.message}`, 'error');
