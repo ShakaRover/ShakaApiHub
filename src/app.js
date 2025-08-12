@@ -38,9 +38,11 @@ async function startApp() {
                     styleSrc: ["'self'", "'unsafe-inline'"],
                     scriptSrc: ["'self'", "'unsafe-inline'"],
                     scriptSrcAttr: ["'unsafe-inline'"],
-                    imgSrc: ["'self'", "data:"]
+                    imgSrc: ["'self'", "data:"],
+                    upgradeInsecureRequests: null  // 禁用 upgrade-insecure-requests 指令
                 }
-            }
+            },
+            hsts: false  // 禁用 HSTS
         }));
 
         app.use(cors({
