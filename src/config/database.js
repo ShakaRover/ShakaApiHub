@@ -70,6 +70,7 @@ class DatabaseConfig {
                     const hasLastCheckin = tableInfo.some(column => column.name === 'last_checkin');
                     const hasModelsList = tableInfo.some(column => column.name === 'models_list');
                     const hasTokensList = tableInfo.some(column => column.name === 'tokens_list');
+                    const hasRemarks = tableInfo.some(column => column.name === 'remarks');
                     
                     // 检查是否需要重建表以支持新功能
                     this.db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='api_sites'", (err, currentSchema) => {
@@ -81,7 +82,7 @@ class DatabaseConfig {
                         
                         const needsRebuild = !currentSchema || !currentSchema.sql.includes('VoApi') || !currentSchema.sql.includes('site_quota') || !hasModelsList || !hasTokensList;
                         
-                        if (needsRebuild || !hasAutoCheckin || !hasLastCheckin) {
+                        if (needsRebuild || !hasAutoCheckin || !hasLastCheckin || !hasRemarks) {
                             console.log('需要重建api_sites表以支持新功能...');
                             this.rebuildApiSitesTable()
                                 .then(() => {
@@ -133,6 +134,7 @@ class DatabaseConfig {
                             enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
                             auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
                             last_checkin DATETIME,
+                            remarks TEXT CHECK (length(remarks) <= 512),
                             -- 站点检测相关字段
                             site_quota REAL DEFAULT 0,
                             site_used_quota REAL DEFAULT 0,
@@ -378,6 +380,7 @@ class DatabaseConfig {
                     enabled INTEGER DEFAULT 1 CHECK (enabled IN (0, 1)),
                     auto_checkin INTEGER DEFAULT 0 CHECK (auto_checkin IN (0, 1)),
                     last_checkin DATETIME,
+                    remarks TEXT CHECK (length(remarks) <= 512),
                     -- 站点检测相关字段
                     site_quota REAL DEFAULT 0,
                     site_used_quota REAL DEFAULT 0,
@@ -565,18 +568,18 @@ class DatabaseConfig {
                 })
             },
             insertApiSite: {
-                run: (apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, createdBy) => new Promise((resolve, reject) => {
-                    this.db.run('INSERT INTO api_sites (api_type, name, url, auth_method, sessions, token, user_id, enabled, auto_checkin, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-                        [apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, createdBy], function(err) {
+                run: (apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, remarks, createdBy) => new Promise((resolve, reject) => {
+                    this.db.run('INSERT INTO api_sites (api_type, name, url, auth_method, sessions, token, user_id, enabled, auto_checkin, remarks, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+                        [apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, remarks, createdBy], function(err) {
                         if (err) reject(err);
                         else resolve({ lastID: this.lastID, changes: this.changes });
                     });
                 })
             },
             updateApiSite: {
-                run: (apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, id) => new Promise((resolve, reject) => {
-                    this.db.run('UPDATE api_sites SET api_type = ?, name = ?, url = ?, auth_method = ?, sessions = ?, token = ?, user_id = ?, enabled = ?, auto_checkin = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
-                        [apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, id], function(err) {
+                run: (apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, remarks, id) => new Promise((resolve, reject) => {
+                    this.db.run('UPDATE api_sites SET api_type = ?, name = ?, url = ?, auth_method = ?, sessions = ?, token = ?, user_id = ?, enabled = ?, auto_checkin = ?, remarks = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
+                        [apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, remarks, id], function(err) {
                         if (err) reject(err);
                         else resolve({ changes: this.changes });
                     });

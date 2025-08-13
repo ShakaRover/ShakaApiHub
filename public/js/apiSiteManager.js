@@ -2142,7 +2142,8 @@ class ApiSiteManager {
         textarea.addEventListener('input', updateCounter);
 
         // 保存备注
-        saveBtn.addEventListener('click', async () => {
+        saveBtn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // 阻止事件冒泡，避免触发 handleTableActions
             const newRemarks = textarea.value.trim();
             
             if (newRemarks.length > 512) {
@@ -2239,7 +2240,10 @@ class ApiSiteManager {
             }
         };
 
-        cancelBtn.addEventListener('click', cancelEdit);
+        cancelBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡，避免触发 handleTableActions
+            cancelEdit();
+        });
 
         // ESC键取消
         textarea.addEventListener('keydown', (e) => {

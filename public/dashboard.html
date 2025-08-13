@@ -909,6 +909,12 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="apiSiteRemarks">备注</label>
+                        <textarea id="apiSiteRemarks" name="remarks" class="form-control" rows="3" maxlength="512" placeholder="可以在这里添加站点相关的说明信息..."></textarea>
+                        <small class="form-help">站点备注信息，最多512个字符 <span id="remarksCounter">0/512</span></small>
+                    </div>
+                    
+                    <div class="form-group">
                         <div class="form-check">
                             <input type="checkbox" id="apiSiteEnabled" name="enabled" class="form-check-input" checked>
                             <label for="apiSiteEnabled" class="form-check-label">启用此API站点</label>

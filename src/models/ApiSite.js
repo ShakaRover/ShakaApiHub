@@ -39,11 +39,16 @@ class ApiSite {
 
     // 创建新API站点
     async create(apiSiteData) {
-        const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, autoCheckin, createdBy } = apiSiteData;
+        const { apiType, name, url, authMethod, sessions, token, userId, enabled = 1, autoCheckin, remarks, createdBy } = apiSiteData;
         
         // 验证必填字段
         if (!name || !url || !createdBy) {
             throw new Error('缺少必填字段: name, url, createdBy');
+        }
+
+        // 验证备注字段长度
+        if (remarks && remarks.length > 512) {
+            throw new Error('备注长度不能超过512个字符');
         }
 
         // 使用集中验证器验证API站点数据
@@ -81,6 +86,7 @@ class ApiSite {
                 userId || null,
                 enabled ? 1 : 0,
                 finalAutoCheckin,
+                remarks || null,
                 createdBy
             );
             
@@ -96,11 +102,16 @@ class ApiSite {
 
     // 更新API站点
     async update(id, apiSiteData) {
-        const { apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin } = apiSiteData;
+        const { apiType, name, url, authMethod, sessions, token, userId, enabled, autoCheckin, remarks } = apiSiteData;
         
         // 验证必填字段
         if (!name || !url) {
             throw new Error('缺少必填字段: name, url');
+        }
+
+        // 验证备注字段长度
+        if (remarks && remarks.length > 512) {
+            throw new Error('备注长度不能超过512个字符');
         }
 
         // 使用集中验证器验证API站点数据
@@ -138,6 +149,7 @@ class ApiSite {
                 userId || null,
                 enabled !== undefined ? (enabled ? 1 : 0) : 1,
                 finalAutoCheckin,
+                remarks || null,
                 id
             );
 

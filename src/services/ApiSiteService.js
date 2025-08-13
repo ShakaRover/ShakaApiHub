@@ -266,7 +266,8 @@ class ApiSiteService extends ApiClientBase {
                     token: site.token,
                     userId: site.user_id,
                     enabled: Boolean(site.enabled),
-                    autoCheckin: Boolean(site.auto_checkin)
+                    autoCheckin: Boolean(site.auto_checkin),
+                    remarks: site.remarks
                 }))
             };
 
@@ -397,7 +398,7 @@ class ApiSiteService extends ApiClientBase {
 
     // 验证API站点数据
     validateApiSiteData(data) {
-        const { apiType, name, url, authMethod, sessions, token, userId } = data;
+        const { apiType, name, url, authMethod, sessions, token, userId, remarks } = data;
 
         // 必填字段验证
         if (!apiType || typeof apiType !== 'string' || !['NewApi', 'Veloera', 'AnyRouter', 'VoApi', 'HusanApi', 'DoneHub'].includes(apiType)) {
@@ -414,6 +415,11 @@ class ApiSiteService extends ApiClientBase {
 
         if (!url || typeof url !== 'string' || url.trim().length === 0) {
             return { isValid: false, message: 'API地址不能为空' };
+        }
+
+        // 验证备注字段长度
+        if (remarks && (typeof remarks !== 'string' || remarks.length > 512)) {
+            return { isValid: false, message: '备注长度不能超过512个字符' };
         }
 
         // URL格式验证

@@ -3200,4 +3200,157 @@ body {
     font-style: italic;
 }
 
-EOF < /dev/null
+/* 备注列样式 */
+.remarks-cell {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.remarks-display {
+    font-size: 0.9em;
+}
+
+.remarks-text {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* 详情区域备注样式 */
+.remarks-section {
+    background: #f8f9fa;
+    border-left: 3px solid #007bff;
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    position: relative;
+}
+
+.remarks-section .info-label {
+    color: #495057;
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.remarks-content {
+    text-align: left !important;
+}
+
+.remarks-content .remarks-text {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #343a40;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+    display: block;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    min-height: auto;
+}
+
+.remarks-content .remarks-text:hover {
+    color: #007bff;
+}
+
+.remarks-content .remarks-text.remarks-empty {
+    color: #6c757d;
+    font-style: italic;
+    padding: 8px 0;
+}
+
+.remarks-content .remarks-text.remarks-empty:hover {
+    color: #007bff;
+}
+
+/* 编辑状态样式 */
+.remarks-section.editing {
+    background: #fff;
+    border: 2px solid #007bff;
+    box-shadow: 0 2px 10px rgba(0, 123, 255, 0.1);
+}
+
+/* 内联编辑器样式 */
+.inline-edit-container {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+.inline-edit-textarea {
+    width: 100% !important;
+    min-height: 80px !important;
+    padding: 8px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    resize: vertical !important;
+    font-family: inherit !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    background: #fff !important;
+    transition: border-color 0.15s ease-in-out !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+
+.inline-edit-textarea:focus {
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+
+.inline-edit-actions {
+    margin-top: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+.inline-edit-actions .inline-counter {
+    color: #6c757d !important;
+    font-size: 0.75rem !important;
+}
+
+.inline-edit-actions .action-buttons {
+    display: flex !important;
+    gap: 6px !important;
+}
+
+.inline-edit-actions .btn-save,
+.inline-edit-actions .btn-cancel {
+    padding: 4px 12px !important;
+    border: 1px solid transparent !important;
+    border-radius: 3px !important;
+    font-size: 0.8rem !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    outline: none !important;
+}
+
+.inline-edit-actions .btn-save {
+    background: #007bff !important;
+    color: white !important;
+}
+
+.inline-edit-actions .btn-save:hover {
+    background: #0056b3 !important;
+}
+
+.inline-edit-actions .btn-save:disabled {
+    background: #6c757d !important;
+    cursor: not-allowed !important;
+}
+
+.inline-edit-actions .btn-cancel {
+    background: #6c757d !important;
+    color: white !important;
+}
+
+.inline-edit-actions .btn-cancel:hover {
+    background: #545b62 !important;
+}
