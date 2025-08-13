@@ -7,6 +7,7 @@ class ApiSiteManager {
         this.searchTerm = ''; // 搜索关键字
         this.showDetails = false; // 全局显示详情开关
         this.expandedSites = new Set(); // 记录展开的站点ID
+        this.selectedKnownSite = null; // 当前选中的已知站点
         
         // DOM缓存机制
         this.domCache = new Map();
@@ -91,6 +92,9 @@ class ApiSiteManager {
         this.loadApiStats();
         // 初始化过滤数组
         this.filteredApiSites = this.apiSites;
+        
+        // 初始化已知站点数据
+        this.initKnownSites();
     }
 
     // 绑定事件
@@ -159,6 +163,19 @@ class ApiSiteManager {
             remarksTextarea.addEventListener('input', () => this.updateRemarksCounter());
         }
 
+        // 已知站点搜索事件
+        const knownSiteSearch = this.getElement('knownSiteSearch');
+        if (knownSiteSearch) {
+            knownSiteSearch.addEventListener('input', (e) => this.handleKnownSiteSearch(e.target.value));
+            knownSiteSearch.addEventListener('focus', () => this.showAllKnownSites());
+        }
+
+        // 清除搜索按钮事件
+        const clearSiteSearch = this.getElement('clearSiteSearch');
+        if (clearSiteSearch) {
+            clearSiteSearch.addEventListener('click', () => this.clearKnownSiteSearch());
+        }
+
         // 事件委托 - 处理表格中的操作按钮
         const tableBody = this.getElement('apiSitesTableBody');
         if (tableBody) {
@@ -204,6 +221,9 @@ class ApiSiteManager {
         const closeBtn = this.getElement('apiSiteModalClose');
         const cancelBtn = this.getElement('apiSiteModalCancel');
         const form = this.getElement('apiSiteForm');
+        
+        // 设置API类型变化监听器
+        this.setupApiTypeChangeListener();
 
         // 关闭模态框事件
         [closeBtn, cancelBtn].forEach(btn => {
@@ -304,6 +324,18 @@ class ApiSiteManager {
         if (modal) {
             modal.classList.add('show');
             document.body.style.overflow = 'hidden';
+            
+            // 根据是否是编辑模式来显示/隐藏搜索功能
+            const knownSiteSearchGroup = document.getElementById('knownSiteSearchGroup');
+            if (knownSiteSearchGroup) {
+                if (this.currentEditingId) {
+                    // 编辑模式：隐藏搜索功能
+                    knownSiteSearchGroup.style.display = 'none';
+                } else {
+                    // 添加模式：显示搜索功能
+                    knownSiteSearchGroup.style.display = 'block';
+                }
+            }
         }
     }
 
@@ -347,6 +379,13 @@ class ApiSiteManager {
             
             // 重置备注字符计数
             this.updateRemarksCounter();
+            
+            // 重置已知站点搜索
+            this.clearKnownSiteSearch();
+            this.selectedKnownSite = null;
+            
+            // 隐藏注册链接
+            this.hideRegisterLink();
             
             // 设置默认值
             const authMethodSelect = document.getElementById('apiSiteAuthMethod');
@@ -395,15 +434,26 @@ class ApiSiteManager {
         const autoCheckinGroup = document.getElementById('autoCheckinGroup');
         const autoCheckinInput = document.getElementById('apiSiteAutoCheckin');
         const authMethodSelect = document.getElementById('apiSiteAuthMethod');
+        const nameInput = document.getElementById('apiSiteName');
+        const urlInput = document.getElementById('apiSiteUrl');
+        
+        // 使用默认站点信息填充（仅当当前没有选择已知站点时）
+        if (window.ApiSiteData && !this.selectedKnownSite) {
+            const defaultSite = window.ApiSiteData.getDefaultSite(apiType);
+            if (defaultSite) {
+                if (nameInput && !nameInput.value) {
+                    nameInput.value = defaultSite.name;
+                }
+                if (urlInput && !urlInput.value) {
+                    urlInput.value = defaultSite.url;
+                    // 触发URL变化事件来更新注册链接
+                    this.updateRegisterLink(defaultSite.url, defaultSite.aff);
+                }
+            }
+        }
         
         // 为AnyRouter设置默认值和显示签到选项
         if (apiType === 'AnyRouter') {
-            const urlInput = document.getElementById('apiSiteUrl');
-            
-            // 设置默认URL
-            if (urlInput && !urlInput.value) {
-                urlInput.value = 'https://anyrouter.top';
-            }
             
             // AnyRouter只支持sessions模式，禁用token选项
             if (authMethodSelect) {
@@ -462,11 +512,6 @@ class ApiSiteManager {
                 autoCheckinInput.checked = true;
             }
         } else if (apiType === 'DoneHub') {
-            const urlInput = document.getElementById('apiSiteUrl');
-            // 设置默认URL
-            if (urlInput && !urlInput.value) {
-                urlInput.value = 'https://api.ccode.qzz.io';
-            }
 
             // DoneHub类型：支持所有授权方式，但不需要User ID字段
             if (authMethodSelect) {
@@ -494,13 +539,7 @@ class ApiSiteManager {
                 autoCheckinInput.checked = false;
             }
         } else if (apiType === 'HusanApi') {
-            // HusanApi类型：与NewApi保持一致，但设置默认URL
-            const urlInput = document.getElementById('apiSiteUrl');
-            
-            // 设置默认URL
-            if (urlInput && !urlInput.value) {
-                urlInput.value = 'https://claude.husan97x.xyz';
-            }
+            // HusanApi类型：与NewApi保持一致
             
             // 恢复token选项并设置为默认
             if (authMethodSelect) {
@@ -2288,6 +2327,238 @@ class ApiSiteManager {
         } catch (error) {
             console.error('更新备注请求失败:', error);
             return { success: false, message: '网络请求失败' };
+        }
+    }
+
+    // 初始化已知站点功能
+    initKnownSites() {
+        // 检查是否有已知站点数据
+        if (!window.ApiSiteData) {
+            console.warn('ApiSiteData not loaded');
+            return;
+        }
+        
+        // 绑定URL输入变化事件来更新注册链接
+        const urlInput = document.getElementById('apiSiteUrl');
+        if (urlInput) {
+            urlInput.addEventListener('input', (e) => this.handleUrlChange(e.target.value));
+        }
+    }
+
+    // 处理URL变化，更新注册链接
+    handleUrlChange(url) {
+        if (!url || !window.ApiSiteData) {
+            this.hideRegisterLink();
+            return;
+        }
+
+        // 在所有已知站点中搜索匹配的URL
+        const matchingSite = window.ApiSiteData.knownSites.find(site => 
+            site.url === url || site.url.replace(/^https?:\/\//, '') === url.replace(/^https?:\/\//, '')
+        );
+
+        if (matchingSite && matchingSite.aff) {
+            this.showRegisterLink(url, matchingSite.aff);
+        } else {
+            this.hideRegisterLink();
+        }
+    }
+
+    // 显示注册链接
+    showRegisterLink(baseUrl, affPath) {
+        const registerLink = document.getElementById('registerLink');
+        if (registerLink) {
+            registerLink.href = baseUrl + affPath;
+            registerLink.style.display = 'inline-block';
+            registerLink.title = `点击在新窗口打开注册页面: ${baseUrl + affPath}`;
+        }
+    }
+
+    // 隐藏注册链接
+    hideRegisterLink() {
+        const registerLink = document.getElementById('registerLink');
+        if (registerLink) {
+            registerLink.style.display = 'none';
+            registerLink.href = '#';
+        }
+    }
+
+    // 更新注册链接
+    updateRegisterLink(url, affPath) {
+        if (url && affPath) {
+            this.showRegisterLink(url, affPath);
+        } else {
+            this.hideRegisterLink();
+        }
+    }
+
+    // 显示所有已知站点
+    showAllKnownSites() {
+        if (!window.ApiSiteData) return;
+        
+        const clearButton = this.getElement('clearSiteSearch');
+        const sitesList = this.getElement('knownSitesList');
+        
+        // 显示清除按钮
+        if (clearButton) clearButton.style.display = 'inline-block';
+        
+        // 获取当前API类型
+        const apiTypeSelect = this.getElement('apiSiteType');
+        const currentApiType = apiTypeSelect ? apiTypeSelect.value : 'NewApi';
+        
+        // 获取所有已知站点
+        const allSites = window.ApiSiteData.knownSites;
+        
+        // 将匹配当前API类型的站点放在前面，其他站点放在后面
+        const sortedSites = this.sortSitesByApiTypeMatch(allSites, currentApiType);
+        
+        // 显示站点列表
+        this.displayKnownSites(sortedSites);
+    }
+
+    // 监听API类型变化，更新站点列表排序
+    setupApiTypeChangeListener() {
+        const apiTypeSelect = this.getElement('apiSiteType');
+        if (!apiTypeSelect) return;
+        
+        apiTypeSelect.addEventListener('change', () => {
+            // 如果站点列表当前是显示状态，则重新排序
+            const sitesList = this.getElement('knownSitesList');
+            if (sitesList && sitesList.style.display === 'block') {
+                this.showAllKnownSites();
+            }
+        });
+    }
+
+    // 处理已知站点搜索
+    handleKnownSiteSearch(keyword) {
+        const clearButton = this.getElement('clearSiteSearch');
+
+        if (!keyword || keyword.trim() === '') {
+            // 如果搜索关键字为空，显示所有站点（按API类型排序）
+            this.showAllKnownSites();
+            return;
+        }
+
+        // 显示清除按钮
+        if (clearButton) clearButton.style.display = 'inline-block';
+
+        // 获取当前API类型
+        const apiTypeSelect = this.getElement('apiSiteType');
+        const currentApiType = apiTypeSelect ? apiTypeSelect.value : 'NewApi';
+        
+        // 搜索匹配的站点
+        const results = window.ApiSiteData.searchKnownSites(keyword);
+        
+        // 将匹配当前API类型的站点放在前面，其他站点放在后面
+        const sortedResults = this.sortSitesByApiTypeMatch(results, currentApiType);
+        
+        // 显示搜索结果
+        this.displayKnownSites(sortedResults);
+    }
+
+    // 根据API类型匹配对站点进行排序
+    sortSitesByApiTypeMatch(sites, currentApiType) {
+        // 将站点分为两组：匹配当前API类型的和不匹配的
+        const matchingSites = sites.filter(site => site.apiType === currentApiType);
+        const otherSites = sites.filter(site => site.apiType !== currentApiType);
+        
+        // 合并结果：匹配的在前，其他的在后
+        return [...matchingSites, ...otherSites];
+    }
+
+    // 显示已知站点列表
+    displayKnownSites(sites) {
+        const sitesList = this.getElement('knownSitesList');
+        const apiTypeSelect = this.getElement('apiSiteType');
+        
+        if (!sitesList) return;
+
+        if (sites.length === 0) {
+            sitesList.innerHTML = '<div class="no-results">没有找到匹配的站点</div>';
+            sitesList.style.display = 'block';
+            return;
+        }
+
+        // 获取当前选中的API类型
+        const currentApiType = apiTypeSelect ? apiTypeSelect.value : null;
+
+        // 生成站点列表HTML
+        const sitesHtml = sites.map(site => {
+            const isSelected = this.selectedKnownSite && 
+                             this.selectedKnownSite.url === site.url && 
+                             this.selectedKnownSite.apiType === site.apiType;
+            
+            const isSameType = site.apiType === currentApiType;
+            
+            return `
+                <div class="known-site-item ${isSelected ? 'selected' : ''} ${!isSameType ? 'different-type' : ''}" 
+                     data-site='${JSON.stringify(site)}'
+                     onclick="apiSiteManager.selectKnownSite('${site.url.replace(/'/g, "\\'")}', '${site.name.replace(/'/g, "\\'")}', '${site.apiType}', '${site.aff.replace(/'/g, "\\'")}')">
+                    <div class="known-site-name">${this.escapeHtml(site.name)}</div>
+                    <div class="known-site-url">${this.escapeHtml(site.url)}</div>
+                    <div class="known-site-type">
+                        <span class="site-type-badge">${this.escapeHtml(site.apiType)}</span>
+                        ${!isSameType ? '<span style="color: #ff6b6b; margin-left: 0.5rem;">(不同类型)</span>' : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        sitesList.innerHTML = sitesHtml;
+        sitesList.style.display = 'block';
+    }
+
+    // 选择已知站点
+    selectKnownSite(url, name, apiType, aff) {
+        this.selectedKnownSite = { url, name, apiType, aff };
+        
+        // 更新表单字段
+        const apiTypeSelect = this.getElement('apiSiteType');
+        const nameInput = this.getElement('apiSiteName');
+        const urlInput = this.getElement('apiSiteUrl');
+
+        // 更新API类型
+        if (apiTypeSelect && apiTypeSelect.value !== apiType) {
+            apiTypeSelect.value = apiType;
+            // 触发API类型变更事件
+            this.handleApiTypeChange(apiType);
+        }
+
+        // 更新站点名称和URL
+        if (nameInput) nameInput.value = name;
+        if (urlInput) {
+            urlInput.value = url;
+            // 更新注册链接
+            this.updateRegisterLink(url, aff);
+        }
+
+        // 更新搜索结果显示
+        this.handleKnownSiteSearch(document.getElementById('knownSiteSearch').value);
+
+        // 显示选择成功提示
+        this.showAlert(`已选择站点: ${name}`, 'success');
+    }
+
+    // 清除已知站点搜索
+    clearKnownSiteSearch() {
+        const searchInput = this.getElement('knownSiteSearch');
+        const clearButton = this.getElement('clearSiteSearch');
+        const sitesList = this.getElement('knownSitesList');
+
+        if (searchInput) searchInput.value = '';
+        if (clearButton) clearButton.style.display = 'none';
+        if (sitesList) {
+            sitesList.style.display = 'none';
+            sitesList.innerHTML = '';
+        }
+        
+        this.selectedKnownSite = null;
+        
+        // 清除后重新应用当前API类型的默认值
+        const apiTypeSelect = this.getElement('apiSiteType');
+        if (apiTypeSelect) {
+            this.handleApiTypeChange(apiTypeSelect.value);
         }
     }
 }
