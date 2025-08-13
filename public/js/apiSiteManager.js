@@ -23,9 +23,6 @@ class ApiSiteManager {
             }],
             ['btn-delete', (siteId, siteName) => this.showDeleteModal(siteId, siteName)],
             ['btn-expand', (siteId) => this.toggleSiteDetails(siteId)],
-            ['btn-copy-aff', (siteId, siteName, button) => {
-                this.copyAffiliateLink(button.dataset.siteUrl, button.dataset.affCode);
-            }],
             ['btn-refresh-tokens', (siteId) => this.refreshTokens(siteId)],
             ['btn-delete-all-tokens', (siteId) => this.deleteAllTokens(siteId)],
             ['btn-auto-create-tokens', (siteId) => this.autoCreateTokens(siteId)],
@@ -946,15 +943,14 @@ class ApiSiteManager {
                     <span class="info-label">邀请码</span>
                     <span class="info-value">
                         ${site.site_aff_code ? `
-                            <span class="aff-code-container">
-                                <span class="aff-code">${site.site_aff_code}</span>
-                                <button class="btn-copy-aff" 
-                                        data-site-url="${site.url}" 
-                                        data-aff-code="${site.site_aff_code}"
-                                        title="复制邀请链接">
-                                    📋
-                                </button>
-                            </span>
+                            <a href="${site.url}/register?aff=${site.site_aff_code}" 
+                               target="_blank" 
+                               title="点击在新窗口中打开邀请链接"
+                               style="color: #007bff; text-decoration: none;"
+                               onmouseover="this.style.textDecoration='underline'"
+                               onmouseout="this.style.textDecoration='none'">
+                                ${site.site_aff_code}
+                            </a>
                         ` : '无'}
                     </span>
                 </div>
@@ -1502,35 +1498,6 @@ class ApiSiteManager {
         
         // 重新渲染表格
         this.renderApiSitesTable();
-    }
-
-    // 复制邀请链接
-    async copyAffiliateLink(siteUrl, affCode) {
-        try {
-            const affiliateLink = `${siteUrl}/register?aff=${affCode}`;
-            
-            // 使用现代的Clipboard API
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(affiliateLink);
-            } else {
-                // 降级方案：使用传统的方法
-                const textArea = document.createElement('textarea');
-                textArea.value = affiliateLink;
-                textArea.style.position = 'fixed';
-                textArea.style.left = '-999999px';
-                textArea.style.top = '-999999px';
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                document.execCommand('copy');
-                textArea.remove();
-            }
-            
-            this.showAlert(`邀请链接已复制: ${affiliateLink}`, 'success');
-        } catch (error) {
-            console.error('复制失败:', error);
-            this.showAlert('复制失败，请手动复制', 'error');
-        }
     }
 
     // 显示提示消息
