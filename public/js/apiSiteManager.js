@@ -153,6 +153,12 @@ class ApiSiteManager {
             });
         }
 
+        // 备注字符计数事件
+        const remarksTextarea = this.getElement('apiSiteRemarks');
+        if (remarksTextarea) {
+            remarksTextarea.addEventListener('input', () => this.updateRemarksCounter());
+        }
+
         // 事件委托 - 处理表格中的操作按钮
         const tableBody = this.getElement('apiSitesTableBody');
         if (tableBody) {
@@ -337,6 +343,10 @@ class ApiSiteManager {
         if (form) {
             form.reset();
             document.getElementById('apiSiteEnabled').checked = true;
+            document.getElementById('apiSiteRemarks').value = '';
+            
+            // 重置备注字符计数
+            this.updateRemarksCounter();
             
             // 设置默认值
             const authMethodSelect = document.getElementById('apiSiteAuthMethod');
@@ -367,8 +377,12 @@ class ApiSiteManager {
         document.getElementById('apiSiteSessions').value = site.sessions || '';
         document.getElementById('apiSiteToken').value = site.token || '';
         document.getElementById('apiSiteUserId').value = site.user_id || '';
+        document.getElementById('apiSiteRemarks').value = site.remarks || '';
         document.getElementById('apiSiteEnabled').checked = Boolean(site.enabled);
         document.getElementById('apiSiteAutoCheckin').checked = Boolean(site.auto_checkin);
+        
+        // 更新备注字符计数
+        this.updateRemarksCounter();
         
         this.handleAuthMethodChange(site.auth_method);
         this.handleApiTypeChange(site.api_type);
@@ -593,7 +607,8 @@ class ApiSiteManager {
             token: formData.get('token')?.trim() || null,
             userId: formData.get('userId')?.trim() || null,
             enabled: formData.has('enabled'),
-            autoCheckin: formData.has('autoCheckin')
+            autoCheckin: formData.has('autoCheckin'),
+            remarks: formData.get('remarks')?.trim() || null
         };
 
         // 客户端验证
@@ -974,6 +989,19 @@ class ApiSiteManager {
                     <span class="info-label">检测时间</span>
                     <span class="info-value">${lastCheckTime}</span>
                 </div>
+            </div>
+            <div class="info-item-full remarks-section" style="margin-top: 1rem;">
+                <span class="info-label">备注 <small style="color: #6c757d; font-weight: normal;">(双击${site.remarks ? '编辑' : '添加'})</small></span>
+                <div class="info-value remarks-content">
+                    <div class="remarks-text${!site.remarks ? ' remarks-empty' : ''}" 
+                         data-site-id="${site.id}" 
+                         ondblclick="window.apiSiteManager.editRemarksInline(${site.id})"
+                         title="双击${site.remarks ? '编辑' : '添加'}备注">
+                        ${site.remarks ? this.escapeHtml(site.remarks) : '暂无备注，双击添加...'}
+                    </div>
+                </div>
+            </div>
+            <div class="info-grid">
                 <div class="info-item-full">
                     <span class="info-label">
                         模型列表 
@@ -1114,6 +1142,13 @@ class ApiSiteManager {
                 </a>
             </div>
         `;
+
+        // 备注显示
+        const remarksDisplay = site.remarks ? `
+            <div class="remarks-display" title="${this.escapeHtml(site.remarks)}">
+                <span class="remarks-text">${this.escapeHtml(site.remarks.length > 30 ? site.remarks.substring(0, 30) + '...' : site.remarks)}</span>
+            </div>
+        ` : '<span class="text-muted">-</span>';
 
         const apiTypeBadge = `<span class="api-type-badge api-type-${site.api_type.toLowerCase()}">${site.api_type}</span>`;
         const statusBadge = this.createTemplate('statusBadge', { 
@@ -2023,6 +2058,232 @@ class ApiSiteManager {
         } catch (error) {
             console.error('[密码管理] 显示密码修改历史异常:', error);
             this.showAlert('显示修改历史失败，请检查网络连接', 'error');
+        }
+    }
+
+    // 更新备注字符计数
+    updateRemarksCounter() {
+        const remarksTextarea = document.getElementById('apiSiteRemarks');
+        const counterElement = document.getElementById('remarksCounter');
+        
+        if (remarksTextarea && counterElement) {
+            const currentLength = remarksTextarea.value.length;
+            const maxLength = 512;
+            counterElement.textContent = `${currentLength}/${maxLength}`;
+            
+            // 如果超过长度限制，显示警告样式
+            if (currentLength > maxLength) {
+                counterElement.style.color = '#ff4444';
+                remarksTextarea.style.borderColor = '#ff4444';
+            } else if (currentLength > maxLength * 0.8) {
+                counterElement.style.color = '#ffaa00';
+                remarksTextarea.style.borderColor = '';
+            } else {
+                counterElement.style.color = '';
+                remarksTextarea.style.borderColor = '';
+            }
+        }
+    }
+
+    // 内联编辑备注
+    async editRemarksInline(siteId) {
+        const site = this.apiSites.find(s => s.id === siteId);
+        if (!site) {
+            this.showAlert('找不到指定的站点', 'error');
+            return;
+        }
+
+        const remarksElement = document.querySelector(`[data-site-id="${siteId}"].remarks-text`);
+        if (!remarksElement) return;
+
+        // 添加编辑状态样式
+        const remarksSection = remarksElement.closest('.remarks-section');
+        if (remarksSection) {
+            remarksSection.classList.add('editing');
+        }
+
+        // 创建内联编辑界面
+        const currentRemarks = site.remarks || '';
+        const originalContent = remarksElement.innerHTML;
+
+        remarksElement.innerHTML = `
+            <div class="inline-edit-container">
+                <textarea class="inline-edit-textarea" 
+                          maxlength="512" 
+                          placeholder="请输入备注信息...">${this.escapeHtml(currentRemarks)}</textarea>
+                <div class="inline-edit-actions">
+                    <span class="inline-counter">0/512</span>
+                    <div class="action-buttons">
+                        <button class="btn-save">保存</button>
+                        <button class="btn-cancel">取消</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const textarea = remarksElement.querySelector('.inline-edit-textarea');
+        const saveBtn = remarksElement.querySelector('.btn-save');
+        const cancelBtn = remarksElement.querySelector('.btn-cancel');
+        const counter = remarksElement.querySelector('.inline-counter');
+
+        // 更新字符计数
+        const updateCounter = () => {
+            const length = textarea.value.length;
+            counter.textContent = `${length}/512`;
+            counter.style.color = length > 512 ? '#ff4444' : (length > 410 ? '#ffaa00' : 'var(--text-muted)');
+        };
+
+        // 初始化计数并聚焦
+        updateCounter();
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+        // 绑定事件
+        textarea.addEventListener('input', updateCounter);
+
+        // 保存备注
+        saveBtn.addEventListener('click', async () => {
+            const newRemarks = textarea.value.trim();
+            
+            if (newRemarks.length > 512) {
+                this.showAlert('备注长度不能超过512个字符', 'error');
+                return;
+            }
+
+            // 禁用按钮防止重复提交
+            saveBtn.disabled = true;
+            saveBtn.textContent = '保存中...';
+
+            try {
+                const result = await this.updateApiSiteRemarks(siteId, newRemarks);
+                if (result.success) {
+                    this.showAlert('备注更新成功', 'success');
+                    
+                    // 更新本地数据
+                    const siteIndex = this.apiSites.findIndex(s => s.id === siteId);
+                    if (siteIndex !== -1) {
+                        this.apiSites[siteIndex].remarks = newRemarks;
+                    }
+                    
+                    // 更新UI显示
+                    remarksElement.innerHTML = newRemarks ? this.escapeHtml(newRemarks) : '暂无备注，双击添加...';
+                    if (newRemarks) {
+                        remarksElement.classList.remove('remarks-empty');
+                    } else {
+                        remarksElement.classList.add('remarks-empty');
+                    }
+                    
+                    // 确保 data-site-id 属性正确设置
+                    remarksElement.setAttribute('data-site-id', siteId);
+                    // 重新绑定双击事件
+                    remarksElement.ondblclick = () => this.editRemarksInline(siteId);
+                    remarksElement.title = `双击${newRemarks ? '编辑' : '添加'}备注`;
+                    
+                    // 更新标签文字
+                    const labelElement = remarksElement.closest('.remarks-section').querySelector('.info-label small');
+                    if (labelElement) {
+                        labelElement.textContent = `(双击${newRemarks ? '编辑' : '添加'})`;
+                    }
+                    
+                    // 移除编辑状态
+                    if (remarksSection) {
+                        remarksSection.classList.remove('editing');
+                    }
+                } else {
+                    this.showAlert('备注更新失败: ' + result.message, 'error');
+                    remarksElement.innerHTML = originalContent;
+                    // 确保 data-site-id 属性正确设置
+                    remarksElement.setAttribute('data-site-id', siteId);
+                    // 重新绑定双击事件
+                    remarksElement.ondblclick = () => this.editRemarksInline(siteId);
+                    if (remarksSection) {
+                        remarksSection.classList.remove('editing');
+                    }
+                }
+            } catch (error) {
+                console.error('更新备注失败:', error);
+                this.showAlert('备注更新失败', 'error');
+                remarksElement.innerHTML = originalContent;
+                // 确保 data-site-id 属性正确设置
+                remarksElement.setAttribute('data-site-id', siteId);
+                // 重新绑定双击事件
+                remarksElement.ondblclick = () => this.editRemarksInline(siteId);
+                if (remarksSection) {
+                    remarksSection.classList.remove('editing');
+                }
+            }
+        });
+
+        // 取消编辑
+        const cancelEdit = () => {
+            // 重新生成正确的HTML内容
+            const site = this.apiSites.find(s => s.id === siteId);
+            if (site) {
+                remarksElement.innerHTML = site.remarks ? this.escapeHtml(site.remarks) : '暂无备注，双击添加...';
+                if (site.remarks) {
+                    remarksElement.classList.remove('remarks-empty');
+                } else {
+                    remarksElement.classList.add('remarks-empty');
+                }
+                // 重新绑定双击事件
+                remarksElement.ondblclick = () => this.editRemarksInline(siteId);
+                remarksElement.title = `双击${site.remarks ? '编辑' : '添加'}备注`;
+                // 确保 data-site-id 属性正确设置
+                remarksElement.setAttribute('data-site-id', siteId);
+            } else {
+                remarksElement.innerHTML = originalContent;
+            }
+            
+            if (remarksSection) {
+                remarksSection.classList.remove('editing');
+            }
+        };
+
+        cancelBtn.addEventListener('click', cancelEdit);
+
+        // ESC键取消
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                cancelEdit();
+            }
+        });
+    }
+
+    // 更新API站点备注
+    async updateApiSiteRemarks(siteId, remarks) {
+        try {
+            const site = this.apiSites.find(s => s.id === siteId);
+            if (!site) {
+                return { success: false, message: '站点不存在' };
+            }
+
+            // 构造更新数据
+            const updateData = {
+                apiType: site.api_type,
+                name: site.name,
+                url: site.url,
+                authMethod: site.auth_method,
+                sessions: site.sessions,
+                token: site.token,
+                userId: site.user_id,
+                enabled: site.enabled,
+                autoCheckin: site.auto_checkin,
+                remarks: remarks || null
+            };
+
+            const response = await fetch(`/api/sites/${siteId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('更新备注请求失败:', error);
+            return { success: false, message: '网络请求失败' };
         }
     }
 }
