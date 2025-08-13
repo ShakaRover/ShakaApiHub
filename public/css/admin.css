@@ -3354,3 +3354,499 @@ body {
 .inline-edit-actions .btn-cancel:hover {
     background: #545b62 !important;
 }
+/* ================================================
+   2560*1440 分辨率优化样式 - 备注功能增强
+   ================================================ */
+
+@media (min-width: 2560px) {
+    /* 备注区域响应式优化 */
+    .remarks-section {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        border: 1px solid #dee2e6 !important;
+        border-radius: 12px !important;
+        padding: 20px 24px !important;
+        margin: 16px 0 !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .remarks-section::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 4px !important;
+        background: linear-gradient(90deg, #007bff, #0056b3, #007bff) !important;
+        background-size: 200% 100% !important;
+        animation: shimmer 3s ease-in-out infinite !important;
+    }
+
+    .remarks-section:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(0, 123, 255, 0.15) !important;
+    }
+
+    .remarks-section.editing {
+        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+        border: 2px solid #007bff !important;
+        box-shadow: 0 8px 32px rgba(0, 123, 255, 0.2) !important;
+    }
+
+    .remarks-section .info-label {
+        color: #495057 !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        margin-bottom: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    .remarks-section .info-label::before {
+        content: '📝' !important;
+        font-size: 1.1rem !important;
+    }
+
+    .remarks-content {
+        text-align: left !important;
+        min-height: 60px !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+
+    .remarks-content .remarks-text {
+        background: transparent !important;
+        border: none !important;
+        padding: 16px 20px !important;
+        color: #343a40 !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        text-align: left !important;
+        display: block !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        min-height: auto !important;
+        border-radius: 8px !important;
+        width: 100% !important;
+        position: relative !important;
+    }
+
+    .remarks-content .remarks-text:hover {
+        background: rgba(0, 123, 255, 0.05) !important;
+        color: #007bff !important;
+        transform: scale(1.01) !important;
+    }
+
+    .remarks-content .remarks-text.remarks-empty {
+        color: #868e96 !important;
+        font-style: italic !important;
+        padding: 16px 20px !important;
+        background: rgba(108, 117, 125, 0.05) !important;
+        border: 2px dashed #ced4da !important;
+        border-radius: 8px !important;
+    }
+
+    .remarks-content .remarks-text.remarks-empty:hover {
+        background: rgba(0, 123, 255, 0.08) !important;
+        border-color: #007bff !important;
+        color: #007bff !important;
+    }
+
+    .remarks-content .remarks-text.remarks-empty::after {
+        content: ' 双击添加备注...' !important;
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        color: #6c757d !important;
+        font-size: 0.9rem !important;
+        pointer-events: none !important;
+        opacity: 0.7 !important;
+    }
+
+    .remarks-content .remarks-text.remarks-empty:hover::after {
+        color: #007bff !important;
+        opacity: 1 !important;
+    }
+
+    /* 内联编辑器优化 */
+    .inline-edit-container {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        animation: fadeIn 0.3s ease !important;
+    }
+
+    .inline-edit-textarea {
+        width: 100% !important;
+        min-height: 120px !important;
+        max-height: 300px !important;
+        padding: 16px 20px !important;
+        border: 2px solid #007bff !important;
+        border-radius: 12px !important;
+        resize: vertical !important;
+        font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        background: #ffffff !important;
+        color: #343a40 !important;
+        transition: all 0.15s ease-in-out !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.1) !important;
+    }
+
+    .inline-edit-textarea:focus {
+        border-color: #0056b3 !important;
+        box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.25), 0 8px 24px rgba(0, 123, 255, 0.15) !important;
+        transform: scale(1.01) !important;
+    }
+
+    .inline-edit-textarea::placeholder {
+        color: #adb5bd !important;
+        font-style: italic !important;
+    }
+
+    .inline-edit-actions {
+        margin-top: 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0 4px !important;
+    }
+
+    .inline-edit-actions .inline-counter {
+        color: #6c757d !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        padding: 6px 12px !important;
+        background: rgba(108, 117, 125, 0.1) !important;
+        border-radius: 20px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .inline-edit-actions .inline-counter.warning {
+        color: #fd7e14 !important;
+        background: rgba(253, 126, 20, 0.1) !important;
+    }
+
+    .inline-edit-actions .inline-counter.danger {
+        color: #dc3545 !important;
+        background: rgba(220, 53, 69, 0.1) !important;
+    }
+
+    .inline-edit-actions .action-buttons {
+        display: flex !important;
+        gap: 12px !important;
+    }
+
+    .inline-edit-actions .btn-save,
+    .inline-edit-actions .btn-cancel {
+        padding: 10px 24px !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-size: 0.9rem !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        outline: none !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    .inline-edit-actions .btn-save::before,
+    .inline-edit-actions .btn-cancel::before {
+        content: '' !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: -100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent) !important;
+        transition: left 0.5s ease !important;
+    }
+
+    .inline-edit-actions .btn-save:hover::before,
+    .inline-edit-actions .btn-cancel:hover::before {
+        left: 100% !important;
+    }
+
+    .inline-edit-actions .btn-save {
+        background: linear-gradient(135deg, #007bff, #0056b3) !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
+    }
+
+    .inline-edit-actions .btn-save:hover {
+        background: linear-gradient(135deg, #0056b3, #004085) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4) !important;
+    }
+
+    .inline-edit-actions .btn-save:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3) !important;
+    }
+
+    .inline-edit-actions .btn-save:disabled {
+        background: linear-gradient(135deg, #6c757d, #5a6268) !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+        box-shadow: none !important;
+        opacity: 0.7 !important;
+    }
+
+    .inline-edit-actions .btn-cancel {
+        background: linear-gradient(135deg, #6c757d, #5a6268) !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3) !important;
+    }
+
+    .inline-edit-actions .btn-cancel:hover {
+        background: linear-gradient(135deg, #5a6268, #495057) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4) !important;
+    }
+
+    .inline-edit-actions .btn-cancel:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3) !important;
+    }
+
+    /* 表格中的备注列优化 */
+    .remarks-cell {
+        max-width: 300px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        padding: 12px 16px !important;
+    }
+
+    .remarks-display {
+        font-size: 0.95rem !important;
+        color: #495057 !important;
+        font-weight: 500 !important;
+    }
+
+    /* 动画效果 */
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* 响应式字体大小 */
+    .remarks-section .info-label {
+        font-size: clamp(0.85rem, 1vw, 1.1rem) !important;
+    }
+
+    .remarks-content .remarks-text {
+        font-size: clamp(0.9rem, 1.1vw, 1.2rem) !important;
+    }
+
+    .inline-edit-textarea {
+        font-size: clamp(0.9rem, 1.1vw, 1.2rem) !important;
+    }
+
+    /* 触摸设备优化 */
+    @media (hover: none) {
+        .remarks-content .remarks-text:hover {
+            transform: none !important;
+            background: rgba(0, 123, 255, 0.08) !important;
+        }
+
+        .inline-edit-actions .btn-save:hover,
+        .inline-edit-actions .btn-cancel:hover {
+            transform: none !important;
+        }
+    }
+
+    /* 深色模式支持 */
+    @media (prefers-color-scheme: dark) {
+        .remarks-section {
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%) !important;
+            border-color: #4a5568 !important;
+            color: #e2e8f0 !important;
+        }
+
+        .remarks-section .info-label {
+            color: #cbd5e0 !important;
+        }
+
+        .remarks-content .remarks-text {
+            color: #e2e8f0 !important;
+        }
+
+        .remarks-content .remarks-text.remarks-empty {
+            color: #a0aec0 !important;
+            background: rgba(160, 174, 192, 0.1) !important;
+            border-color: #4a5568 !important;
+        }
+
+        .inline-edit-textarea {
+            background: #2d3748 !important;
+            color: #e2e8f0 !important;
+            border-color: #4299e1 !important;
+        }
+
+        .inline-edit-actions .inline-counter {
+            color: #a0aec0 !important;
+            background: rgba(160, 174, 192, 0.1) !important;
+        }
+    }
+}
+
+/* 兼容性样式 - 适用于其他分辨率 */
+.remarks-section {
+    background: #f8f9fa !important;
+    border-left: 3px solid #007bff !important;
+    border-radius: 4px !important;
+    padding: 12px 16px !important;
+    margin: 12px 0 !important;
+    position: relative !important;
+}
+
+.remarks-section .info-label {
+    color: #495057 !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    margin-bottom: 8px !important;
+    display: block !important;
+}
+
+.remarks-content {
+    text-align: left !important;
+}
+
+.remarks-content .remarks-text {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    color: #343a40 !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    text-align: left !important;
+    display: block !important;
+    cursor: pointer !important;
+    transition: color 0.2s ease !important;
+    min-height: auto !important;
+}
+
+.remarks-content .remarks-text:hover {
+    color: #007bff !important;
+}
+
+.remarks-content .remarks-text.remarks-empty {
+    color: #6c757d !important;
+    font-style: italic !important;
+    padding: 8px 0 !important;
+}
+
+.remarks-content .remarks-text.remarks-empty:hover {
+    color: #007bff !important;
+}
+
+/* 编辑状态样式 */
+.remarks-section.editing {
+    background: #fff !important;
+    border: 2px solid #007bff !important;
+    box-shadow: 0 2px 10px rgba(0, 123, 255, 0.1) !important;
+}
+
+/* 内联编辑器样式 */
+.inline-edit-container {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.inline-edit-textarea {
+    width: 100% !important;
+    min-height: 80px !important;
+    padding: 8px !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    resize: vertical !important;
+    font-family: inherit !important;
+    font-size: 0.9rem !important;
+    line-height: 1.5 !important;
+    background: #fff !important;
+    transition: border-color 0.15s ease-in-out !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+
+.inline-edit-textarea:focus {
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+}
+
+.inline-edit-actions {
+    margin-top: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+.inline-edit-actions .inline-counter {
+    color: #6c757d !important;
+    font-size: 0.75rem !important;
+}
+
+.inline-edit-actions .action-buttons {
+    display: flex !important;
+    gap: 6px !important;
+}
+
+.inline-edit-actions .btn-save,
+.inline-edit-actions .btn-cancel {
+    padding: 4px 12px !important;
+    border: 1px solid transparent !important;
+    border-radius: 3px !important;
+    font-size: 0.8rem !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+    outline: none !important;
+}
+
+.inline-edit-actions .btn-save {
+    background: #007bff !important;
+    color: white !important;
+}
+
+.inline-edit-actions .btn-save:hover {
+    background: #0056b3 !important;
+}
+
+.inline-edit-actions .btn-save:disabled {
+    background: #6c757d !important;
+    cursor: not-allowed !important;
+}
+
+.inline-edit-actions .btn-cancel {
+    background: #6c757d !important;
+    color: white !important;
+}
+
+.inline-edit-actions .btn-cancel:hover {
+    background: #545b62 !important;
+}
