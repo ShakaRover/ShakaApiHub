@@ -3850,3 +3850,22 @@ body {
 .inline-edit-actions .btn-cancel:hover {
     background: #545b62 !important;
 }
+
+
+/* 搜索高亮样式 */
+.search-highlight {
+    border: 2px solid #ef4444;
+    color: #ef4444;
+    padding: 0 2px;
+    border-radius: 2px;
+    font-weight: 500;
+    background-color: transparent;
+}
+
+/* 深色主题下的高亮样式 */
+@media (prefers-color-scheme: dark) {
+    .search-highlight {
+        border-color: #f87171;
+        color: #f87171;
+    }
+}

@@ -7,6 +7,7 @@ class ApiSiteManager {
         this.searchTerm = ''; // 搜索关键字
         this.showDetails = false; // 全局显示详情开关
         this.expandedSites = new Set(); // 记录展开的站点ID
+        this.searchMatchInfo = new Map(); // 记录搜索匹配信息 {siteId: {matchesRemarks: boolean, matchesModels: boolean}}
         this.selectedKnownSite = null; // 当前选中的已知站点
         
         // DOM缓存机制
@@ -804,24 +805,57 @@ class ApiSiteManager {
 
     // 处理搜索
     handleSearch(searchTerm) {
+        const oldSearchTerm = this.searchTerm;
         this.searchTerm = searchTerm.toLowerCase().trim();
+        
+        // 如果清空了搜索，移除因搜索而自动展开的站点
+        if (oldSearchTerm && !this.searchTerm) {
+            this.expandedSites.forEach(siteId => {
+                const matchInfo = this.searchMatchInfo.get(siteId);
+                if (matchInfo && (matchInfo.matchesRemarks || matchInfo.matchesModels)) {
+                    this.expandedSites.delete(siteId);
+                }
+            });
+            this.searchMatchInfo.clear();
+        }
+        
         this.applyFilters();
     }
 
     // 应用所有过滤条件
     applyFilters() {
+        // 清空搜索匹配信息
+        this.searchMatchInfo.clear();
+        
         this.filteredApiSites = this.apiSites.filter(site => {
             // 搜索过滤
             if (this.searchTerm) {
                 const name = site.name.toLowerCase();
                 const url = site.url.toLowerCase();
                 const apiType = site.api_type.toLowerCase();
+                const modelsList = (site.models_list || '').toLowerCase();
+                const remarks = (site.remarks || '').toLowerCase();
                 
-                const matchesSearch = name.includes(this.searchTerm) || 
-                                    url.includes(this.searchTerm) || 
-                                    apiType.includes(this.searchTerm);
+                const matchesName = name.includes(this.searchTerm);
+                const matchesUrl = url.includes(this.searchTerm);
+                const matchesApiType = apiType.includes(this.searchTerm);
+                const matchesModels = modelsList.includes(this.searchTerm);
+                const matchesRemarks = remarks.includes(this.searchTerm);
+                
+                const matchesSearch = matchesName || matchesUrl || matchesApiType || matchesModels || matchesRemarks;
                 
                 if (!matchesSearch) return false;
+                
+                // 记录匹配信息
+                this.searchMatchInfo.set(site.id, {
+                    matchesRemarks,
+                    matchesModels
+                });
+                
+                // 如果匹配备注或模型列表，自动展开详情
+                if (matchesRemarks || matchesModels) {
+                    this.expandedSites.add(site.id);
+                }
             }
 
             // API类型过滤
@@ -950,7 +984,7 @@ class ApiSiteManager {
                 const modelsList = JSON.parse(site.models_list);
                 if (Array.isArray(modelsList) && modelsList.length > 0) {
                     modelsListHtml = modelsList.map(model => 
-                        `<span class="model-tag" data-model="${this.escapeHtml(model)}" onclick="navigator.clipboard.writeText('${this.escapeHtml(model)}'); this.closest('.info-value').querySelector('.copy-hint').style.display='inline'; setTimeout(() => this.closest('.info-value').querySelector('.copy-hint').style.display='none', 1000)" title="点击复制">${this.escapeHtml(model)}</span>`
+                        `<span class="model-tag" data-model="${this.escapeHtml(model)}" onclick="navigator.clipboard.writeText('${this.escapeHtml(model)}'); this.closest('.info-value').querySelector('.copy-hint').style.display='inline'; setTimeout(() => this.closest('.info-value').querySelector('.copy-hint').style.display='none', 1000)" title="点击复制">${this.highlightText(this.escapeHtml(model), this.searchTerm)}</span>`
                     ).join('');
                 }
             } catch (e) {
@@ -1036,7 +1070,7 @@ class ApiSiteManager {
                          data-site-id="${site.id}" 
                          ondblclick="window.apiSiteManager.editRemarksInline(${site.id})"
                          title="双击${site.remarks ? '编辑' : '添加'}备注">
-                        ${site.remarks ? this.escapeHtml(site.remarks) : '暂无备注，双击添加...'}
+                        ${site.remarks ? this.highlightText(this.escapeHtml(site.remarks), this.searchTerm) : '暂无备注，双击添加...'}
                     </div>
                 </div>
             </div>
@@ -1177,7 +1211,7 @@ class ApiSiteManager {
             <div class="site-name-display">
                 <a href="${this.escapeHtml(site.url)}" target="_blank" rel="noopener noreferrer" 
                    class="site-name-link" title="点击在新窗口打开: ${this.escapeHtml(site.url)}">
-                    ${this.escapeHtml(site.name)}
+                    ${this.highlightText(this.escapeHtml(site.name), this.searchTerm)}
                 </a>
             </div>
         `;
@@ -1589,6 +1623,14 @@ class ApiSiteManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // 高亮匹配的文本
+    highlightText(text, searchTerm) {
+        if (!searchTerm || !text) return text;
+        
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        return text.replace(regex, '<mark class="search-highlight">$1</mark>');
     }
 
     // 显示兑换码模态框
