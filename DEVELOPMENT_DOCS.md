@@ -441,6 +441,141 @@
     4.  `data.data`
 -   **令牌对象结构**: 数组中的每个令牌对象应包含 `id`, `name`, `key`, `status`, `remain_quota`, `created_time`, `expired_time` 等字段。
 
+#### 5.2.4 使用兑换码
+
+-   **端点**: `POST /api/user/topup`
+-   **描述**: 使用兑换码为用户在目标站点的账户增加额度或权益。
+-   **请求体**:
+    ```json
+    {
+      "key": "your-redemption-code"
+    }
+    ```
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "兑换成功"
+    }
+    ```
+-   **失败响应 (4xx/5xx)**:
+    ```json
+    {
+      "success": false,
+      "message": "兑换码无效或已使用"
+    }
+    ```
+
+#### 5.2.5 修改密码
+
+-   **端点**: `PUT /api/user/self`
+-   **描述**: 更新用户在目标站点上的信息，主要用于修改密码。此操作包含一个特殊的重试逻辑：
+    1.  **首次尝试**: 系统会发送包含所有当前用户信息的请求体，但只更新 `password` 字段。
+    2.  **二次尝试 (如果需要)**: 如果首次尝试因特定的用户名错误（例如，响应消息包含 `'User.Username'`）而失败，系统会再次发送请求。在这次请求中，它可能会将 `username` 字段修改为一个新的值（例如 `'user'`），并同时设置新密码。
+
+    因此，一个兼容的外部API需要能够处理这种情况：既要能接受仅密码的更新，也要能处理密码和用户名同时被更新的请求。
+-   **请求体**:
+    ```json
+    {
+      "username": "current_username", // 在二次尝试中可能会被修改
+      "password": "new_password_here",
+      // ... 其他所有从 GET /api/user/self 获取的用户字段
+    }
+    ```
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "用户信息更新成功"
+    }
+    ```
+-   **失败响应 (4xx/5xx)**:
+    ```json
+    {
+      "success": false,
+      "message": "密码格式错误"
+    }
+    ```
+
+#### 5.2.6 创建令牌
+
+-   **端点**: `POST /api/token/`
+-   **描述**: 在目标站点上创建一个新的API令牌。
+-   **请求体**:
+    ```json
+    {
+      "name": "MyNewToken",
+      "group": "default",
+      "remain_quota": 500000,
+      "expired_time": -1,
+      "unlimited_quota": true,
+      "model_limits_enabled": false,
+      "model_limits": "",
+      "allow_ips": ""
+    }
+    ```
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "令牌创建成功"
+    }
+    ```
+-   **失败响应 (4xx/5xx)**:
+    ```json
+    {
+      "success": false,
+      "message": "令牌名称已存在"
+    }
+    ```
+
+#### 5.2.7 更新令牌状态
+
+-   **端点**: `PUT /api/token/?status_only=true`
+-   **描述**: 启用或禁用一个已存在的API令牌。
+-   **请求体**:
+    ```json
+    {
+      "id": "token-id-to-update",
+      "status": 1
+    }
+    ```
+    - `status`: `1` 表示启用, `2` 表示禁用。
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "令牌状态更新成功"
+    }
+    ```
+-   **失败响应 (4xx/5xx)**:
+    ```json
+    {
+      "success": false,
+      "message": "令牌不存在"
+    }
+    ```
+
+#### 5.2.8 删除令牌
+
+-   **端点**: `DELETE /api/token/{tokenId}/`
+-   **描述**: 删除一个指定的API令牌。令牌的ID需要在URL中提供。
+-   **请求体**: 无。
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "令牌删除成功"
+    }
+    ```
+-   **失败响应 (4xx/5xx)**:
+    ```json
+    {
+      "success": false,
+      "message": "令牌不存在"
+    }
+    ```
+
 ### 5.3 特定类型的端点规格
 
 #### 5.3.1 自动签到
