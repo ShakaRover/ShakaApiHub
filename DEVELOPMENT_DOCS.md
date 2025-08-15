@@ -1,175 +1,339 @@
-# ShakaApiHub 开发文档
+# ShakaApiHub 功能规格说明书
 
-## 1. 项目介绍
+## 1. 项目概述
 
-### 1.1 项目概述
+### 1.1 项目目标
 
-ShakaApiHub 是一个基于 Node.js + Express + SQLite 的现代化 API 站点管理系统。它旨在为用户提供一个集中化的平台来管理、监控和自动化各种类型的 API 站点。
+本项目旨在构建一个通用的 API 站点管理系统。该系统允许用户集中管理、监控和自动化操作多种不同类型的、需要认证的第三方 API 服务站点。
 
 ### 1.2 核心功能
 
-- **用户认证系统**: 提供安全的用户登录、注册和会话管理。
-- **API 站点管理**: 支持多种 API 站点类型（如 NewApi, Veloera, AnyRouter 等）的增删改查。
-- **自动化监控**: 定时检查所有已启用站点的状态、配额（Quota）和其他关键指标。
-- **自动签到**: 为支持的 API 站点类型提供自动每日签到功能。
-- **操作日志**: 详细记录系统的关键操作，便于审计和问题排查。
-- **数据备份与恢复**: 提供自动和手动的数据库备份功能。
-
-### 1.3 技术栈
-
-- **后端**: Node.js, Express.js
-- **数据库**: SQLite3 (使用 `sqlite3` 库)
-- **会话存储**: `connect-sqlite3`
-- **前端**: 原生 HTML5, CSS3, JavaScript
-- **后台任务**: `node-cron`
-- **HTTP 请求**: `axios`
-- **安全性**: `helmet`, 内置 `crypto` 模块
+- **多用户支持**: 系统支持多用户，每个用户管理自己的资源。
+- **站点管理**: 集中管理不同类型的 API 服务站点，包括其认证信息和配置。
+- **自动化监控**: 系统需提供一个后台任务，能以可配置的频率，自动检查所有已启用站点的状态、配额（Quota）等关键指标。
+- **自动签到**: 系统需为支持的 API 站点类型提供自动每日签到功能。
+- **日志系统**: 系统需记录关键的操作日志和站点健康状态历史，便于审计和问题排查。
+- **数据管理**: 系统需提供导入、导出和备份站点配置的功能。
 
 ---
 
-## 2. 业务流程
+## 2. 数据持久化模型
 
-### 2.1 用户认证流程
+系统需要持久化存储以下数据实体。
 
-1.  **登录**: 用户通过前端页面向 `POST /api/auth/login` 发送 `username` 和 `password`。
-2.  **控制器处理**: `AuthController`接收请求，并调用 `UserService` 的 `login` 方法。
-3.  **服务层逻辑**: `UserService` 使用 `User` 模型根据 `username` 查找用户。
-4.  **密码验证**: 如果用户存在，`User` 模型中的 `validatePassword` 方法会验证提交的密码和存储的哈希值是否匹配。此方法兼容旧的 `bcrypt` 和新的 `PBKDF2` 哈希。
-5.  **会话创建**: 验证成功后，在 `req.session` 对象中存入 `userId` 和 `username`。`connect-sqlite3` 中间件会将此会话持久化到数据库的 `sessions` 表中。
-6.  **路由保护**: 访问受保护的页面（如 `dashboard.html`）或 API 端点时，`auth` 中间件会检查 `req.session.userId` 是否存在。如果不存在，请求将被重定向到登录页面。
-
-### 2.2 API 站点管理流程 (CRUD)
-
-1.  **请求**: 前端通过调用 `/api/sites` 的相关端点 (e.g., `POST /`, `PUT /:id`) 来执行 CRUD 操作。
-2.  **控制器**: `ApiSiteController` 接收 HTTP 请求。
-3.  **服务层**: 控制器调用 `ApiSiteService` 中相应的方法，服务层负责处理核心业务逻辑。
-4.  **数据验证**: 在创建或更新站点时，`ApiSiteService` 会使用 `ApiTypeValidator` 工具类来验证数据的完整性和一致性。例如，它会检查当 `authMethod` 为 'sessions' 时，`userId` 字段是否提供。
-5.  **模型层**: `ApiSiteService` 调用 `ApiSite` 模型的方法来执行最终的数据库操作（增、删、改、查）。
-
-### 2.3 自动监控和签到流程
-
-1.  **服务启动**: 应用启动时（在 `src/app.js` 中），`ScheduledCheckService` 会被实例化并启动。
-2.  **定时任务**: `ScheduledCheckService` 内部使用 `node-cron` 库来设置一个定时任务（例如，每隔 N 分钟执行一次）。
-3.  **执行检查**: 定时任务触发时，服务会从数据库中获取所有 `enabled=1` 的 API 站点。
-4.  **站点检查**: 对于每个站点，它会调用 `SiteCheckService`。该服务使用 `axios` 向站点的 URL 发送 HTTP 请求，以获取最新的状态、配额等信息。
-5.  **数据更新**: `SiteCheckService` 将获取到的数据通过 `ApiSite` 模型的 `updateSiteCheckInfo` 方法更新回数据库。
-6.  **自动签到**: 如果站点配置了 `autoCheckin=1`，`SiteCheckService` 也会在检查过程中执行自动签到逻辑。
-
-### 2.4 日志记录流程
-
-1.  **日志中间件**: `logMiddleware` 在 `src/app.js` 中被注册，它会拦截所有对 `/api` 路径的请求。
-2.  **日志记录**: 中间件将请求的详细信息（如方法、路径、状态码、用户ID等）记录到一个独立的 SQLite 数据库 `log.db` 中。
-3.  **日志清理**: `LogCleanupService` 作为一个后台服务运行，它会根据系统设置中配置的日志保留期限，定期删除过期的日志记录。
-
----
-
-## 3. 数据结构
-
-数据库 schema 定义在 `src/config/database.js` 的 `initializeSchema` 方法中。
-
-### 3.1 `users` 表
+### 2.1 `users` (用户表)
 
 存储系统用户信息。
 
 | 字段名 | 类型 | 约束 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 用户唯一标识 |
-| `username` | TEXT | UNIQUE NOT NULL | 用户名 |
-| `password_hash` | TEXT | NOT NULL | 使用 PBKDF2-HMAC-SHA512 加密后的密码哈希 |
-| `created_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
-| `updated_at` | DATETIME | DEFAULT CURRENT_TIMESTAMP | 最后更新时间 |
+| `id` | Integer | Primary Key, Auto-increment | 用户唯一标识 |
+| `username` | String | Unique, Not Null | 用户名 |
+| `password_hash` | String | Not Null | 加密后的用户密码哈希 |
+| `created_at` | DateTime | Not Null | 记录创建时间 |
+| `updated_at` | DateTime | Not Null | 记录最后更新时间 |
 
-### 3.2 `api_sites` 表
+### 2.2 `api_sites` (API站点表)
 
 存储用户添加的 API 站点信息，是应用的核心表。
 
 | 字段名 | 类型 | 约束 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 站点唯一标识 |
-| `api_type` | TEXT | NOT NULL, CHECK(...) | API 类型 (e.g., 'NewApi', 'Veloera') |
-| `name` | TEXT | NOT NULL | 站点名称 |
-| `url` | TEXT | NOT NULL | 站点 URL |
-| `auth_method` | TEXT | NOT NULL, CHECK(...) | 认证方式 ('sessions' 或 'token') |
-| `sessions` | TEXT | | 存储认证所需的 session/cookie (JSON 字符串) |
-| `token` | TEXT | | 存储认证所需的 API Token |
-| `user_id` | TEXT | | 关联的站点用户名（用于 'sessions' 认证） |
-| `enabled` | INTEGER | DEFAULT 1, CHECK(0,1) | 是否启用该站点 (1: 是, 0: 否) |
-| `auto_checkin` | INTEGER | DEFAULT 0, CHECK(0,1) | 是否启用自动签到 (1: 是, 0: 否) |
-| `last_checkin` | DATETIME | | 上次手动签到时间 |
-| `remarks` | TEXT | | 备注 (最大512字符) |
-| `site_quota` | REAL | DEFAULT 0 | (监控) 站点总配额 |
-| `site_used_quota`| REAL | DEFAULT 0 | (监控) 已用配额 |
-| ... | ... | | 其他众多用于监控和统计的字段 |
-| `created_by` | INTEGER | NOT NULL, FOREIGN KEY | 创建该站点的用户 ID |
+| `id` | Integer | Primary Key, Auto-increment | 站点唯一标识 |
+| `api_type` | String | Not Null | API 类型，必须是以下之一: `NewApi`, `Veloera`, `AnyRouter`, `VoApi`, `HusanApi`, `DoneHub` |
+| `name` | String | Not Null, Unique per user | 站点名称 |
+| `url` | String | Not Null | 站点 URL |
+| `auth_method` | String | Not Null | 认证方式，必须是 `sessions` 或 `token` |
+| `sessions` | Text | | 存储认证所需的 session/cookie (建议JSON格式) |
+| `token` | String | | 存储认证所需的 API Token |
+| `user_id` | String | | 关联的站点用户名（某些认证方式下需要） |
+| `enabled` | Boolean | Not Null, Default: `true` | 是否启用该站点 |
+| `auto_checkin` | Boolean | Not Null, Default: `false` | 是否启用自动签到 |
+| `remarks` | Text | | 备注 (最大512字符) |
+| `last_check_time` | DateTime | | 上次检查时间 |
+| `last_check_status` | String | | 上次检查状态，枚举: `success`, `error`, `pending` |
+| `last_check_message`| Text | | 上次检查返回的消息 |
+| `created_by` | Integer | Not Null, Foreign Key to `users.id` | 创建该站点的用户 ID |
+| `site_quota` | Decimal | | (监控) 站点总配额 |
+| `site_used_quota`| Decimal | | (监控) 已用配额 |
+| `site_request_count`| Integer | | (监控) 请求次数 |
+| `site_user_group`| String | | (监控) 用户在目标站点的用户组 |
+| `site_aff_code`| String | | (监控) 邀请码 |
+| `site_aff_count`| Integer | | (监控) 邀请数量 |
+| `site_aff_quota`| Decimal | | (监控) 待使用收益 |
+| `site_aff_history_quota`| Decimal | | (监控) 总收益 |
+| `site_username`| String | | (监控) 在目标站点的用户名 |
+| `site_last_check_in_time`| DateTime | | (监控) 目标站点返回的上次签到时间 |
+| `models_list` | Text | | (监控) 支持的模型列表 (建议JSON格式) |
+| `tokens_list` | Text | | (监控) 令牌列表 (建议JSON格式) |
+| `created_at` | DateTime | Not Null | 记录创建时间 |
+| `updated_at` | DateTime | Not Null | 记录最后更新时间 |
 
-### 3.3 `password_change_logs` 表
+### 2.3 `sessions` (会话表)
 
-记录站点密码修改的历史。
+用于存储用户登录会话信息，其具体实现与所选的会话管理库相关，但至少应包含会话ID和与用户ID的关联。
 
-| 字段名 | 类型 | 约束 | 描述 |
-| :--- | :--- | :--- | :--- |
-| `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | 日志唯一标识 |
-| `site_id` | INTEGER | NOT NULL, FOREIGN KEY | 关联的 `api_sites` 表 ID |
-| `site_name` | TEXT | NOT NULL | 站点名称 |
-| `new_password` | TEXT | NOT NULL | 修改后的新密码 |
-| `status` | TEXT | DEFAULT 'success' | 修改状态 ('success' 或 'error') |
-| `user_id` | INTEGER | NOT NULL, FOREIGN KEY | 执行操作的用户 ID |
-| ... | ... | | 其他日志相关字段 |
+### 2.4 其他数据表
 
-### 3.4 Session 数据
-
-用户登录后，以下信息被存储在 `req.session` 中，并由 `connect-sqlite3` 持久化。
-
-- `req.session.userId`: 当前登录用户的 ID。
-- `req.session.username`: 当前登录用户的用户名。
-
----
-
-## 4. 开发注意事项
-
-### 4.1 数据库交互模式
-
-本项目**没有使用 ORM** (如 Sequelize 或 TypeORM)。所有的数据库操作都通过 `src/config/database.js` 中预先准备的 SQL 语句执行。
-
-- **模型层 (`/models`)**: 模型类（如 `User.js`）从 `databaseConfig` 获取语句对象，并调用相应的方法，例如 `this.statements.findUserById.get(id)`。
-- **SQL 语句**: 所有 SQL 查询都集中在 `database.js` 的 `prepareStatements` 方法中，这使得 SQL 的管理和优化更加集中。
-
-### 4.2 密码管理与迁移
-
-- **加密算法**: 新密码使用 `crypto.pbkdf2` (PBKDF2-HMAC-SHA512) 进行哈希。
-- **历史兼容**: 系统之前使用 `bcrypt`。为了平滑迁移，`User.js` 中的 `validatePassword` 方法能够同时处理两种哈希格式。当用户使用旧密码登录成功后，应考虑将其哈希更新为新格式。
-
-### 4.3 后台服务
-
-应用启动时会初始化几个单例的后台服务：
-
-- `ScheduledCheckService`: 负责定时监控。
-- `BackupService`: 负责定时备份。
-- `LogCleanupService`: 负责定时清理日志。
-
-这些服务是常驻后台的，其逻辑和生命周期管理都在 `src/app.js` 中。
-
-### 4.4 核心验证逻辑
-
-`src/utils/ApiTypeValidator.js` 是一个非常关键的工具类。它负责在创建和更新 `ApiSite` 时进行复杂的、依赖于 `apiType` 和 `authMethod` 的数据验证。任何涉及站点信息修改的功能开发，都必须了解并可能需要扩展这个验证器。
+系统还需以下数据表：
+-   **`password_change_logs`**: 记录用户在第三方站点修改密码的历史。
+-   **`scheduled_check_config`**: 存储自动化监控任务的配置，如执行频率。
+-   **`log`**: 存储各类系统和操作日志。
+-   **`backups`**: 记录备份文件的元数据。
 
 ---
 
-## 5. 有利于 AI 理解的事项
+## 3. API 端点规格
 
-为了让 AI 工具（如代码助手、自动化测试工具等）能更好地理解和操作本项目，以下几点至关重要：
+系统需提供一组 HTTP API 来支持前后端分离的架构。所有API都应以 `/api` 为前缀。
 
-- **项目架构**: 采用 **MVC + 服务层** 的分层设计模式。
-  - **`src/controllers`**: 只负责处理 HTTP 请求和响应，是程序的“交通警察”。
-  - **`src/services`**: 包含所有核心业务逻辑，是程序的“大脑”。
-  - **`src/models`**: 负责与数据库进行交互，是程序的“手脚”。
-- **应用入口**: `src/app.js` 是整个应用的启动文件。它负责加载配置、注册中间件、定义路由和启动后台服务。
-- **关键依赖**:
-  - `express`: 用于构建 Web 服务器和路由。
-  - `sqlite3`: 用于直接与 SQLite 数据库交互。
-  - `node-cron`: 用于调度后台定时任务（监控、备份等）。
-  - `axios`: 用于向外部 API 站点发送 HTTP 请求以进行监控。
-- **核心业务逻辑位置**:
-  - 用户相关的业务逻辑在 `src/services/UserService.js`。
-  - API 站点相关的核心逻辑在 `src/services/ApiSiteService.js` 和 `src/services/SiteCheckService.js`。
-- **数据定义**: 所有数据表的 schema 定义和 SQL 查询都可以在 `src/config/database.js` 一个文件中找到。这是理解数据模型的唯一真实来源。
+### 3.1 认证接口 (`/api/auth`)
+-   `POST /login`: 用户登录。
+-   `POST /logout`: 用户登出。
+-   `GET /profile`: 获取当前用户信息。
+-   `POST /update-password`: 更新当前用户密码。
+-   `POST /update-username`: 更新当前用户名。
+
+### 3.2 站点管理接口 (`/api/sites`)
+-   `GET /`: 获取当前用户的所有 API 站点。
+-   `POST /`: 创建一个新的 API 站点。
+-   `GET /stats`: 获取站点统计信息（总数、启用数、禁用数）。
+-   `GET /:id`: 获取指定 ID 的站点详情。
+-   `PUT /:id`: 更新指定 ID 的站点信息。
+-   `DELETE /:id`: 删除指定 ID 的站点。
+-   `PATCH /:id/toggle`: 切换指定站点的启用/禁用状态。
+-   `POST /:id/check`: 手动触发对指定站点的检查。
+-   `POST /:id/topup`: 为指定站点使用兑换码。
+-   `GET /:id/check-history`: 获取站点的检查历史。
+-   `GET /:id/checkin-status`: 获取站点的最新签到状态。
+
+### 3.3 站点用户接口 (`/api/sites/:id/user`)
+-   `GET /self`: 获取在目标站点上的用户信息。
+-   `PUT /password`: 修改在目标站点上的密码。
+-   `GET /password-history`: 获取在目标站点上的密码修改历史。
+
+### 3.4 令牌管理接口 (`/api/sites/:siteId/tokens`)
+-   `GET /`: 获取站点的所有令牌。
+-   `POST /`: 创建一个新令牌。
+-   `DELETE /`: 删除所有令牌。
+-   `PUT /status`: 更新令牌的状态（请求体中包含令牌ID和新状态）。
+-   `DELETE /:tokenId`: 删除单个令牌。
+-   `POST /auto-create`: 自动创建令牌。
+
+### 3.5 系统管理接口 (`/api/system`)
+-   `GET /config`: 获取系统配置。
+-   `PUT /config`: 更新系统配置。
+-   `GET /timezones`: 获取所有支持的时区列表。
+-   `PUT /timezone/config`: 更新系统时区设置。
+-   `GET /api-types`: 获取所有支持的API类型的详细配置。
+-   `POST /validate-api-site`: 验证站点数据而不保存。
+-   `GET /status`: 获取系统健康状态。
+
+### 3.6 自动化任务接口 (`/api/scheduled-check`)
+-   `GET /config`: 获取后台监控任务的配置。
+-   `PUT /config`: 更新后台监控任务的配置。
+-   `POST /trigger`: 手动触发一次后台监控任务。
+-   `GET /history`: 获取后台监控任务的执行历史。
+
+### 3.7 数据管理接口
+-   `GET /api/sites/export`: 导出站点配置。
+-   `POST /api/sites/import`: 导入站点配置。
+-   `GET /api/backups`: 获取备份列表。
+-   `POST /api/backups`: 创建新备份。
+-   `POST /api/backups/restore`: 从备份恢复。
+-   `DELETE /api/backups/:fileName`: 删除备份文件。
+
+### 3.8 日志接口 (`/api/logs`)
+-   `GET /stats`: 获取日志统计。
+-   `GET /all`: 获取所有类型的日志（支持分页和过滤）。
+-   `POST /clean`: 清理旧日志。
+
+---
+
+## 4. 业务逻辑规格
+
+### 4.1 站点配置验证逻辑
+在创建或更新一个 `api_site` 记录时，必须执行以下验证：
+
+1.  **字段存在性与格式**:
+    - `name`, `url`, `api_type`, `auth_method` 不能为空。
+    - `name` 长度不能超过 100 字符，`remarks` 长度不能超过 512 字符。
+    - `url` 必须是有效的 URL 格式。
+2.  **类型与方法有效性**:
+    - `api_type` 必须是 `NewApi`, `Veloera`, `AnyRouter`, `VoApi`, `HusanApi`, `DoneHub` 之一。
+    - `auth_method` 必须是 `sessions` 或 `token`。
+3.  **兼容性与依赖关系**:
+    - `AnyRouter` 类型的 `auth_method` 只能是 `sessions`。
+    - 当 `auth_method` 为 `sessions` 时, `sessions` 字段不能为空。
+    - 当 `auth_method` 为 `token` 时, `token` 字段不能为空。
+    - 以下组合必须提供 `user_id` 字段：
+        - `AnyRouter` + `sessions`
+        - `NewApi` + `token`
+        - `Veloera` + `token`
+        - `VoApi` + `token`
+        - `HusanApi` + `token`
+    - `DoneHub` 类型在任何认证方式下都不需要 `user_id`。
+
+### 4.2 自动化站点监控逻辑
+系统必须提供一个可配置的后台任务，用于定期检查所有 `enabled=true` 的站点。
+
+1.  **任务调度**:
+    - 任务的执行频率（如每15分钟）必须是可配置的。
+    - 系统必须确保同一时间只有一个检查任务在运行，以防止任务重叠。
+2.  **执行流程**:
+    - 获取所有 `enabled=true` 的 `api_sites` 记录。
+    - **依次**（非并行）处理每个站点，建议在站点之间加入短暂延迟（如1秒），以避免请求过于集中。
+    - 对每个站点执行“单站点检查”流程。
+    - 记录本次任务的摘要（总数、成功数、失败数）。
+3.  **单站点检查流程**:
+    - **获取认证凭据**: 必须能正确处理目标站点的认证，获取有效的会话凭据。
+    - **执行自动签到**: 如果站点配置允许，则根据其 `api_type` 向目标站点发送签到请求。
+    - **获取远程信息**: 向目标站点请求用户信息、模型列表、令牌列表等。
+    - **处理并保存结果**:
+        - 将获取到的远程信息更新到本地数据库对应的 `api_sites` 记录中。
+        - **注意**: `quota` 值需要进行单位换算，规格为将接口返回的原始值除以 500,000。
+        - 更新 `last_check_time` 和 `last_check_status` 字段。
+    - **错误处理**: 流程中的任何一步失败，都必须终止对该站点的检查，并将 `last_check_status` 记为 `error`，同时记录错误信息。
+    - **具体实现细节**: 请参考第5章“外部API接口规格”。
+
+---
+
+## 5. 外部 API 接口规格
+
+本系统需要与多种类型的第三方 API 站点进行交互。本章节定义了本系统与这些外部站点通信时所遵循的接口“合约”。任何要被本系统管理的第三方站点，都必须符合以下规格。
+
+### 5.1 通用认证要求
+
+本系统在向外部 API 发送请求时，会根据 `api_sites` 表中记录的 `auth_method` 和 `api_type` 来构建认证头。
+
+#### 5.1.1 `token` 认证方式
+
+-   **HTTP Header**: `Authorization: Bearer {api_sites.token}`
+
+#### 5.1.2 `sessions` 认证方式
+
+`sessions` 字段的内容会被首先尝试解析为 JSON。
+-   **如果解析成功**:
+    -   如果 JSON 中存在 `token` 键，则其值会被用于 `Authorization: Bearer {token}` 头。
+    -   如果 JSON 中存在 `cookie` 键，则其值会被用于 `Cookie` 头。
+-   **如果解析失败**:
+    -   整个 `sessions` 字符串会被直接作为 `Cookie` 头的值。
+
+#### 5.1.3 特定类型的用户识别头
+
+除了上述认证头，系统还会根据 `api_type` 添加一个额外的 HTTP Header 来传递用户身份，前提是 `api_sites.user_id` 字段存在。
+
+-   **`NewApi` 或 `AnyRouter`**: `new-api-user: {api_sites.user_id}`
+-   **`Veloera`**: `veloera-user: {api_sites.user_id}`
+-   **`VoApi`**: `voapi-user: {api_sites.user_id}`
+-   **`HusanApi`**: `Husan-Api-User: {api_sites.user_id}`
+-   **`DoneHub`**: 不添加此额外头。
+
+#### 5.1.4 动态 Cookie 处理 (Set-Cookie)
+
+-   **接收**: 系统在每次向外部 API 发出请求后，都必须检查响应头中是否存在 `Set-Cookie`。
+-   **存储与发送**: 所有从 `Set-Cookie` 中接收到的 cookies 都必须被存储，并在对**同一站点**的后续所有请求中，通过 `Cookie` 请求头发送回去。
+-   **优先级**: 动态接收到的 cookie 优先级高于在 `sessions` 字段中静态配置的 cookie。如果存在同名字段，必须使用从 `Set-Cookie` 中接收到的最新值。
+
+### 5.2 通用端点规格
+
+以下端点是所有或大多数 `api_type` 都需要支持的通用接口。
+
+#### 5.2.1 获取用户信息
+
+-   **端点**: `GET /api/user/self`
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "success",
+      "data": {
+        "quota": 5000000,
+        "used_quota": 10000,
+        "request_count": 120,
+        "group": "default",
+        "aff_code": "abcdef",
+        "aff_count": 10,
+        "aff_quota": 500000,
+        "aff_history_quota": 1000000,
+        "username": "testuser",
+        "last_check_in_time": "2023-10-27T10:00:00Z"
+      }
+    }
+    ```
+-   **失败响应 (4xx/5xx)**:
+    ```json
+    {
+      "success": false,
+      "message": "认证失败"
+    }
+    ```
+
+#### 5.2.2 获取模型列表
+
+-   **端点**: `GET /api/user/models`
+-   **成功响应 (2xx)**:
+    ```json
+    {
+      "success": true,
+      "message": "success",
+      "data": [ "gpt-4", "gpt-3.5-turbo" ]
+    }
+    ```
+
+#### 5.2.3 获取令牌列表
+
+-   **端点**: `GET /api/token/`
+-   **成功响应 (2xx)**: 响应体必须包含一个令牌数组。系统会按顺序尝试从以下四个位置解析该数组：
+    1.  `data.data.records`
+    2.  `data.data.items`
+    3.  `data.data.data`
+    4.  `data.data`
+-   **令牌对象结构**: 数组中的每个令牌对象应包含 `id`, `name`, `key`, `status`, `remain_quota`, `created_time`, `expired_time` 等字段。
+
+### 5.3 特定类型的端点规格
+
+#### 5.3.1 自动签到
+
+此功能仅对 `auto_checkin=true` 的站点有效。
+
+-   **`Veloera` 和 `HusanApi`**:
+    -   **端点**: `POST /api/user/check_in`
+-   **`AnyRouter`**:
+    -   **端点**: `POST /api/user/sign_in`
+-   **`VoApi`**:
+    -   **端点**: `POST /api/user/clock_in`
+
+-   **请求体**: 所有签到请求的请求体均为空 JSON 对象 `{}`。
+-   **响应格式**:
+    -   **成功签到**: `{"success": true, "message": "签到成功获得1000点积分"}` (message 中不能包含 "已经签到")
+    -   **重复签到**: `{"success": true, "message": "您今天已经签到过了"}`
+    -   **签到失败**: `{"success": false, "message": "签到失败"}`
+
+---
+
+## 6. 用户界面规格
+
+### 6.1 API 站点列表页面
+系统必须提供一个主界面用于展示和管理 API 站点列表。
+
+-   **列表显示**:
+    - 必须以表格形式展示站点列表。
+    - 表格应至少包含列：API类型、名称、状态（启用/禁用）、余额、签到状态、上次检查时间、操作。
+    - 必须提供一个可展开的详情区域，展示该站点的所有监控数据（如用户组、模型列表、令牌列表等）。
+-   **数据操作**:
+    - **搜索**: 必须提供一个文本框，能对名称、URL、备注、模型列表等多个字段进行搜索。
+    - **过滤**: 必须提供下拉菜单，能按 API 类型、启用状态、签到状态、检查状态进行筛选。
+    - **单点操作**: 每一行记录都必须有关联的操作按钮，至少包括：编辑、删除、手动检查、启用/禁用。
+    - **批量操作**: 必须提供页面级别的操作按钮，至少包括：添加新站点、批量检查所有站点、配置自动检查任务。
+-   **模态框交互**:
+    - 添加和编辑站点功能必须通过模态框（弹窗）完成。
+    - 删除操作必须有二次确认的对话框。
+
+### 6.2 其他页面
+系统还应提供以下页面：
+-   **登录页**: 用于用户认证。
+-   **用户设置页**: 用于修改当前用户的用户名和密码。
+-   **数据管理页**: 用于导入/导出站点配置，以及管理数据备份。
+-   **系统管理页**: 用于配置系统级参数，如时区、日志清理策略等。
+-   **日志查看页**: 用于查看和筛选各类系统日志。
