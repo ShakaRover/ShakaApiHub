@@ -76,10 +76,156 @@
 ### 2.4 其他数据表
 
 系统还需以下数据表：
--   **`password_change_logs`**: 记录用户在第三方站点修改密码的历史。
--   **`scheduled_check_config`**: 存储自动化监控任务的配置，如执行频率。
--   **`log`**: 存储各类系统和操作日志。
+-   **`password_change_logs`**: 记录用户在第三方站点修改密码的历史。此表通过 `user_id` 与用户关联。
+    | 字段名 | 类型 | 约束 | 描述 |
+    | :--- | :--- | :--- | :--- |
+    | `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+    | `site_id` | Integer | Not Null, Foreign Key to `api_sites.id` | 关联的API站点ID |
+    | `site_name` | Text | Not Null | 站点名称（冗余，用于快照） |
+    | `site_url` | Text | Not Null | 站点URL（冗余，用于快照） |
+    | `current_username` | Text | Not Null | 操作时使用的站点用户名 |
+    | `new_password` | Text | Not Null | 尝试设置的新密码 |
+    | `password_changed` | Boolean | Default: `true` | 密码是否成功修改 |
+    | `change_time` | DateTime| Default: `CURRENT_TIMESTAMP` | 密码修改时间 |
+    | `user_id` | Integer | Not Null, Foreign Key to `users.id` | 执行此操作的用户ID |
+    | `status` | Text | Default: `success` | 操作状态 (`success`, `error`) |
+    | `error_message` | Text | | 如果失败，记录错误信息 |
+    | `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+-   **`scheduled_check_config`**: 存储每个用户的自动化监控任务配置。通过 `user_id` 与用户关联。
+    | 字段名 | 类型 | 约束 | 描述 |
+    | :--- | :--- | :--- | :--- |
+    | `user_id` | Integer | Primary Key, Foreign Key to `users.id` | 关联的用户ID |
+    | `interval_minutes` | Integer | Not Null, Default: 15 | 任务执行频率（分钟） |
+    | `enabled` | Boolean | Not Null, Default: `true` | 是否为该用户启用定时任务 |
+    | `last_run` | DateTime| | 上次运行时间 |
+    | `next_run` | DateTime| | 下次计划运行时间 |
+    | `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+    | `updated_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录最后更新时间 |
 -   **`backups`**: 记录备份文件的元数据。
+
+### 2.5 日志系统 (`log.db`)
+
+系统将日志记录在一个独立的SQLite数据库文件 `log.db` 中，以分离主数据和日志数据。该数据库包含以下几个表：
+
+#### 2.5.1 `system_logs`
+存储系统级别的通用日志，与特定用户无关。
+
+| 字段名 | 类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+| `type` | Text | Not Null | 日志类型 (e.g., 'log_cleanup') |
+| `message` | Text | Not Null | 日志消息 |
+| `data` | Text | | 附加的JSON格式数据 |
+| `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+
+#### 2.5.2 `user_logs`
+记录用户执行的显式操作，通过 `user_id` 与用户关联。
+
+| 字段名 | 类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+| `user_id` | Integer | | 关联的用户ID |
+| `action` | Text | Not Null | 用户操作 (e.g., 'login', 'create_site') |
+| `resource_type`| Text | | 操作的资源类型 (e.g., 'site') |
+| `resource_id` | Text | | 操作的资源ID |
+| `details` | Text | | 附加的JSON格式详情 |
+| `ip_address` | Text | | 用户的IP地址 |
+| `user_agent` | Text | | 用户的User Agent |
+| `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+
+#### 2.5.3 `api_logs`
+记录对系统API的请求，通过 `user_id` 与用户关联。
+
+| 字段名 | 类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+| `user_id` | Integer | | 关联的用户ID |
+| `method` | Text | Not Null | HTTP请求方法 (e.g., 'GET', 'POST') |
+| `path` | Text | Not Null | 请求路径 |
+| `status_code`| Integer | | HTTP响应状态码 |
+| `response_time`| Integer | | 响应时间 (ms) |
+| `ip_address` | Text | | 用户的IP地址 |
+| `user_agent` | Text | | 用户的User Agent |
+| `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+
+#### 2.5.4 `site_check_logs`
+记录对第三方站点的自动或手动检查结果。此表通过 `site_id` 间接与用户关联（`site_id` 关联到 `api_sites` 表，其中包含 `created_by` 用户ID），但没有直接的 `user_id` 字段。
+
+| 字段名 | 类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+| `site_id` | Integer | Not Null | 关联的API站点ID |
+| `check_time` | DateTime| Default: `CURRENT_TIMESTAMP` | 检查发生的时间 |
+| `status` | Text | Not Null | 检查状态 (`success`, `error`, `timeout`) |
+| `message` | Text | | 检查结果的消息 |
+| `response_data`| Text | | 检查过程中的响应数据（JSON格式） |
+| `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+
+#### 2.5.5 `token_logs`
+记录对第三方站点令牌的操作历史，通过 `user_id` 与用户关联。
+
+| 字段名 | 类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+| `user_id` | Integer | Not Null | 关联的用户ID |
+| `site_id` | Integer | Not Null | 关联的API站点ID |
+| `token_id`| Text | | 操作的令牌ID |
+| `action` | Text | Not Null | 执行的操作 (e.g., 'create_token') |
+| `details` | Text | | 附加的JSON格式详情 |
+| `status` | Text | | 操作状态 |
+| `error_message`| Text | | 错误信息 |
+| `ip_address` | Text | | 用户的IP地址 |
+| `user_agent` | Text | | 用户的User Agent |
+| `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+
+#### 2.5.6 `site_operation_logs`
+记录执行站点相关操作（如检查、刷新）的内部详细步骤，通过 `user_id` 与用户关联。
+
+| 字段名 | 类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | Integer | Primary Key, Auto-increment | 日志唯一标识 |
+| `user_id` | Integer | Not Null | 关联的用户ID |
+| `site_id` | Integer | Not Null | 关联的API站点ID |
+| `operation`| Text | Not Null | 操作类型 (e.g., 'site_check') |
+| `step` | Text | Not Null | 操作中的具体步骤 |
+| `step_order` | Integer | Default: 1 | 步骤顺序 |
+| `status` | Text | Default: `success` | 步骤状态 |
+| `details` | Text | | 附加的JSON格式详情 |
+| `error_message`| Text | | 错误信息 |
+| `execution_time`| Integer| | 步骤执行耗时 (ms) |
+| `created_at` | DateTime| Default: `CURRENT_TIMESTAMP` | 记录创建时间 |
+
+### 2.6 备份机制 (文件系统)
+
+系统不使用数据库表来存储备份元数据，而是采用基于文件的备份策略。
+
+- **存储位置**: 备份文件存储在项目根目录下的 `backups/` 目录中。
+- **文件格式**: 每个备份都是一个独立的 JSON 文件。
+- **用户关联**: 每个备份文件都通过其内部元数据中的 `userId` 字段与特定用户关联。这确保了用户只能看到和恢复自己的备份。
+
+一个典型的备份文件 (`api_sites_backup_{timestamp}_{userId}.json`) 结构如下：
+
+```json
+{
+  "metadata": {
+    "version": "1.0",
+    "exportTime": "2023-10-28T12:00:00.000Z",
+    "userId": 1,
+    "backupType": "manual",
+    "backupFileName": "api_sites_backup_1698494400000_1.json"
+  },
+  "sites": [
+    {
+      "api_type": "NewApi",
+      "name": "My First Site",
+      "url": "https://example.com",
+      "auth_method": "token",
+      "token": "your-secret-token",
+      "...": "..."
+    }
+  ]
+}
+```
 
 ---
 
