@@ -632,11 +632,10 @@
 
 #### 6.2.2 字段详解
 
-下表详细说明了模态框中的每一个字段。
+下表详细说明了模态框中的每一个核心字段。
 
 | 字段名称 | 字段标识符 | 描述 | 规则与依赖 |
 | :--- | :--- | :--- | :--- |
-| **搜索已知站点** | `knownSiteSearch` | （仅添加模式）一个搜索框，用于从预定义的站点列表中查找并快速填充`API类型`、`站点名称`和`API地址`。 | - **可见性**: 仅在“添加模式”下显示。<br>- **交互**: 选择一个已知站点后，会自动填充对应字段。 |
 | **API类型** | `apiSiteType` | （**必填**）下拉选择框，用于指定目标站点的平台类型。这是决定表单结构的核心字段之一。 | - **可选值**: `NewApi`, `Veloera`, `AnyRouter`, `VoApi`, `HusanApi`, `DoneHub`。 |
 | **站点名称** | `apiSiteName` | （**必填**）为该站点设置一个自定义的、便于识别的名称。 | - **验证**: 不能为空，最大长度100个字符。 |
 | **API地址** | `apiSiteUrl` | （**必填**）目标站点的完整根URL地址。 | - **验证**: 必须是有效的URL格式（如 `https://api.example.com`）。<br>- **交互**: 如果输入的URL与某个已知站点的URL匹配，且该站点有关联的邀请链接，旁边会显示一个“注册”按钮。 |
@@ -647,6 +646,49 @@
 | **备注** | `apiSiteRemarks` | （可选）一个文本域，用于添加关于该站点的任何附加说明。 | - **验证**: 最大长度512个字符。 |
 | **启用此API站点** | `apiSiteEnabled` | 一个复选框，用于控制是否启用该站点。禁用的站点将不会被自动监控任务检查。 | - **默认值**: 添加新站点时，默认为勾选（启用）状态。 |
 | **启用自动签到** | `apiSiteAutoCheckin` | 一个复选框，用于控制是否为该站点启用每日自动签到功能。 | - **可见性与依赖**: <br>  - 当 `API类型` 为 `AnyRouter` 或 `Veloera` 时，此字段**显示**并**默认勾选**。<br>  - 对于其他所有类型，此字段隐藏。 |
+
+#### 6.2.3 搜索已知站点 (knownSiteSearch)
+
+此功能仅在“添加模式”下可见，它提供了一个便捷的搜索框，用于从一个预定义的站点列表中查找并快速填充`API类型`、`站点名称`和`API地址`字段。当用户从搜索结果中选择一个站点后，表单的对应字段会自动被填充。
+
+此功能的目的是简化新站点的添加流程，特别是对于那些社区公认的、有标准配置的站点。
+
+- **数据源**: 该预定义站点列表的数据源于 `/public/js/apiSiteData.js` 文件中的 `ApiSiteData.knownSites` 数组。如需增删或修改已知站点，请直接编辑此文件。
+- **数据列表**: 为方便查阅，当前版本的数据列表如下：
+
+<details>
+<summary>点击展开/折叠已知站点列表</summary>
+
+| API 类型 | 名称 | URL | 邀请路径 (aff) |
+| :--- | :--- | :--- | :--- |
+| `NewApi` | InstCopilot | `https://instcopilot-api.com` | `/register?aff=xFc4` |
+| `NewApi` | ClaudeHub | `https://qinzhiai.com` | `/register?aff=Bin7` |
+| `NewApi` | 红石API | `https://hongshi1024-l-api.hf.space` | `/register?aff=HceE` |
+| `NewApi` | Kyx公益站 | `https://api.kkyyxx.xyz` | `/register?aff=uB1W` |
+| `NewApi` | 猫猫公益 | `https://catsapi.com` | `/register?aff=WYWm` |
+| `NewApi` | 图钉LLM | `http://llm.imerji.cn` | `/register?aff=zQss` |
+| `NewApi` | DEV API | `https://new.crond.dev` | `/register?aff=POAC` |
+| `NewApi` | 波波公益站 | `https://for.shuo.bar` | `/register?aff=1qIp` |
+| `NewApi` | yanami.vip | `https://newapi.yanami.vip` | `/register?aff=2GM9` |
+| `NewApi` | CloseAI API | `https://api.closeai.im` | `/register?aff=VQwZ` |
+| `NewApi` | aliyahzombie | `https://newapi.aliyahzombie.top` | `/register?aff=wtht` |
+| `NewApi` | 23公益站 | `https://sdwfger.edu.kg` | `/register?aff=mxgj` |
+| `NewApi` | 薄荷API | `https://x666.me` | `/register?aff=2o1H` |
+| `NewApi` | 翰林文苑 | `https://api.voct.dev` | `/register?aff=xMJR` |
+| `Veloera` | Veloera Zone | `https://zone.veloera.org` | `/register?aff=UIie` |
+| `Veloera` | 小明公益站 | `https://aiapi.696988.xyz` | `/register?aff=3Xp9` |
+| `Veloera` | CTW公益 | `https://free.ctw.ink` | `/register?aff=gHRw` |
+| `Veloera` | LinsAI | `https://ai.lins.dev` | `/register?aff=zROJ` |
+| `Veloera` | SlowAPI | `https://api.banlanzs.tech` | `/register?aff=3Bqn` |
+| `Veloera` | 归一 | `https://ai.luckylu71.qzz.io` | `/register?aff=Ehwd` |
+| `Veloera` | wenwen12345 | `https://veloera.wenwen12345.top` | `/register?aff=Jxcc` |
+| `Veloera` | Mu.Li API | `https://api.awa1.fun` | `/register?aff=G59l` |
+| `AnyRouter` | AnyRouter | `https://anyrouter.top` | `/register?aff=qNgQ` |
+| `HusanApi` | 虎三Api | `https://claude.husan97x.xyz` | `/register?aff=cMiX` |
+| `DoneHub` | 有间公益 | `https://api.ccode.qzz.io` | `/register?aff=BLCN` |
+| `VoApi` | 公益站 | `https://api.zhongruanapi.dpdns.org` | `/register?aff=MdCr` |
+
+</details>
 
 ### 6.3 其他页面
 系统还应提供以下页面：
